@@ -224,13 +224,21 @@ def search_inclusive_therapists(
             )
             widget_resp.raise_for_status()
 
-            # The widget returns an HTML fragment; check if empty
             pages_m = re.search(r'data-pages="(\d+)"', widget_resp.text)
             total_pages = int(pages_m.group(1)) if pages_m else 0
             page_results = _parse_it_html(widget_resp.text)
             if not page_results:
                 break
-            results.extend(page_results)
+
+            # The widget ignores url_origin_pars for filtering — it returns global
+            # results. Keep only profiles that belong to the requested city URL path.
+            local_results = [
+                r for r in page_results
+                if f"inclusivetherapists.com/{loc_path}/" in r.profile_url
+            ]
+            if not local_results:
+                break
+            results.extend(local_results)
             if page >= total_pages:
                 break
             page += 1
