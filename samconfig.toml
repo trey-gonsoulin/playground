@@ -1,6 +1,9 @@
 # SAM CLI configuration — committed so deploys are reproducible.
 # Run `sam deploy --guided` once to populate image_repositories and
 # any other values you want to pin, then commit the updated file.
+#
+# After adding YnabMcpFunction, run `sam deploy --guided` once more so SAM
+# creates the ECR repo and appends it to image_repositories below.
 
 version = 0.1
 
@@ -14,10 +17,10 @@ parallel = true
 
 [default.deploy.parameters]
 capabilities = "CAPABILITY_IAM"
-confirm_changeset = false
+confirm_changeset = true
 resolve_s3 = true
-# Set by `sam deploy --guided` after ECR repo is created:
-# image_repositories = ["TherapistFinderFunction=<account-id>.dkr.ecr.<region>.amazonaws.com/therapist-finder"]
-s3_prefix = "therapist-finder"
+s3_prefix = "mcp-playground"
 profile = "personal"
-image_repositories = ["TherapistFinderFunction=268834972001.dkr.ecr.us-east-1.amazonaws.com/therapistfinder8ff77c7a/therapistfinderfunction87be2aadrepo"]
+# YnabMcpFunction ECR repo will be appended here by `sam deploy --guided`
+image_repositories = ["TherapistFinderFunction=268834972001.dkr.ecr.us-east-1.amazonaws.com/therapistfinder8ff77c7a/therapistfinderfunction87be2aadrepo", "YnabMcpFunction=268834972001.dkr.ecr.us-east-1.amazonaws.com/mcpplayground7d6ff2e8/ynabmcpfunction7a0a73f1repo"]
+stack_name = "mcp-playground"

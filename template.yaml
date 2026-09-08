@@ -1,7 +1,7 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 
-Description: Therapist Finder — MCP server for searching therapist directories
+Description: Personal MCP servers deployed to AWS Lambda
 
 Globals:
   Function:
@@ -29,7 +29,40 @@ Resources:
       DockerContext: .
       Dockerfile: packages/therapist-finder/Dockerfile
 
+  YnabMcpFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      PackageType: Image
+      Environment:
+        Variables:
+          YNAB_API_KEY: "{{resolve:ssm:/ynab/api-key}}"
+          YNAB_MCP_SECRET: "{{resolve:ssm:/ynab/mcp-secret}}"
+      Events:
+        Root:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref YnabHttpApi
+            Path: /
+            Method: ANY
+        Proxy:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref YnabHttpApi
+            Path: /{proxy+}
+            Method: ANY
+    Metadata:
+      DockerTag: latest
+      DockerContext: .
+      Dockerfile: packages/ynab-mcp/Dockerfile
+
+  YnabHttpApi:
+    Type: AWS::Serverless::HttpApi
+
 Outputs:
-  ApiUrl:
-    Description: HTTP API endpoint URL (MCP server at /mcp)
+  TherapistFinderApiUrl:
+    Description: Therapist Finder HTTP API endpoint URL (MCP server at /mcp)
     Value: !Sub "https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com"
+
+  YnabMcpApiUrl:
+    Description: YNAB MCP HTTP API endpoint URL (MCP server at /mcp)
+    Value: !Sub "https://${YnabHttpApi}.execute-api.${AWS::Region}.amazonaws.com"
