@@ -138,6 +138,25 @@ _SKIP_WEP_TYPES: frozenset[int] = frozenset({0, 33, 81, 83, 85, 86})
 # Scaling grade thresholds (correctX param value → letter grade)
 SCALING_TIERS = [(75, "S"), (60, "A"), (40, "B"), (25, "C"), (15, "D"), (1, "E")]
 
+# protectorCategory param value → armor slot name.
+ARMOR_CATEGORIES: dict[int, str] = {0: "Head", 1: "Body", 2: "Arms", 3: "Legs"}
+
+
+def _talisman_group(sort_id: int | None) -> str | None:
+    """Derive talisman menu group label from sortId.
+
+    Talismans fall into eight groups in the equipment screen, each occupying a
+    1000-wide block starting at sortId 400000. Group 1 = 400xxx, Group 8 = 407xxx.
+    Items outside that range (e.g. the Entwining Umbilical Cord at 999999) return None.
+    """
+    if sort_id is None:
+        return None
+    block = sort_id // 1000
+    group = block - 399
+    if 1 <= group <= 8:
+        return f"Group {group}"
+    return None
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -343,6 +362,7 @@ def _parse_weapons(z: zipfile.ZipFile, patch_version: str, location_map: dict[st
         locs = (location_map or {}).get(name)
         loc_str = ", ".join(locs) if locs else None
         name_ja, description_ja = _jp_name_desc(jp_fmgs, "WeaponName", row_id)
+        sort_id = _int(row.get("sortId"))
 
         docs.append({
             "entity_type": "weapon",
@@ -357,6 +377,8 @@ def _parse_weapons(z: zipfile.ZipFile, patch_version: str, location_map: dict[st
             ])),
             "tags": [cat_name],
             "location": loc_str,
+            "sort_id":          sort_id,
+            "menu_category":    cat_name,
             "weight":           _float(row.get("weight")),
             "attack_physical":  _int(row.get("attackBasePhysics")),
             "attack_magic":     _int(row.get("attackBaseMagic")),
@@ -407,6 +429,9 @@ def _parse_armor(z: zipfile.ZipFile, patch_version: str, location_map: dict[str,
         locs = (location_map or {}).get(name)
         loc_str = ", ".join(locs) if locs else None
         name_ja, description_ja = _jp_name_desc(jp_fmgs, "ProtectorName", row_id)
+        sort_id = _int(row.get("sortId"))
+        armor_cat_id = int(float(row.get("protectorCategory", 0) or 0))
+        armor_cat = ARMOR_CATEGORIES.get(armor_cat_id)
 
         docs.append({
             "entity_type": "armor",
@@ -415,8 +440,10 @@ def _parse_armor(z: zipfile.ZipFile, patch_version: str, location_map: dict[str,
             "source": "erdb",
             "description": description,
             "text_content": "\n\n".join(filter(None, [description, f"Found in: {loc_str}" if loc_str else None])),
-            "tags": [],
+            "tags": [armor_cat] if armor_cat else [],
             "location": loc_str,
+            "sort_id":          sort_id,
+            "menu_category":    armor_cat,
             "weight": weight,
             # Defense cut rates (0-1 scale → stored as-is for filtering)
             # physical defense is split across several sub-types; store the main cut rate
@@ -470,6 +497,8 @@ def _parse_spells(z: zipfile.ZipFile, patch_version: str, location_map: dict[str
             "text_content": "\n\n".join(filter(None, [description, f"Found in: {loc_str}" if loc_str else None])),
             "tags": [spell_type],
             "location": loc_str,
+            "sort_id":        _int(row.get("sortId")),
+            "menu_category":  spell_type,
             "fp_cost":        _int(row.get("mp")),
             "slots":          _int(row.get("slotLength")),
             "req_int":        _int(row.get("requirementIntellect")),
@@ -518,6 +547,7 @@ def _parse_ashes_of_war(z: zipfile.ZipFile, patch_version: str, location_map: di
             "text_content": text_content or description,
             "tags": [],
             "location": loc_str,
+            "sort_id":        _int(row.get("sortId")),
             "name_ja":        name_ja,
             "description_ja": description_ja,
         })
@@ -548,6 +578,7 @@ def _parse_talismans(z: zipfile.ZipFile, patch_version: str, location_map: dict[
         locs = (location_map or {}).get(name)
         loc_str = ", ".join(locs) if locs else None
         name_ja, description_ja = _jp_name_desc(jp_fmgs, "AccessoryName", row_id)
+        sort_id = _int(row.get("sortId"))
 
         docs.append({
             "entity_type": "item",
@@ -558,6 +589,8 @@ def _parse_talismans(z: zipfile.ZipFile, patch_version: str, location_map: dict[
             "text_content": "\n\n".join(filter(None, [description, f"Found in: {loc_str}" if loc_str else None])),
             "tags": ["Talisman"],
             "location": loc_str,
+            "sort_id":        sort_id,
+            "menu_category":  _talisman_group(sort_id),
             "name_ja":        name_ja,
             "description_ja": description_ja,
         })

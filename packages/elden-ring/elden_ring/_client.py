@@ -154,6 +154,8 @@ INDEX_MAPPING = {
             "req_arc":          {"type": "integer"},
             "fp_cost":          {"type": "integer"},
             "slots":            {"type": "integer"},
+            "sort_id":          {"type": "integer"},
+            "menu_category":    {"type": "keyword"},
             "npc_id":           {"type": "keyword"},
             "name_ja":          {"type": "text"},
             "description_ja":   {"type": "text"},
