@@ -78,7 +78,9 @@ from elden_ring._client import INDEX_MAPPING  # reuse mapping definition
 # DLC content (patch 1.12+) is supplemented from the Discord bot CSVs instead.
 ERDB_VERSIONS = [
     "1.10.0", "1.09.0", "1.08.1", "1.08.0", "1.07.1", "1.07.0",
-    "1.06.0", "1.05.0", "1.04.2", "1.04.1", "1.03.3",
+    "1.06.0", "1.05.0", "1.04.2", "1.04.1",
+    "1.03.3", "1.03.2", "1.03.1",
+    "1.02.3", "1.02.2", "1.02.1",
 ]
 ERDB_DEFAULT_VERSION = ERDB_VERSIONS[0]  # most recent base-game patch
 
@@ -1357,9 +1359,9 @@ def main() -> None:
         "--all-patches",
         action="store_true",
         help=(
-            "Load all available erdb patch versions into the index, enabling "
-            "diff_entities() queries across patches. Skips DLC supplements "
-            f"(no patch history available). Versions: {', '.join(ERDB_VERSIONS)}"
+            "Load all available erdb patch versions (1.02.1 through 1.10.0) "
+            "into the index, enabling diff_entities() queries across patches. "
+            "Skips DLC supplements (no patch history available)."
         ),
     )
     parser.add_argument(

@@ -67,8 +67,10 @@ def search_entities(
             npc          — NPC character profiles with location and role
             npc_dialogue — full NPC conversation transcripts (searchable by quote)
             enemy        — enemies and bosses with HP, locations, and drop tables
-        patch_version: Filter to a specific game patch (e.g. "1.07.0"). Use
-            list_patch_versions() to see what's loaded. Omit for all patches.
+        patch_version: Filter to a specific erdb source version (e.g. "1.07.0").
+            This is the erdb snapshot version, not necessarily the patch when
+            content was introduced. Use list_patch_versions() to see what's loaded.
+            Omit to search across all patches.
         limit: Maximum results to return (default 20, max 100).
 
     Returns a list of entity documents, each with at minimum: entity_type, name,
