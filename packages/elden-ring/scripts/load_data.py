@@ -1136,6 +1136,14 @@ _SKIP_SHOP_NAMES: frozenset[str] = frozenset({"Alteration", "Reversion"})
 # hard-map them to her location.
 _REMEMBRANCE_LOCATION = "Roundtable Hold (Finger Reader Enia)"
 
+# Known erdb attribution errors: (wrong_vendor, item_name) → correct_vendor.
+# Iji has no entries in erdb's ShopLineupParam at all; his item is misattributed
+# to Rogier (both NPCs are found in Stormveil Castle / Liurnia and share story
+# connections, which likely caused the upstream data error).
+_VENDOR_ITEM_OVERRIDES: dict[tuple[str, str], str] = {
+    ("Sorcerer Rogier", "Carian Filigreed Crest"): "Iji",
+}
+
 
 def _build_merchant_location_map() -> dict[str, str]:
     """Download npcs.csv and build a merchant-name → location map.
@@ -1206,6 +1214,24 @@ def _parse_merchants(z: zipfile.ZipFile, patch_version: str, npc_loc_map: dict[s
             "price": price,
             "qty": qty,
         })
+
+    # Correct known erdb attribution errors
+    for (wrong_vendor, item_name), correct_vendor in _VENDOR_ITEM_OVERRIDES.items():
+        if wrong_vendor not in merchant_data:
+            continue
+        for condition in list(merchant_data[wrong_vendor].keys()):
+            entries = merchant_data[wrong_vendor][condition]
+            corrected = [e for e in entries if e["item"] == item_name]
+            remaining = [e for e in entries if e["item"] != item_name]
+            if not corrected:
+                continue
+            merchant_data[correct_vendor][condition].extend(corrected)
+            if remaining:
+                merchant_data[wrong_vendor][condition] = remaining
+            else:
+                del merchant_data[wrong_vendor][condition]
+        if not any(merchant_data[wrong_vendor].values()):
+            del merchant_data[wrong_vendor]
 
     docs: list[dict] = []
     for vendor_name, conditions in merchant_data.items():
