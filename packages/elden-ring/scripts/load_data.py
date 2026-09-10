@@ -1142,6 +1142,10 @@ _REMEMBRANCE_LOCATION = "Roundtable Hold (Finger Reader Enia)"
 # connections, which likely caused the upstream data error).
 _VENDOR_ITEM_OVERRIDES: dict[tuple[str, str], str] = {
     ("Sorcerer Rogier", "Carian Filigreed Crest"): "Iji",
+    ("Sorcerer Rogier", "Somber Smithing Stone [1]"): "Iji",
+    ("Sorcerer Rogier", "Somber Smithing Stone [2]"): "Iji",
+    ("Sorcerer Rogier", "Somber Smithing Stone [3]"): "Iji",
+    ("Sorcerer Rogier", "Somber Smithing Stone [4]"): "Iji",
 }
 
 
