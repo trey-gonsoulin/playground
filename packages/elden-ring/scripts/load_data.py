@@ -328,7 +328,7 @@ def _count_ja(docs: list[dict]) -> int:
 # Weapons
 # ---------------------------------------------------------------------------
 
-def _parse_weapons(z: zipfile.ZipFile, patch_version: str, location_map: dict[str, list[str]] | None = None, jp_fmgs: dict | None = None) -> list[dict]:
+def _parse_weapons(z: zipfile.ZipFile, patch_version: str, location_map: dict[str, list[str]] | None = None, jp_fmgs: dict | None = None, drop_map: dict[str, dict[str, list[str]]] | None = None, merchant_items: dict[str, list[str]] | None = None) -> list[dict]:
     names = _load_fmg(z, "WeaponName.fmg.xml")
     captions = _load_fmg(z, "WeaponCaption.fmg.xml")
     rows = _csv_rows(z, "EquipParamWeapon.csv")
@@ -379,6 +379,7 @@ def _parse_weapons(z: zipfile.ZipFile, patch_version: str, location_map: dict[st
             "location": loc_str,
             "sort_id":          sort_id,
             "menu_category":    cat_name,
+            **_acquisition_fields(name, drop_map, merchant_items),
             "weight":           _float(row.get("weight")),
             "attack_physical":  _int(row.get("attackBasePhysics")),
             "attack_magic":     _int(row.get("attackBaseMagic")),
@@ -406,7 +407,7 @@ def _parse_weapons(z: zipfile.ZipFile, patch_version: str, location_map: dict[st
 # Armor
 # ---------------------------------------------------------------------------
 
-def _parse_armor(z: zipfile.ZipFile, patch_version: str, location_map: dict[str, list[str]] | None = None, jp_fmgs: dict | None = None) -> list[dict]:
+def _parse_armor(z: zipfile.ZipFile, patch_version: str, location_map: dict[str, list[str]] | None = None, jp_fmgs: dict | None = None, drop_map: dict[str, dict[str, list[str]]] | None = None, merchant_items: dict[str, list[str]] | None = None) -> list[dict]:
     names = _load_fmg(z, "ProtectorName.fmg.xml")
     captions = _load_fmg(z, "ProtectorCaption.fmg.xml")
     rows = _csv_rows(z, "EquipParamProtector.csv")
@@ -444,6 +445,7 @@ def _parse_armor(z: zipfile.ZipFile, patch_version: str, location_map: dict[str,
             "location": loc_str,
             "sort_id":          sort_id,
             "menu_category":    armor_cat,
+            **_acquisition_fields(name, drop_map, merchant_items),
             "weight": weight,
             # Defense cut rates (0-1 scale → stored as-is for filtering)
             # physical defense is split across several sub-types; store the main cut rate
@@ -463,7 +465,7 @@ def _parse_armor(z: zipfile.ZipFile, patch_version: str, location_map: dict[str,
 # Spells (sorceries and incantations)
 # ---------------------------------------------------------------------------
 
-def _parse_spells(z: zipfile.ZipFile, patch_version: str, location_map: dict[str, list[str]] | None = None, jp_fmgs: dict | None = None) -> list[dict]:
+def _parse_spells(z: zipfile.ZipFile, patch_version: str, location_map: dict[str, list[str]] | None = None, jp_fmgs: dict | None = None, drop_map: dict[str, dict[str, list[str]]] | None = None, merchant_items: dict[str, list[str]] | None = None) -> list[dict]:
     # Spell names/descriptions live in the Goods FMG (spells are "goods" in the param system)
     names = _load_fmg(z, "GoodsName.fmg.xml")
     captions = _load_fmg(z, "GoodsCaption.fmg.xml")
@@ -505,6 +507,7 @@ def _parse_spells(z: zipfile.ZipFile, patch_version: str, location_map: dict[str
             "req_fai":        _int(row.get("requirementFaith")),
             "name_ja":        name_ja,
             "description_ja": description_ja,
+            **_acquisition_fields(name, drop_map, merchant_items),
         })
 
     return docs
@@ -514,7 +517,7 @@ def _parse_spells(z: zipfile.ZipFile, patch_version: str, location_map: dict[str
 # Ashes of War
 # ---------------------------------------------------------------------------
 
-def _parse_ashes_of_war(z: zipfile.ZipFile, patch_version: str, location_map: dict[str, list[str]] | None = None, jp_fmgs: dict | None = None) -> list[dict]:
+def _parse_ashes_of_war(z: zipfile.ZipFile, patch_version: str, location_map: dict[str, list[str]] | None = None, jp_fmgs: dict | None = None, drop_map: dict[str, dict[str, list[str]]] | None = None, merchant_items: dict[str, list[str]] | None = None) -> list[dict]:
     names = _load_fmg(z, "GemName.fmg.xml")
     captions = _load_fmg(z, "GemCaption.fmg.xml")
     infos = _load_fmg(z, "GemInfo.fmg.xml")
@@ -550,6 +553,7 @@ def _parse_ashes_of_war(z: zipfile.ZipFile, patch_version: str, location_map: di
             "sort_id":        _int(row.get("sortId")),
             "name_ja":        name_ja,
             "description_ja": description_ja,
+            **_acquisition_fields(name, drop_map, merchant_items),
         })
 
     return docs
@@ -559,7 +563,7 @@ def _parse_ashes_of_war(z: zipfile.ZipFile, patch_version: str, location_map: di
 # Talismans
 # ---------------------------------------------------------------------------
 
-def _parse_talismans(z: zipfile.ZipFile, patch_version: str, location_map: dict[str, list[str]] | None = None, jp_fmgs: dict | None = None) -> list[dict]:
+def _parse_talismans(z: zipfile.ZipFile, patch_version: str, location_map: dict[str, list[str]] | None = None, jp_fmgs: dict | None = None, drop_map: dict[str, dict[str, list[str]]] | None = None, merchant_items: dict[str, list[str]] | None = None) -> list[dict]:
     names = _load_fmg(z, "AccessoryName.fmg.xml")
     captions = _load_fmg(z, "AccessoryCaption.fmg.xml")
     rows = _csv_rows(z, "EquipParamAccessory.csv")
@@ -593,6 +597,7 @@ def _parse_talismans(z: zipfile.ZipFile, patch_version: str, location_map: dict[
             "menu_category":  _talisman_group(sort_id),
             "name_ja":        name_ja,
             "description_ja": description_ja,
+            **_acquisition_fields(name, drop_map, merchant_items),
         })
 
     return docs
@@ -689,6 +694,116 @@ def _parse_python_literal(s: str):
         return ast.literal_eval(s.strip())
     except (ValueError, SyntaxError):
         return None
+
+
+def _build_drop_map() -> dict[str, dict[str, list[str]]]:
+    """Build item_name → {"boss_drop": [boss_names], "enemy_drop": [creature_names]}.
+
+    Downloads bosses.csv and creatures.csv from the Discord bot. Used to annotate
+    item documents with acquisition_types / acquisition_sources before indexing.
+    """
+    print("  Building drop map (bosses.csv + creatures.csv) …")
+    drop_map: dict[str, dict[str, list[str]]] = {}
+
+    resp = requests.get(f"{DISCORD_BOT_BASE}/bosses.csv", timeout=30)
+    resp.raise_for_status()
+    for row in csv.DictReader(io.StringIO(resp.text)):
+        boss_name = row.get("name", "").strip()
+        if not boss_name:
+            continue
+        locs_drops = _parse_python_literal(row.get("Locations & Drops", ""))
+        if not isinstance(locs_drops, dict):
+            continue
+        for items_list in locs_drops.values():
+            for item in items_list:
+                item = item.strip() if isinstance(item, str) else str(item)
+                # Skip rune amounts (digits + commas) and empty strings
+                if not item or item.replace(",", "").replace(" ", "").isdigit():
+                    continue
+                entry = drop_map.setdefault(item, {})
+                entry.setdefault("boss_drop", [])
+                if boss_name not in entry["boss_drop"]:
+                    entry["boss_drop"].append(boss_name)
+
+    resp = requests.get(f"{DISCORD_BOT_BASE}/creatures.csv", timeout=30)
+    resp.raise_for_status()
+    for row in csv.DictReader(io.StringIO(resp.text)):
+        creature_name = row.get("name", "").strip()
+        if not creature_name:
+            continue
+        drops = _parse_python_literal(row.get("drops", "")) or []
+        for item in drops:
+            item = item.strip() if isinstance(item, str) else str(item)
+            if not item or item == "???":
+                continue
+            entry = drop_map.setdefault(item, {})
+            entry.setdefault("enemy_drop", [])
+            if creature_name not in entry["enemy_drop"]:
+                entry["enemy_drop"].append(creature_name)
+
+    total = sum(1 for v in drop_map.values() if v)
+    print(f"  Drop map: {total} items with known drop sources")
+    return drop_map
+
+
+def _extract_merchant_items(z: zipfile.ZipFile) -> dict[str, list[str]]:
+    """Return item_name → [vendor_names] from ShopLineupParam, applying known overrides."""
+    rows = _csv_rows(z, "ShopLineupParam.csv")
+    item_to_vendors: dict[str, list[str]] = {}
+
+    for row in rows:
+        row_name = row.get("Row Name", "").strip()
+        m = re.match(r"^\[(.+?)\]\s*(.+)$", row_name)
+        if not m:
+            continue
+        full_vendor = m.group(1).strip()
+        item_name = m.group(2).strip()
+        base_vendor, _, _ = full_vendor.partition(" - ")
+        base_vendor = base_vendor.strip()
+        if base_vendor in _SKIP_SHOP_NAMES:
+            continue
+        item_to_vendors.setdefault(item_name, [])
+        if base_vendor not in item_to_vendors[item_name]:
+            item_to_vendors[item_name].append(base_vendor)
+
+    # Apply same vendor corrections as _parse_merchants
+    for (wrong_vendor, item_name), correct_vendor in _VENDOR_ITEM_OVERRIDES.items():
+        if item_name in item_to_vendors and wrong_vendor in item_to_vendors[item_name]:
+            item_to_vendors[item_name].remove(wrong_vendor)
+            if correct_vendor not in item_to_vendors[item_name]:
+                item_to_vendors[item_name].append(correct_vendor)
+
+    return item_to_vendors
+
+
+def _acquisition_fields(
+    name: str,
+    drop_map: dict[str, dict[str, list[str]]] | None,
+    merchant_items: dict[str, list[str]] | None,
+) -> dict:
+    """Return acquisition_types and acquisition_sources dict entries (omitted if empty)."""
+    types: list[str] = []
+    sources: list[str] = []
+
+    if merchant_items and name in merchant_items:
+        types.append("merchant")
+        sources.extend(merchant_items[name])
+
+    if drop_map and name in drop_map:
+        entry = drop_map[name]
+        if "boss_drop" in entry:
+            types.append("boss_drop")
+            sources.extend(entry["boss_drop"])
+        if "enemy_drop" in entry:
+            types.append("enemy_drop")
+            sources.extend(entry["enemy_drop"])
+
+    result = {}
+    if types:
+        result["acquisition_types"] = types
+    if sources:
+        result["acquisition_sources"] = sources
+    return result
 
 
 def load_discord_bot_enemies() -> list[dict]:
@@ -813,7 +928,7 @@ def load_location_map() -> dict[str, list[str]]:
     return item_to_locations
 
 
-def _supplement_aow(erdb_docs: list[dict], location_map: dict[str, list[str]] | None = None) -> list[dict]:
+def _supplement_aow(erdb_docs: list[dict], location_map: dict[str, list[str]] | None = None, drop_map: dict[str, dict[str, list[str]]] | None = None, merchant_items: dict[str, list[str]] | None = None) -> list[dict]:
     """Return Discord bot AoW docs for the 26 DLC entries missing from erdb FMGs.
 
     erdb 1.10.0's GemName.fmg.xml returns '[ERROR]' for all Shadow of the Erdtree
@@ -869,13 +984,14 @@ def _supplement_aow(erdb_docs: list[dict], location_map: dict[str, list[str]] | 
             "text_content": text_content,
             "tags": [affinity] if affinity else [],
             "location": loc_str,
+            **_acquisition_fields(name, drop_map, merchant_items),
         })
 
     print(f"  AoW supplement: {len(docs)} DLC entries added")
     return docs
 
 
-def _supplement_weapons(erdb_docs: list[dict], location_map: dict[str, list[str]] | None = None) -> list[dict]:
+def _supplement_weapons(erdb_docs: list[dict], location_map: dict[str, list[str]] | None = None, drop_map: dict[str, dict[str, list[str]]] | None = None, merchant_items: dict[str, list[str]] | None = None) -> list[dict]:
     """Return Discord bot weapon docs for DLC entries missing from erdb.
 
     erdb 1.10.0 predates the Shadow of the Erdtree DLC (patch 1.12+), so new weapon
@@ -933,13 +1049,14 @@ def _supplement_weapons(erdb_docs: list[dict], location_map: dict[str, list[str]
             "req_int": req_int,
             "req_fai": req_fai,
             "req_arc": req_arc,
+            **_acquisition_fields(name, drop_map, merchant_items),
         })
 
     print(f"  Weapon supplement: {len(docs)} DLC entries added")
     return docs
 
 
-def _supplement_armor(erdb_docs: list[dict]) -> list[dict]:
+def _supplement_armor(erdb_docs: list[dict], drop_map: dict[str, dict[str, list[str]]] | None = None, merchant_items: dict[str, list[str]] | None = None) -> list[dict]:
     """Return Discord bot armor docs for DLC entries missing from erdb."""
     known_names = {d["name"] for d in erdb_docs}
 
@@ -985,13 +1102,14 @@ def _supplement_armor(erdb_docs: list[dict]) -> list[dict]:
             "defense_fire":      def_fire,
             "defense_lightning": def_lightning,
             "defense_holy":      def_holy,
+            **_acquisition_fields(name, drop_map, merchant_items),
         })
 
     print(f"  Armor supplement: {len(docs)} DLC entries added")
     return docs
 
 
-def _supplement_spells(erdb_docs: list[dict]) -> list[dict]:
+def _supplement_spells(erdb_docs: list[dict], drop_map: dict[str, dict[str, list[str]]] | None = None, merchant_items: dict[str, list[str]] | None = None) -> list[dict]:
     """Return Discord bot spell docs for DLC sorceries and incantations missing from erdb."""
     known_names = {d["name"] for d in erdb_docs}
 
@@ -1030,13 +1148,14 @@ def _supplement_spells(erdb_docs: list[dict]) -> list[dict]:
                 "req_int": _int(row.get("INT")),
                 "req_fai": _int(row.get("FAI")),
                 "req_arc": _int(row.get("ARC")),
+                **_acquisition_fields(name, drop_map, merchant_items),
             })
 
     print(f"  Spell supplement: {len(docs)} DLC entries added")
     return docs
 
 
-def _supplement_talismans(erdb_docs: list[dict], location_map: dict[str, list[str]] | None = None) -> list[dict]:
+def _supplement_talismans(erdb_docs: list[dict], location_map: dict[str, list[str]] | None = None, drop_map: dict[str, dict[str, list[str]]] | None = None, merchant_items: dict[str, list[str]] | None = None) -> list[dict]:
     """Return Discord bot talisman docs for DLC entries missing from erdb."""
     known_names = {d["name"] for d in erdb_docs}
 
@@ -1072,6 +1191,7 @@ def _supplement_talismans(erdb_docs: list[dict], location_map: dict[str, list[st
             "tags": ["Talisman"],
             "location": loc_str,
             "weight": weight,
+            **_acquisition_fields(name, drop_map, merchant_items),
         })
 
     print(f"  Talisman supplement: {len(docs)} DLC entries added")
@@ -1328,6 +1448,7 @@ def load_erdb(
     npc_loc_map: dict[str, str] | None = None,
     supplement_dlc_aow: bool = True,
     supplement_dlc: bool = True,
+    drop_map: dict[str, dict[str, list[str]]] | None = None,
 ) -> list[dict]:
     url = ERDB_ZIP_URL.format(version=version)
     print(f"  Downloading erdb {version} from GitHub …")
@@ -1343,20 +1464,21 @@ def load_erdb(
         print("  Downloading NPC location data for merchant enrichment …")
         npc_loc_map = _build_merchant_location_map()
     with zipfile.ZipFile(zip_data) as z:
-        weapons   = _parse_weapons(z, patch_version, lm, jp_fmgs)
-        armor     = _parse_armor(z, patch_version, lm, jp_fmgs)
-        spells    = _parse_spells(z, patch_version, lm, jp_fmgs)
-        aow       = _parse_ashes_of_war(z, patch_version, lm, jp_fmgs)
-        talismans = _parse_talismans(z, patch_version, lm, jp_fmgs)
+        merchant_items = _extract_merchant_items(z)
+        weapons   = _parse_weapons(z, patch_version, lm, jp_fmgs, drop_map, merchant_items)
+        armor     = _parse_armor(z, patch_version, lm, jp_fmgs, drop_map, merchant_items)
+        spells    = _parse_spells(z, patch_version, lm, jp_fmgs, drop_map, merchant_items)
+        aow       = _parse_ashes_of_war(z, patch_version, lm, jp_fmgs, drop_map, merchant_items)
+        talismans = _parse_talismans(z, patch_version, lm, jp_fmgs, drop_map, merchant_items)
         merchants = _parse_merchants(z, patch_version, npc_loc_map)
 
     if supplement_dlc_aow or supplement_dlc:
-        aow = aow + _supplement_aow(aow, location_map=lm)
+        aow = aow + _supplement_aow(aow, location_map=lm, drop_map=drop_map, merchant_items=merchant_items)
     if supplement_dlc:
-        weapons   = weapons   + _supplement_weapons(weapons, location_map=lm)
-        armor     = armor     + _supplement_armor(armor)
-        spells    = spells    + _supplement_spells(spells)
-        talismans = talismans + _supplement_talismans(talismans, location_map=lm)
+        weapons   = weapons   + _supplement_weapons(weapons, location_map=lm, drop_map=drop_map, merchant_items=merchant_items)
+        armor     = armor     + _supplement_armor(armor, drop_map=drop_map, merchant_items=merchant_items)
+        spells    = spells    + _supplement_spells(spells, drop_map=drop_map, merchant_items=merchant_items)
+        talismans = talismans + _supplement_talismans(talismans, location_map=lm, drop_map=drop_map, merchant_items=merchant_items)
 
     counts = {
         "weapons": len(weapons), "armor": len(armor), "spells": len(spells),
@@ -1505,9 +1627,11 @@ def main() -> None:
 
     if not skip_erdb:
         versions_to_load = ERDB_VERSIONS if args.all_patches else [args.erdb_version]
-        # Download the NPC location map once and reuse across all patch versions.
+        # Download shared lookup tables once and reuse across all patch versions.
         print("  Downloading NPC location data for merchant enrichment …")
         npc_loc_map = _build_merchant_location_map()
+        print("Loading acquisition drop map …")
+        drop_map = _build_drop_map()
         for i, version in enumerate(versions_to_load):
             label = f"({i + 1}/{len(versions_to_load)})" if len(versions_to_load) > 1 else ""
             print(f"Loading erdb {version} {label}…")
@@ -1520,6 +1644,7 @@ def main() -> None:
                 # default (latest) erdb load, not when loading all historical patches.
                 supplement_dlc=not args.all_patches,
                 supplement_dlc_aow=not args.all_patches,
+                drop_map=drop_map,
             )
 
     if args.dialogue or args.dialogue_only:

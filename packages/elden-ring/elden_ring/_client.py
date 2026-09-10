@@ -156,10 +156,12 @@ INDEX_MAPPING = {
             "slots":            {"type": "integer"},
             "sort_id":          {"type": "integer"},
             "menu_category":    {"type": "keyword"},
-            "npc_id":           {"type": "keyword"},
-            "name_ja":          {"type": "text"},
-            "description_ja":   {"type": "text"},
-            "text_content_ja":  {"type": "text"},
+            "npc_id":             {"type": "keyword"},
+            "name_ja":            {"type": "text"},
+            "description_ja":     {"type": "text"},
+            "text_content_ja":    {"type": "text"},
+            "acquisition_types":  {"type": "keyword"},
+            "acquisition_sources": {"type": "keyword"},
         }
     },
 }
