@@ -162,6 +162,7 @@ INDEX_MAPPING = {
             "text_content_ja":    {"type": "text"},
             "acquisition_types":  {"type": "keyword"},
             "acquisition_sources": {"type": "keyword"},
+            "base_item":           {"type": "keyword"},
         }
     },
 }

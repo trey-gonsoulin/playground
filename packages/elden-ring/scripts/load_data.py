@@ -142,6 +142,12 @@ SCALING_TIERS = [(75, "S"), (60, "A"), (40, "B"), (25, "C"), (15, "D"), (1, "E")
 ARMOR_CATEGORIES: dict[int, str] = {0: "Head", 1: "Body", 2: "Arms", 3: "Legs"}
 
 
+def _variant_base_name(name: str) -> str | None:
+    """Return the base talisman name for a +N or +N Variant name, or None."""
+    m = re.match(r'^(.+?)\s+\+\d+(?:\s+Variant)?$', name)
+    return m.group(1) if m else None
+
+
 def _talisman_group(sort_id: int | None) -> str | None:
     """Derive talisman menu group label from sortId.
 
@@ -595,6 +601,7 @@ def _parse_talismans(z: zipfile.ZipFile, patch_version: str, location_map: dict[
             "location": loc_str,
             "sort_id":        sort_id,
             "menu_category":  _talisman_group(sort_id),
+            "base_item":      _variant_base_name(name),
             "name_ja":        name_ja,
             "description_ja": description_ja,
             **_acquisition_fields(name, drop_map, merchant_items),
@@ -1191,6 +1198,7 @@ def _supplement_talismans(erdb_docs: list[dict], location_map: dict[str, list[st
             "tags": ["Talisman"],
             "location": loc_str,
             "weight": weight,
+            "base_item": _variant_base_name(name),
             **_acquisition_fields(name, drop_map, merchant_items),
         })
 
