@@ -9,6 +9,182 @@ Globals:
     MemorySize: 512
 
 Resources:
+  # ---------------------------------------------------------------------------
+  # Elden Ring OpenSearch — self-hosted on EC2 (t4g.small, stopped when idle)
+  # ---------------------------------------------------------------------------
+
+  # Port 9200 open to the world; OpenSearch security plugin handles auth + TLS.
+  # SSH is intentionally omitted — use SSM Session Manager to shell in.
+  EldenRingSearchSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Elden Ring OpenSearch - HTTPS on 9200
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 9200
+          ToPort: 9200
+          CidrIp: 0.0.0.0/0
+          Description: OpenSearch HTTPS (auth required by security plugin)
+
+  EldenRingSearchInstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      # AmazonSSMManagedInstanceCore enables SSM Session Manager shell access.
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: ReadOpenSearchPassword
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: ssm:GetParameter
+                Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/elden-ring/opensearch-password'
+
+  EldenRingSearchInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref EldenRingSearchInstanceRole
+
+  EldenRingSearchInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t4g.small
+      # Latest Amazon Linux 2023 ARM64 — resolved at deploy time via SSM public parameter.
+      ImageId: '{{resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64}}'
+      IamInstanceProfile: !Ref EldenRingSearchInstanceProfile
+      SecurityGroupIds:
+        - !GetAtt EldenRingSearchSecurityGroup.GroupId
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 20
+            VolumeType: gp3
+            # Keep the volume when the instance is terminated so data survives
+            # accidental stack updates. Delete manually when decommissioning.
+            DeleteOnTermination: false
+      UserData:
+        # Installs OpenSearch 2.13, runs the demo security configurator
+        # (generates self-signed TLS certs and hashes the admin password),
+        # then starts and enables the service.
+        #
+        # Prerequisite: create the SSM parameter before deploying:
+        #   aws ssm put-parameter \
+        #     --name /elden-ring/opensearch-password \
+        #     --value 'YourStrongPassword!' \
+        #     --type SecureString \
+        #     --profile personal
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -euo pipefail
+
+          # Fetch admin password from SSM
+          OS_PASS=$(aws ssm get-parameter \
+              --name /elden-ring/opensearch-password \
+              --with-decryption \
+              --region ${AWS::Region} \
+              --query Parameter.Value \
+              --output text)
+
+          # Lucene requires vm.max_map_count >= 262144
+          echo 'vm.max_map_count=262144' > /etc/sysctl.d/opensearch.conf
+          sysctl -p /etc/sysctl.d/opensearch.conf
+
+          # Install OpenSearch via RPM
+          rpm --import https://artifacts.opensearch.org/publickeys/opensearch.pgp
+          curl -Lo /tmp/opensearch.rpm \
+              https://artifacts.opensearch.org/releases/bundle/opensearch/2.13.0/opensearch-2.13.0-linux-arm64.rpm
+          dnf install -y /tmp/opensearch.rpm
+
+          # Demo configurator generates self-signed TLS certs and sets the
+          # admin password from OPENSEARCH_INITIAL_ADMIN_PASSWORD.
+          export OPENSEARCH_INITIAL_ADMIN_PASSWORD="$OS_PASS"
+          /usr/share/opensearch/plugins/opensearch-security/tools/install_demo_configuration.sh -y -i -s
+
+          # Bind to all interfaces so the Lambda can reach it over the public internet.
+          # discovery.type: single-node is required when network.host != localhost —
+          # without it OpenSearch switches to production mode and fails the cluster
+          # discovery bootstrap check.
+          if grep -q '^network.host' /etc/opensearch/opensearch.yml; then
+              sed -i 's/^network.host:.*/network.host: 0.0.0.0/' /etc/opensearch/opensearch.yml
+          else
+              echo 'network.host: 0.0.0.0' >> /etc/opensearch/opensearch.yml
+          fi
+          echo 'discovery.type: single-node' >> /etc/opensearch/opensearch.yml
+
+          # 512 MB heap + 2 GB swap: t4g.small has 2 GB RAM total; OpenSearch needs
+          # additional off-heap memory for Lucene, so a 1 GB heap OOMs on first boot.
+          dd if=/dev/zero of=/swapfile bs=1M count=2048
+          chmod 600 /swapfile
+          mkswap /swapfile
+          swapon /swapfile
+          echo '/swapfile swap swap defaults 0 0' >> /etc/fstab
+          sed -i 's/^-Xms.*/-Xms512m/' /etc/opensearch/jvm.options
+          sed -i 's/^-Xmx.*/-Xmx512m/' /etc/opensearch/jvm.options
+
+          systemctl enable opensearch
+          systemctl start opensearch
+      Tags:
+        - Key: Name
+          Value: elden-ring-search
+
+  EldenRingHttpApi:
+    Type: AWS::Serverless::HttpApi
+
+  EldenRingMcpFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      PackageType: Image
+      # Override the global 30 s timeout — start_search_service polls for up to
+      # 4 minutes while the EC2 instance boots and OpenSearch initialises.
+      Timeout: 300
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: ec2:StartInstances
+              Resource: !Sub 'arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:instance/${EldenRingSearchInstance}'
+            - Effect: Allow
+              Action:
+                - ec2:DescribeInstances
+                - ec2:DescribeInstanceStatus
+              Resource: '*'
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/elden-ring/opensearch-password'
+      Environment:
+        Variables:
+          EC2_INSTANCE_ID: !Ref EldenRingSearchInstance
+          OPENSEARCH_USER: admin
+          # Path only — the actual secret is fetched at runtime via ssm:GetParameter
+          # so it never appears in the Lambda environment config in the console.
+          OPENSEARCH_PASSWORD_SSM_PATH: /elden-ring/opensearch-password
+      Events:
+        Root:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref EldenRingHttpApi
+            Path: /
+            Method: ANY
+        Proxy:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref EldenRingHttpApi
+            Path: /{proxy+}
+            Method: ANY
+    Metadata:
+      DockerTag: latest
+      DockerContext: .
+      Dockerfile: packages/elden-ring/Dockerfile
+
+
   TherapistFinderFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -66,3 +242,11 @@ Outputs:
   YnabMcpApiUrl:
     Description: YNAB MCP HTTP API endpoint URL (MCP server at /mcp)
     Value: !Sub "https://${YnabHttpApi}.execute-api.${AWS::Region}.amazonaws.com"
+
+  EldenRingMcpApiUrl:
+    Description: Elden Ring MCP HTTP API endpoint URL (MCP server at /mcp)
+    Value: !Sub "https://${EldenRingHttpApi}.execute-api.${AWS::Region}.amazonaws.com"
+
+  EldenRingSearchInstanceId:
+    Description: EC2 instance ID for the OpenSearch node (use to find the public DNS after starting)
+    Value: !Ref EldenRingSearchInstance
