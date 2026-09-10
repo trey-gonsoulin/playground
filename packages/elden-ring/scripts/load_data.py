@@ -584,7 +584,31 @@ def _parse_ashes_of_war(z: zipfile.ZipFile, patch_version: str, location_map: di
 # Talismans
 # ---------------------------------------------------------------------------
 
-def _parse_talismans(z: zipfile.ZipFile, patch_version: str, location_map: dict[str, list[str]] | None = None, jp_fmgs: dict | None = None, drop_map: dict[str, dict[str, list[str]]] | None = None, merchant_items: dict[str, list[str]] | None = None) -> list[dict]:
+def _load_discord_bot_talismans() -> dict[str, dict]:
+    """Fetch Discord bot talismans.csv and return normalized-name → row dict.
+
+    Keys strip the ' Variant' suffix so they match erdb names. Each row also
+    gets a '_normalized_name' key with the stripped name.
+    """
+    print("  Downloading talismans.csv (Discord bot) …")
+    resp = requests.get(f"{DISCORD_BOT_BASE}/talismans.csv", timeout=30)
+    resp.raise_for_status()
+    result: dict[str, dict] = {}
+    for row in csv.DictReader(io.StringIO(resp.text)):
+        name = row.get("name", "").strip()
+        if name:
+            normalized = re.sub(r"\s+Variant$", "", name)
+            result[normalized] = {**row, "_normalized_name": normalized}
+    return result
+
+
+def _extract_effect_value(effect: str) -> float | None:
+    """Extract the first numeric value from a talisman effect string."""
+    m = re.search(r"(\d+(?:\.\d+)?)", effect)
+    return float(m.group(1)) if m else None
+
+
+def _parse_talismans(z: zipfile.ZipFile, patch_version: str, location_map: dict[str, list[str]] | None = None, jp_fmgs: dict | None = None, drop_map: dict[str, dict[str, list[str]]] | None = None, merchant_items: dict[str, list[str]] | None = None, discord_bot_map: dict[str, dict] | None = None) -> list[dict]:
     names = _load_fmg(z, "AccessoryName.fmg.xml")
     captions = _load_fmg(z, "AccessoryCaption.fmg.xml")
     rows = _csv_rows(z, "EquipParamAccessory.csv")
@@ -606,6 +630,14 @@ def _parse_talismans(z: zipfile.ZipFile, patch_version: str, location_map: dict[
         sort_id = _int(row.get("sortId"))
         comp_trophy_sed = int(float(row.get("compTrophySedId", 0) or 0))
         is_legendary = comp_trophy_sed == 17
+        weight = _float(row.get("weight"))
+
+        # Effect text comes from Discord bot (not erdb). Only stamp it on the
+        # latest base-game patch to avoid version anachronism: the Discord bot
+        # is a single snapshot with no per-patch history.
+        bot_row = (discord_bot_map or {}).get(name) if patch_version == ERDB_DEFAULT_VERSION else None
+        effect = bot_row.get("effect", "").strip() if bot_row else None
+        effect_value = _extract_effect_value(effect) if effect else None
 
         docs.append({
             "entity_type": "item",
@@ -616,6 +648,9 @@ def _parse_talismans(z: zipfile.ZipFile, patch_version: str, location_map: dict[
             "text_content": "\n\n".join(filter(None, [description, f"Found in: {loc_str}" if loc_str else None])),
             "tags": ["Talisman"],
             "location": loc_str,
+            "weight":         weight,
+            "effect":         effect,
+            "effect_value":   effect_value,
             "sort_id":        sort_id,
             "menu_category":  _talisman_group(sort_id),
             "base_item":      _variant_base_name(name),
@@ -1181,24 +1216,23 @@ def _supplement_spells(erdb_docs: list[dict], drop_map: dict[str, dict[str, list
     return docs
 
 
-def _supplement_talismans(erdb_docs: list[dict], location_map: dict[str, list[str]] | None = None, drop_map: dict[str, dict[str, list[str]]] | None = None, merchant_items: dict[str, list[str]] | None = None) -> list[dict]:
+def _supplement_talismans(erdb_docs: list[dict], location_map: dict[str, list[str]] | None = None, drop_map: dict[str, dict[str, list[str]]] | None = None, merchant_items: dict[str, list[str]] | None = None, discord_bot_map: dict[str, dict] | None = None) -> list[dict]:
     """Return Discord bot talisman docs for DLC entries missing from erdb."""
     known_names = {d["name"] for d in erdb_docs}
 
-    print("  Downloading talismans.csv (DLC supplement) …")
-    resp = requests.get(f"{DISCORD_BOT_BASE}/talismans.csv", timeout=30)
-    resp.raise_for_status()
+    if discord_bot_map is None:
+        discord_bot_map = _load_discord_bot_talismans()
 
     docs: list[dict] = []
-    for row in csv.DictReader(io.StringIO(resp.text)):
-        name = row.get("name", "").strip()
-        if not name or name in known_names:
+    for normalized_name, row in discord_bot_map.items():
+        if not normalized_name or normalized_name in known_names:
             continue
 
         description = row.get("description", "").strip()
-        effect = row.get("effect", "").strip()
+        effect = row.get("effect", "").strip() or None
+        effect_value = _extract_effect_value(effect) if effect else None
         weight = _float(row.get("weight"))
-        locs = (location_map or {}).get(name)
+        locs = (location_map or {}).get(normalized_name)
         loc_str = ", ".join(locs) if locs else None
 
         parts = [description] if description else []
@@ -1209,16 +1243,18 @@ def _supplement_talismans(erdb_docs: list[dict], location_map: dict[str, list[st
 
         docs.append({
             "entity_type": "item",
-            "name": name,
+            "name": normalized_name,
             "patch_version": DLC_PATCH_VERSION,
             "source": "fextralife-discord-bot",
             "description": description,
             "text_content": "\n".join(parts),
             "tags": ["Talisman"],
             "location": loc_str,
-            "weight": weight,
-            "base_item": _variant_base_name(name),
-            **_acquisition_fields(name, drop_map, merchant_items),
+            "weight":       weight,
+            "effect":       effect,
+            "effect_value": effect_value,
+            "base_item":    _variant_base_name(normalized_name),
+            **_acquisition_fields(normalized_name, drop_map, merchant_items),
         })
 
     print(f"  Talisman supplement: {len(docs)} DLC entries added")
@@ -1490,13 +1526,14 @@ def load_erdb(
     if npc_loc_map is None:
         print("  Downloading NPC location data for merchant enrichment …")
         npc_loc_map = _build_merchant_location_map()
+    bot_talisman_map = _load_discord_bot_talismans()
     with zipfile.ZipFile(zip_data) as z:
         merchant_items = _extract_merchant_items(z)
         weapons   = _parse_weapons(z, patch_version, lm, jp_fmgs, drop_map, merchant_items)
         armor     = _parse_armor(z, patch_version, lm, jp_fmgs, drop_map, merchant_items)
         spells    = _parse_spells(z, patch_version, lm, jp_fmgs, drop_map, merchant_items)
         aow       = _parse_ashes_of_war(z, patch_version, lm, jp_fmgs, drop_map, merchant_items)
-        talismans = _parse_talismans(z, patch_version, lm, jp_fmgs, drop_map, merchant_items)
+        talismans = _parse_talismans(z, patch_version, lm, jp_fmgs, drop_map, merchant_items, discord_bot_map=bot_talisman_map)
         merchants = _parse_merchants(z, patch_version, npc_loc_map)
 
     if supplement_dlc_aow or supplement_dlc:
@@ -1505,7 +1542,7 @@ def load_erdb(
         weapons   = weapons   + _supplement_weapons(weapons, location_map=lm, drop_map=drop_map, merchant_items=merchant_items)
         armor     = armor     + _supplement_armor(armor, drop_map=drop_map, merchant_items=merchant_items)
         spells    = spells    + _supplement_spells(spells, drop_map=drop_map, merchant_items=merchant_items)
-        talismans = talismans + _supplement_talismans(talismans, location_map=lm, drop_map=drop_map, merchant_items=merchant_items)
+        talismans = talismans + _supplement_talismans(talismans, location_map=lm, drop_map=drop_map, merchant_items=merchant_items, discord_bot_map=bot_talisman_map)
 
     counts = {
         "weapons": len(weapons), "armor": len(armor), "spells": len(spells),
