@@ -85,8 +85,8 @@ ERDB_VERSIONS = [
 ERDB_DEFAULT_VERSION = ERDB_VERSIONS[0]  # most recent base-game patch
 
 # Patch version stamped on DLC supplement documents: these come from the Discord
-# bot CSVs (snapshot circa 2024-12), which have no per-patch version info.
-DLC_PATCH_VERSION = "dlc-current"
+# bot CSVs, last updated 2024-12-12 (after patch 1.16, before 1.17).
+DLC_PATCH_VERSION = "1.16.0"
 
 ERDB_ZIP_URL = (
     "https://github.com/EldenRingDatabase/erdb/raw/master"
@@ -622,7 +622,7 @@ def load_fromsoft_fts(jp_fmgs: dict | None = None) -> list[dict]:
         docs.append({
             "entity_type": "npc_dialogue",
             "name": name,
-            "patch_version": "1.10.0",  # dataset does not version; pin to current patch
+            "patch_version": DLC_PATCH_VERSION,  # dataset does not version
             "source": "fromsoft-fts",
             "description": text_content[:500],  # first ~500 chars as summary
             "text_content": text_content,
@@ -706,7 +706,7 @@ def load_discord_bot_enemies() -> list[dict]:
         docs.append({
             "entity_type": "enemy",
             "name": name,
-            "patch_version": "1.10.0",
+            "patch_version": DLC_PATCH_VERSION,
             "source": "fextralife-discord-bot",
             "description": lore[:500] if lore else text_content[:500],
             "text_content": text_content,
@@ -741,7 +741,7 @@ def load_discord_bot_enemies() -> list[dict]:
         docs.append({
             "entity_type": "enemy",
             "name": name,
-            "patch_version": "1.10.0",
+            "patch_version": DLC_PATCH_VERSION,
             "source": "fextralife-discord-bot",
             "description": lore[:500] if lore else text_content[:500],
             "text_content": text_content,
@@ -1079,7 +1079,7 @@ def load_discord_bot_npcs() -> list[dict]:
         docs.append({
             "entity_type": "npc",
             "name": name,
-            "patch_version": "1.10.0",
+            "patch_version": DLC_PATCH_VERSION,
             "source": "fextralife-discord-bot",
             "description": description[:500] if description else text_content[:500],
             "text_content": text_content,
