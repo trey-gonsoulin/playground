@@ -22,5 +22,5 @@ resolve_s3 = true
 s3_prefix = "mcp-playground"
 profile = "personal"
 # YnabMcpFunction ECR repo will be appended here by `sam deploy --guided`
-image_repositories = ["TherapistFinderFunction=268834972001.dkr.ecr.us-east-1.amazonaws.com/therapistfinder8ff77c7a/therapistfinderfunction87be2aadrepo", "YnabMcpFunction=268834972001.dkr.ecr.us-east-1.amazonaws.com/mcpplayground7d6ff2e8/ynabmcpfunction7a0a73f1repo"]
+image_repositories = ["TherapistFinderFunction=268834972001.dkr.ecr.us-east-1.amazonaws.com/therapistfinder8ff77c7a/therapistfinderfunction87be2aadrepo", "YnabMcpFunction=268834972001.dkr.ecr.us-east-1.amazonaws.com/mcpplayground7d6ff2e8/ynabmcpfunction7a0a73f1repo", "EldenRingMcpFunction=268834972001.dkr.ecr.us-east-1.amazonaws.com/mcpplayground7d6ff2e8/eldenringmcpfunction0d23b4b2repo"]
 stack_name = "mcp-playground"
