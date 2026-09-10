@@ -165,6 +165,8 @@ INDEX_MAPPING = {
             "base_item":           {"type": "keyword"},
             "is_legendary":        {"type": "boolean"},
             "achievement_set":     {"type": "keyword"},
+            "effect":              {"type": "text"},
+            "effect_value":        {"type": "float"},
         }
     },
 }
