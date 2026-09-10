@@ -163,6 +163,8 @@ INDEX_MAPPING = {
             "acquisition_types":  {"type": "keyword"},
             "acquisition_sources": {"type": "keyword"},
             "base_item":           {"type": "keyword"},
+            "is_legendary":        {"type": "boolean"},
+            "achievement_set":     {"type": "keyword"},
         }
     },
 }

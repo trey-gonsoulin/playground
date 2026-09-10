@@ -142,6 +142,13 @@ SCALING_TIERS = [(75, "S"), (60, "A"), (40, "B"), (25, "C"), (15, "D"), (1, "E")
 ARMOR_CATEGORIES: dict[int, str] = {0: "Head", 1: "Body", 2: "Arms", 3: "Legs"}
 
 
+# Legendary sorceries/incantations have no param encoding; identified by name.
+_LEGENDARY_SPELLS: frozenset[str] = frozenset({
+    "Comet Azur", "Founding Rain of Stars", "Stars of Ruin",
+    "Ranni's Dark Moon", "Flame of the Fell God", "Elden Stars", "Greyoll's Roar",
+})
+
+
 def _variant_base_name(name: str) -> str | None:
     """Return the base talisman name for a +N or +N Variant name, or None."""
     m = re.match(r'^(.+?)\s+\+\d+(?:\s+Variant)?$', name)
@@ -369,6 +376,9 @@ def _parse_weapons(z: zipfile.ZipFile, patch_version: str, location_map: dict[st
         loc_str = ", ".join(locs) if locs else None
         name_ja, description_ja = _jp_name_desc(jp_fmgs, "WeaponName", row_id)
         sort_id = _int(row.get("sortId"))
+        rarity = int(float(row.get("rarity", 0) or 0))
+        trophy_grade = int(float(row.get("trophySGradeId", -1) or -1))
+        is_legendary = rarity == 3 and trophy_grade >= 0
 
         docs.append({
             "entity_type": "weapon",
@@ -385,6 +395,8 @@ def _parse_weapons(z: zipfile.ZipFile, patch_version: str, location_map: dict[st
             "location": loc_str,
             "sort_id":          sort_id,
             "menu_category":    cat_name,
+            "is_legendary":     True if is_legendary else None,
+            "achievement_set":  "Legendary Armaments" if is_legendary else None,
             **_acquisition_fields(name, drop_map, merchant_items),
             "weight":           _float(row.get("weight")),
             "attack_physical":  _int(row.get("attackBasePhysics")),
@@ -495,6 +507,7 @@ def _parse_spells(z: zipfile.ZipFile, patch_version: str, location_map: dict[str
         locs = (location_map or {}).get(name)
         loc_str = ", ".join(locs) if locs else None
         name_ja, description_ja = _jp_name_desc(jp_fmgs, "GoodsName", row_id)
+        is_legendary = name in _LEGENDARY_SPELLS
 
         docs.append({
             "entity_type": "spell",
@@ -507,6 +520,8 @@ def _parse_spells(z: zipfile.ZipFile, patch_version: str, location_map: dict[str
             "location": loc_str,
             "sort_id":        _int(row.get("sortId")),
             "menu_category":  spell_type,
+            "is_legendary":   True if is_legendary else None,
+            "achievement_set": "Legendary Sorceries and Incantations" if is_legendary else None,
             "fp_cost":        _int(row.get("mp")),
             "slots":          _int(row.get("slotLength")),
             "req_int":        _int(row.get("requirementIntellect")),
@@ -589,6 +604,8 @@ def _parse_talismans(z: zipfile.ZipFile, patch_version: str, location_map: dict[
         loc_str = ", ".join(locs) if locs else None
         name_ja, description_ja = _jp_name_desc(jp_fmgs, "AccessoryName", row_id)
         sort_id = _int(row.get("sortId"))
+        comp_trophy_sed = int(float(row.get("compTrophySedId", 0) or 0))
+        is_legendary = comp_trophy_sed == 17
 
         docs.append({
             "entity_type": "item",
@@ -602,6 +619,8 @@ def _parse_talismans(z: zipfile.ZipFile, patch_version: str, location_map: dict[
             "sort_id":        sort_id,
             "menu_category":  _talisman_group(sort_id),
             "base_item":      _variant_base_name(name),
+            "is_legendary":   True if is_legendary else None,
+            "achievement_set": "Legendary Talismans" if is_legendary else None,
             "name_ja":        name_ja,
             "description_ja": description_ja,
             **_acquisition_fields(name, drop_map, merchant_items),
