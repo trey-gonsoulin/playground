@@ -187,27 +187,32 @@ def search(
     if patch_version:
         filters.append({"term": {"patch_version": patch_version}})
 
-    resp = client.search(
-        index=INDEX,
-        body={
-            "size": limit,
-            "query": {
-                "bool": {
-                    "must": [
-                        {
-                            "multi_match": {
-                                "query": query,
-                                "fields": ["name^3", "name_ja^3", "description", "description_ja", "text_content", "text_content_ja", "location^1.5", "tags^2"],
-                                "type": "most_fields",
-                                "fuzziness": "AUTO",
-                            }
+    body: dict = {
+        "size": limit,
+        "query": {
+            "bool": {
+                "must": [
+                    {
+                        "multi_match": {
+                            "query": query,
+                            "fields": ["name^3", "name_ja^3", "description", "description_ja", "text_content", "text_content_ja", "location^1.5", "tags^2"],
+                            "type": "most_fields",
+                            "fuzziness": "AUTO",
                         }
-                    ],
-                    "filter": filters,
-                }
-            },
+                    }
+                ],
+                "filter": filters,
+            }
         },
-    )
+    }
+
+    # Without a specific patch filter, collapse by entity name to deduplicate across
+    # the 16+ indexed patch versions. Relevance ordering is preserved; the representative
+    # doc per entity is the highest-scoring version (identical content → deterministic).
+    if not patch_version:
+        body["collapse"] = {"field": "name.keyword"}
+
+    resp = client.search(index=INDEX, body=body)
     return [{"score": hit["_score"], **hit["_source"]} for hit in resp["hits"]["hits"]]
 
 
@@ -300,36 +305,60 @@ def search_literal(
     pattern: str,
     fields: list[str] | None = None,
     entity_type: str | None = None,
+    patch_version: str | None = None,
     limit: int = 200,
 ) -> dict:
-    """Exact-phrase search across text fields, returning all hits with a total count."""
+    """Exact-phrase search across text fields.
+
+    When patch_version is None (default): collapses by entity name and returns the
+    latest version per entity; total reflects distinct entities, not raw index hits.
+    When patch_version is specified: filters to that snapshot; total is the raw hit count.
+    """
     search_fields = fields or _LITERAL_FIELDS
     filters = []
     if entity_type:
         filters.append({"term": {"entity_type": entity_type}})
+    if patch_version:
+        filters.append({"term": {"patch_version": patch_version}})
 
-    resp = client.search(
-        index=INDEX,
-        body={
-            "size": limit,
-            "track_total_hits": True,
-            "query": {
-                "bool": {
-                    "must": [
-                        {
-                            "multi_match": {
-                                "query": pattern,
-                                "fields": search_fields,
-                                "type": "phrase",
-                            }
+    body: dict = {
+        "size": limit,
+        "track_total_hits": True,
+        "query": {
+            "bool": {
+                "must": [
+                    {
+                        "multi_match": {
+                            "query": pattern,
+                            "fields": search_fields,
+                            "type": "phrase",
                         }
-                    ],
-                    "filter": filters,
-                }
-            },
+                    }
+                ],
+                "filter": filters,
+            }
         },
-    )
-    total = resp["hits"]["total"]["value"]
+    }
+
+    if not patch_version:
+        # Collapse by entity name, sorting by patch_version desc so the representative
+        # doc is the latest version of each entity. Cardinality agg gives the exact
+        # distinct-entity count (accurate for corpora well under precision_threshold).
+        body["sort"] = [{"patch_version": "desc"}, "_score"]
+        body["collapse"] = {"field": "name.keyword"}
+        body["aggs"] = {
+            "distinct_entities": {
+                "cardinality": {"field": "name.keyword", "precision_threshold": 40000}
+            }
+        }
+
+    resp = client.search(index=INDEX, body=body)
+
+    if not patch_version:
+        total = resp["aggregations"]["distinct_entities"]["value"]
+    else:
+        total = resp["hits"]["total"]["value"]
+
     return {"total": total, "results": [hit["_source"] for hit in resp["hits"]["hits"]]}
 
 

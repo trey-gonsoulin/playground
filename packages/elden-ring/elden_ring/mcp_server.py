@@ -70,7 +70,8 @@ def search_entities(
         patch_version: Filter to a specific erdb source version (e.g. "1.07.0").
             This is the erdb snapshot version, not necessarily the patch when
             content was introduced. Use list_patch_versions() to see what's loaded.
-            Omit to search across all patches.
+            Omit to return one result per entity (latest indexed version); pass
+            a specific version to scope results to that snapshot only.
         limit: Maximum results to return (default 20, max 100).
 
     Returns a list of entity documents, each with at minimum: entity_type, name,
@@ -125,6 +126,7 @@ def search_entities_literal(
     pattern: str,
     fields: list[str] | None = None,
     entity_type: str | None = None,
+    patch_version: str | None = None,
     limit: int = 200,
 ) -> dict:
     """Search for entities containing an exact literal substring across text fields.
@@ -147,14 +149,17 @@ def search_entities_literal(
         fields: Which fields to search. Defaults to all six text fields:
             name, description, text_content, name_ja, description_ja, text_content_ja.
         entity_type: Narrow to one entity category (weapon, armor, spell, enemy, etc.).
-        limit: Maximum results to return (default 200, max 500). The returned
-            total reflects all matches even when results are capped.
+        patch_version: Filter to a specific patch snapshot (e.g. "1.10.0"). Omit to
+            search across all patches and return one result per entity (latest version).
+            Use list_patch_versions() to see available versions.
+        limit: Maximum results to return (default 200, max 500).
 
     Returns a dict with:
-        total: int — total documents containing the pattern
+        total: int — distinct entity count when no patch_version is given (deduplicated);
+            raw document count when a specific patch_version is specified.
         results: list of entity documents
     """
-    return _os.search_literal(_os.get_client(), pattern, fields, entity_type, min(limit, 500))
+    return _os.search_literal(_os.get_client(), pattern, fields, entity_type, patch_version, min(limit, 500))
 
 
 @mcp.tool()
