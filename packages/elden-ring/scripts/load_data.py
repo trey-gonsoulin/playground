@@ -813,7 +813,7 @@ def load_location_map() -> dict[str, list[str]]:
     return item_to_locations
 
 
-def _supplement_aow(erdb_docs: list[dict]) -> list[dict]:
+def _supplement_aow(erdb_docs: list[dict], location_map: dict[str, list[str]] | None = None) -> list[dict]:
     """Return Discord bot AoW docs for the 26 DLC entries missing from erdb FMGs.
 
     erdb 1.10.0's GemName.fmg.xml returns '[ERROR]' for all Shadow of the Erdtree
@@ -846,6 +846,8 @@ def _supplement_aow(erdb_docs: list[dict]) -> list[dict]:
         affinity = row.get("affinity", "").strip()
         intro = row.get("description", "").strip()
         effect = skill_effects.get(skill_name, "")
+        locs = (location_map or {}).get(name)
+        loc_str = ", ".join(locs) if locs else None
 
         parts = []
         if affinity and affinity.lower() != "none":
@@ -854,6 +856,8 @@ def _supplement_aow(erdb_docs: list[dict]) -> list[dict]:
             parts.append(intro)
         if effect:
             parts.append(f"{skill_name}: {effect}")
+        if loc_str:
+            parts.append(f"Found in: {loc_str}")
         text_content = "\n".join(parts)
 
         docs.append({
@@ -864,13 +868,14 @@ def _supplement_aow(erdb_docs: list[dict]) -> list[dict]:
             "description": text_content[:500],
             "text_content": text_content,
             "tags": [affinity] if affinity else [],
+            "location": loc_str,
         })
 
     print(f"  AoW supplement: {len(docs)} DLC entries added")
     return docs
 
 
-def _supplement_weapons(erdb_docs: list[dict]) -> list[dict]:
+def _supplement_weapons(erdb_docs: list[dict], location_map: dict[str, list[str]] | None = None) -> list[dict]:
     """Return Discord bot weapon docs for DLC entries missing from erdb.
 
     erdb 1.10.0 predates the Shadow of the Erdtree DLC (patch 1.12+), so new weapon
@@ -902,12 +907,16 @@ def _supplement_weapons(erdb_docs: list[dict]) -> list[dict]:
         req_int = _int(reqs.get("Int")) if isinstance(reqs, dict) else None
         req_fai = _int(reqs.get("Fai")) if isinstance(reqs, dict) else None
         req_arc = _int(reqs.get("Arc")) if isinstance(reqs, dict) else None
+        locs = (location_map or {}).get(name)
+        loc_str = ", ".join(locs) if locs else None
 
         parts = [description] if description else []
         if category:
             parts.append(f"Weapon type: {category}")
         if skill:
             parts.append(f"Skill: {skill}")
+        if loc_str:
+            parts.append(f"Found in: {loc_str}")
 
         docs.append({
             "entity_type": "weapon",
@@ -917,6 +926,7 @@ def _supplement_weapons(erdb_docs: list[dict]) -> list[dict]:
             "description": description,
             "text_content": "\n".join(parts),
             "tags": [category] if category else [],
+            "location": loc_str,
             "weight": weight,
             "req_str": req_str,
             "req_dex": req_dex,
@@ -1026,7 +1036,7 @@ def _supplement_spells(erdb_docs: list[dict]) -> list[dict]:
     return docs
 
 
-def _supplement_talismans(erdb_docs: list[dict]) -> list[dict]:
+def _supplement_talismans(erdb_docs: list[dict], location_map: dict[str, list[str]] | None = None) -> list[dict]:
     """Return Discord bot talisman docs for DLC entries missing from erdb."""
     known_names = {d["name"] for d in erdb_docs}
 
@@ -1043,10 +1053,14 @@ def _supplement_talismans(erdb_docs: list[dict]) -> list[dict]:
         description = row.get("description", "").strip()
         effect = row.get("effect", "").strip()
         weight = _float(row.get("weight"))
+        locs = (location_map or {}).get(name)
+        loc_str = ", ".join(locs) if locs else None
 
         parts = [description] if description else []
         if effect and effect != description:
             parts.append(effect)
+        if loc_str:
+            parts.append(f"Found in: {loc_str}")
 
         docs.append({
             "entity_type": "item",
@@ -1056,6 +1070,7 @@ def _supplement_talismans(erdb_docs: list[dict]) -> list[dict]:
             "description": description,
             "text_content": "\n".join(parts),
             "tags": ["Talisman"],
+            "location": loc_str,
             "weight": weight,
         })
 
@@ -1336,12 +1351,12 @@ def load_erdb(
         merchants = _parse_merchants(z, patch_version, npc_loc_map)
 
     if supplement_dlc_aow or supplement_dlc:
-        aow = aow + _supplement_aow(aow)
+        aow = aow + _supplement_aow(aow, location_map=lm)
     if supplement_dlc:
-        weapons   = weapons   + _supplement_weapons(weapons)
+        weapons   = weapons   + _supplement_weapons(weapons, location_map=lm)
         armor     = armor     + _supplement_armor(armor)
         spells    = spells    + _supplement_spells(spells)
-        talismans = talismans + _supplement_talismans(talismans)
+        talismans = talismans + _supplement_talismans(talismans, location_map=lm)
 
     counts = {
         "weapons": len(weapons), "armor": len(armor), "spells": len(spells),
