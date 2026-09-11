@@ -244,6 +244,119 @@ _JP_NAME_FORMAT_SECTIONS: frozenset[str] = frozenset({
     "WeaponName", "GemName", "GoodsName", "AccessoryName", "ProtectorName",
 })
 
+# NpcName FMG IDs for enemy entities — maps English names (as used in the Discord
+# bot CSVs) to NpcName message IDs from ihascats/Elden-Text-JP. Base-game only;
+# DLC/SOTE enemies are absent from that source and will have name_ja = null.
+# IDs verified against the NpcName section of the JP FMG file.
+_ENEMY_NPCNAME_IDS: dict[str, str] = {
+    # --- Great Enemies (base game) ---
+    "Margit, the Fell Omen":                        "902130000",
+    "Morgott The Grace-Given Veiled Monarch Omen King": "902130002",
+    "Godrick the Grafted":                          "904750000",
+    "Godefroy The Grafted":                         "904750520",
+    "Rennala Carian Queen of the Full Moon":        "120000",
+    "Starscourge Radahn":                           "904730000",
+    "Rykard, Lord of Blasphemy":                    "904710001",
+    "God-Devouring Serpent":                        "904710000",
+    "Mohg, Lord of Blood":                          "904800000",
+    "Mohg, the Omen":                               "904800002",
+    "Malenia, Blade of Miquella":                   "902120000",
+    "Lichdragon Fortissax":                         "904510000",
+    "Maliketh, The Black Blade":                    "902110001",
+    "Astel, Naturalborn of the Void":               "904620001",
+    "Astel, Stars of Darkness":                     "904620320",
+    "Regal Ancestor Spirit":                        "904670001",
+    "Ancestor Spirit":                              "904670000",
+    "Radagon of the Golden Order":                  "902190000",
+    "Godfrey, First Elden Lord":                    "904720000",
+    "Godfrey, First Elden Lord (Golden Shade)":     "904720001",
+    "Fire Giant":                                   "904760000",
+    "Dragonlord Placidusax":                        "904520000",
+    # --- Named bosses ---
+    "Flying Dragon Agheel":                         "904500600",
+    "Flying Dragon Greyll":                         "904500601",
+    "Decaying Ekzykes":                             "904501600",
+    "Glintstone Dragon Smarag":                     "904502600",
+    "Glintstone Dragon Adula":                      "904502601",
+    "Borealis, the Freezing Fog":                   "904503600",
+    "Ancient Dragon Lansseax":                      "904510600",
+    "MAGMA WYRM MAKAR":                             "904910000",
+    "Magma Wyrm":                                   "904910320",
+    "Great Wyrm Theodorix":                         "904911600",
+    "Dragonkin Soldier":                            "904650600",
+    "Dragonkin Soldier of Nokstella":               "904650000",
+    "Red Wolf of Radagon":                          "903181000",
+    "Red Wolf of the Champion":                     "903181300",
+    "Valiant Gargoyle":                             "904770000",
+    "Black Blade Kindred":                          "904770600",
+    "Godskin Apostle":                              "903560000",
+    "Godskin Noble":                                "903570000",
+    "Godskin Duo":                                  "903575000",
+    "Godskin Apostle and Godskin Noble":            "903575000",
+    "Fell Twins":                                   "904820310",
+    "Mimic Tear":                                   "903320300",
+    "Crucible Knight Ordovis":                      "902500300",
+    "Crucible Knights":                             "902500301",
+    "Crucible Knight Siluria":                      "902500600",
+    "Night's Cavalry":                              "903150600",
+    "Black Knife Assassin":                         "902100300",
+    "Alecto, Black Knife Ringleader":               "902100521",
+    "Roundtable Knight Vyke":                       "900000521",
+    "Commander O'Neil":                             "903050600",
+    "Commander Niall":                              "903050500",
+    "Elemer of the Briar":                          "903100500",
+    "Bell Bearing Hunter":                          "903100600",
+    "Loretta, Knight of the Haligtree":             "903252000",
+    "Royal Knight Loretta":                         "903253500",
+    "Tree Sentinel":                                "903251600",
+    "Draconic Tree Sentinel":                       "903250600",
+    "Bloodhound Knight":                            "904290310",
+    "Bloodhound Knight Darriwil":                   "904290520",
+    "Fallingstar Beast":                            "904680320",
+    "Full-Grown Fallingstar Beast":                 "904680603",
+    "Ulcerated Tree Spirit":                        "904640000",
+    "Putrid Tree Spirit":                           "904640300",
+    "Putrid Avatar":                                "904811600",
+    "Erdtree Avatar":                               "904810600",
+    "Tibia Mariner":                                "904950600",
+    "Death Rite Bird":                              "904980600",
+    "Deathbird":                                    "904980601",
+    "Spiritcaller Snail":                           "904140300",
+    "Runebear":                                     "904630310",
+    "Stonedigger Troll":                            "904600320",
+    "Bols, Carian Knight":                          "904600520",
+    "Grafted Scion":                                "904690000",
+    "Mad Pumpkin Head":                             "904340540",
+    "Erdtree Burial Watchdog":                      "904260300",
+    "Royal Revenant":                               "904020540",
+    "Beastman of Farum Azula":                      "903970310",
+    "Wormface":                                     "904580600",
+    "Abductor Virgins":                             "904470000",
+    "Miranda The Blighted Bloom":                   "904480310",
+    "Demi-Human Chiefs":                            "904120310",
+    "Demi-Human Queen Margot":                      "904130310",
+    "Demi-Human Queen Gilika":                      "904130540",
+    "Demi-Human Queen Maggie":                      "904130600",
+    "Onyx Lord":                                    "903600320",
+    "Ancient Hero of Zamor":                        "907100300",
+    "Grave Warden Duelist":                         "903400300",
+    "Putrid Grave Warden Duelist":                  "903400302",
+    "Cleanrot Knight":                              "903800310",
+    "Scaly Misbegotten":                            "903451320",
+    "Misbegotten Warrior":                          "903460300",
+    "Misbegotten Crusader":                         "903460310",
+    "Leonine Misbegotten":                          "903460500",
+    "Battlemage Hugues":                            "903704520",
+    "Guardian Golem":                               "904660310",
+    "Perfumer Tricia and Misbegotten Warrior":      "903700300",
+    # --- NPC-bosses (6-digit NpcName IDs) ---
+    "Adan, Thief of Fire":                          "135600",
+    "Esgar, Priest of Blood":                       "138600",
+    "Patches":                                      "130900",
+    "Necromancer Garris":                           "137600",
+    "Sanguine Noble":                               "134310",
+}
+
 
 def _parse_jp_name_section(sec_html: str) -> dict[str, dict[str, str]]:
     """Parse h3+p HTML → {id: {"name": str, "description": str}}."""
@@ -867,7 +980,17 @@ def _acquisition_fields(
     return result
 
 
-def load_discord_bot_enemies() -> list[dict]:
+def _enemy_name_ja(name: str, jp_fmgs: dict | None) -> str | None:
+    """Return the Japanese name for an enemy, or None if unavailable."""
+    if jp_fmgs is None:
+        return None
+    npc_name_id = _ENEMY_NPCNAME_IDS.get(name)
+    if npc_name_id is None:
+        return None
+    return jp_fmgs.get("NpcName", {}).get(npc_name_id) or None
+
+
+def load_discord_bot_enemies(jp_fmgs: dict | None = None) -> list[dict]:
     """Parse enemy data from the Discord bot bosses.csv and creatures.csv.
 
     bosses.csv  — major bosses with per-location rune/drop data
@@ -912,9 +1035,11 @@ def load_discord_bot_enemies() -> list[dict]:
             parts.append(lore)
         text_content = "\n".join(parts)
 
+        name_ja = _enemy_name_ja(name, jp_fmgs)
         docs.append({
             "entity_type": "enemy",
             "name": name,
+            "name_ja": name_ja,
             "patch_version": DLC_PATCH_VERSION,
             "source": "fextralife-discord-bot",
             "description": lore[:500] if lore else text_content[:500],
@@ -947,9 +1072,11 @@ def load_discord_bot_enemies() -> list[dict]:
             parts.append(lore)
         text_content = "\n".join(parts)
 
+        name_ja = _enemy_name_ja(name, jp_fmgs)
         docs.append({
             "entity_type": "enemy",
             "name": name,
+            "name_ja": name_ja,
             "patch_version": DLC_PATCH_VERSION,
             "source": "fextralife-discord-bot",
             "description": lore[:500] if lore else text_content[:500],
@@ -959,7 +1086,8 @@ def load_discord_bot_enemies() -> list[dict]:
         })
 
     creature_count = len(docs) - boss_count
-    print(f"  Parsed: {{'enemy': {len(docs)}}} ({boss_count} bosses, {creature_count} creatures)")
+    ja_count = sum(1 for d in docs if d.get("name_ja"))
+    print(f"  Parsed: {{'enemy': {len(docs)}}} ({boss_count} bosses, {creature_count} creatures, {ja_count} with name_ja)")
     return docs
 
 
@@ -1717,7 +1845,7 @@ def main() -> None:
 
     if args.enemies or args.enemies_only:
         print("Loading enemy data …")
-        docs += load_discord_bot_enemies()
+        docs += load_discord_bot_enemies(jp_fmgs=jp_fmgs)
 
     if args.npcs or args.npcs_only:
         print("Loading NPC profiles …")
