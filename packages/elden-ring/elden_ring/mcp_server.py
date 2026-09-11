@@ -76,7 +76,9 @@ def search_entities(
 
     Returns a list of entity documents, each with at minimum: entity_type, name,
     patch_version, source, description. Use get_entity() for the full document of
-    a specific named entity.
+    a specific named entity. Item documents may include cross-reference edge fields:
+      dropped_by — enemy/boss names that drop this item
+      sold_by    — merchant names that sell this item
     """
     return _os.search(_os.get_client(), query, entity_type, patch_version, min(limit, 100))
 

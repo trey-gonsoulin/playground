@@ -955,21 +955,33 @@ def _acquisition_fields(
     drop_map: dict[str, dict[str, list[str]]] | None,
     merchant_items: dict[str, list[str]] | None,
 ) -> dict:
-    """Return acquisition_types and acquisition_sources dict entries (omitted if empty)."""
+    """Return acquisition edge fields (omitted if empty).
+
+    Emits:
+      acquisition_types   — ["merchant", "boss_drop", "enemy_drop"] (whichever apply)
+      acquisition_sources — flat list of all source names (merged)
+      dropped_by          — enemies/bosses that drop this item (boss_drop + enemy_drop)
+      sold_by             — merchants that sell this item
+    """
     types: list[str] = []
     sources: list[str] = []
+    dropped_by: list[str] = []
+    sold_by: list[str] = []
 
     if merchant_items and name in merchant_items:
         types.append("merchant")
-        sources.extend(merchant_items[name])
+        sold_by = merchant_items[name]
+        sources.extend(sold_by)
 
     if drop_map and name in drop_map:
         entry = drop_map[name]
         if "boss_drop" in entry:
             types.append("boss_drop")
+            dropped_by.extend(entry["boss_drop"])
             sources.extend(entry["boss_drop"])
         if "enemy_drop" in entry:
             types.append("enemy_drop")
+            dropped_by.extend(entry["enemy_drop"])
             sources.extend(entry["enemy_drop"])
 
     result = {}
@@ -977,6 +989,10 @@ def _acquisition_fields(
         result["acquisition_types"] = types
     if sources:
         result["acquisition_sources"] = sources
+    if dropped_by:
+        result["dropped_by"] = dropped_by
+    if sold_by:
+        result["sold_by"] = sold_by
     return result
 
 
