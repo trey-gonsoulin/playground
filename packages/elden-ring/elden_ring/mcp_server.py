@@ -165,6 +165,44 @@ def search_entities_literal(
 
 
 @mcp.tool()
+def text_changed_between(
+    entity_type: str,
+    field: str,
+    v1: str,
+    v2: str,
+) -> list[dict]:
+    """Find all entities of a type where a specific field changed between two patch versions.
+
+    Runs two bulk queries (one per version) and compares at the application layer.
+    Suited for corpus-wide analysis — e.g. "which talismans had their description
+    rewritten between 1.02.1 and 1.10.0?". Two calls (one for description, one for
+    description_ja) reveal whether changes are lore rewrites or localisation-only.
+
+    Only entities present in both versions are included. To check whether an entity
+    was added or removed between patches, use diff_entities().
+
+    Call list_patch_versions() first to see what's loaded.
+    Call list_entity_types() to see valid entity_type values.
+
+    If this tool returns a connection error, call start_search_service() first.
+
+    Args:
+        entity_type: Entity category to scan (weapon, armor, spell, item, enemy, etc.).
+        field: Field to compare, e.g. "description", "description_ja", "text_content",
+            "location", "effect". Any indexed field works; missing values compare as null.
+        v1: Older patch version, e.g. "1.02.1".
+        v2: Newer patch version, e.g. "1.10.0".
+
+    Returns a list of dicts, one per changed entity, each with:
+        name: entity name
+        text_before: field value at v1 (null if absent)
+        text_after: field value at v2 (null if absent)
+    Sorted alphabetically by name.
+    """
+    return _os.text_changed_between(_os.get_client(), entity_type, field, v1, v2)
+
+
+@mcp.tool()
 def diff_entities(
     name: str,
     v1: str,

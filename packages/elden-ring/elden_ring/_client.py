@@ -398,6 +398,53 @@ def search_literal(
     return {"total": total, "results": [hit["_source"] for hit in resp["hits"]["hits"]]}
 
 
+def text_changed_between(
+    client: OpenSearch,
+    entity_type: str,
+    field: str,
+    v1: str,
+    v2: str,
+) -> list[dict]:
+    """Return all entities of entity_type where field differs between v1 and v2.
+
+    Fetches each version in a single bulk query; comparison happens in Python.
+    Only entities present in both versions are included (added/removed entities
+    are excluded — use diff_entities for per-entity existence checks).
+    """
+    def _fetch_all(version: str) -> dict[str, object]:
+        resp = client.search(
+            index=INDEX,
+            body={
+                "size": 2000,
+                "_source": ["name", field],
+                "query": {
+                    "bool": {
+                        "filter": [
+                            {"term": {"entity_type": entity_type}},
+                            {"term": {"patch_version": version}},
+                        ]
+                    }
+                },
+            },
+        )
+        return {
+            hit["_source"]["name"]: hit["_source"].get(field)
+            for hit in resp["hits"]["hits"]
+        }
+
+    docs_v1 = _fetch_all(v1)
+    docs_v2 = _fetch_all(v2)
+
+    results = []
+    for name in sorted(set(docs_v1) & set(docs_v2)):
+        val1 = docs_v1[name]
+        val2 = docs_v2[name]
+        if val1 != val2:
+            results.append({"name": name, "text_before": val1, "text_after": val2})
+
+    return results
+
+
 def list_entity_types(client: OpenSearch) -> list[str]:
     resp = client.search(
         index=INDEX,
