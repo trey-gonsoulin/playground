@@ -1710,7 +1710,10 @@ def load_erdb(
 # Index / bulk load
 # ---------------------------------------------------------------------------
 
-def ensure_index(client: OpenSearch) -> None:
+def ensure_index(client: OpenSearch, recreate: bool = False) -> None:
+    if recreate and client.indices.exists(index=INDEX):
+        print(f"  Deleting index '{INDEX}' for recreation …")
+        client.indices.delete(index=INDEX)
     if not client.indices.exists(index=INDEX):
         print(f"  Creating index '{INDEX}' …")
         client.indices.create(index=INDEX, body=INDEX_MAPPING)
@@ -1808,6 +1811,15 @@ def main() -> None:
         help="Enrich item documents with location data from locations.csv (requires a full erdb reload).",
     )
     parser.add_argument(
+        "--recreate-index",
+        action="store_true",
+        help=(
+            "Delete and recreate the OpenSearch index before loading. "
+            "Required when the index settings (e.g. custom analyzers) have changed, "
+            "since OpenSearch does not allow updating settings on an existing index."
+        ),
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Parse and normalize but don't write to OpenSearch.",
@@ -1874,7 +1886,7 @@ def main() -> None:
         return
 
     client = _get_client()
-    ensure_index(client)
+    ensure_index(client, recreate=args.recreate_index)
     load_documents(client, docs, dry_run=False)
 
 

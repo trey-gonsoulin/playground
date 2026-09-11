@@ -125,7 +125,29 @@ def start_instance(timeout_seconds: int = 240) -> str:
 INDEX = "elden-ring-entities"
 
 INDEX_MAPPING = {
-    "settings": {"number_of_shards": 1, "number_of_replicas": 0},
+    "settings": {
+        "number_of_shards": 1,
+        "number_of_replicas": 0,
+        "analysis": {
+            "analyzer": {
+                # Kuromoji morphological analyzer for Japanese relevance search.
+                # Standard analyzer (the default) remains on the primary ja fields so
+                # search_literal() phrase queries still do exact CJK-unigram substring
+                # matching. This analyzer powers the .ja sub-fields used only by search().
+                "kuromoji_analyzer": {
+                    "type": "custom",
+                    "tokenizer": "kuromoji_tokenizer",
+                    "filter": [
+                        "kuromoji_baseform",
+                        "kuromoji_part_of_speech",
+                        "ja_stop",
+                        "lowercase",
+                        "kuromoji_stemmer",
+                    ],
+                }
+            }
+        },
+    },
     "mappings": {
         "properties": {
             "entity_type":      {"type": "keyword"},
@@ -157,9 +179,9 @@ INDEX_MAPPING = {
             "sort_id":          {"type": "integer"},
             "menu_category":    {"type": "keyword"},
             "npc_id":             {"type": "keyword"},
-            "name_ja":            {"type": "text"},
-            "description_ja":     {"type": "text"},
-            "text_content_ja":    {"type": "text"},
+            "name_ja":            {"type": "text", "fields": {"ja": {"type": "text", "analyzer": "kuromoji_analyzer"}}},
+            "description_ja":     {"type": "text", "fields": {"ja": {"type": "text", "analyzer": "kuromoji_analyzer"}}},
+            "text_content_ja":    {"type": "text", "fields": {"ja": {"type": "text", "analyzer": "kuromoji_analyzer"}}},
             "acquisition_types":  {"type": "keyword"},
             "acquisition_sources": {"type": "keyword"},
             "dropped_by":          {"type": "keyword"},
@@ -204,7 +226,12 @@ def search(
                     {
                         "multi_match": {
                             "query": query,
-                            "fields": ["name^3", "name_ja^3", "description", "description_ja", "text_content", "text_content_ja", "location^1.5", "tags^2"],
+                            "fields": [
+                                "name^3", "name_ja^3", "name_ja.ja^3",
+                                "description", "description_ja", "description_ja.ja",
+                                "text_content", "text_content_ja", "text_content_ja.ja",
+                                "location^1.5", "tags^2",
+                            ],
                             "type": "most_fields",
                             "fuzziness": "AUTO",
                         }
