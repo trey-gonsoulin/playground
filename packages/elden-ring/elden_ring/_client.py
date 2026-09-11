@@ -162,6 +162,8 @@ INDEX_MAPPING = {
             "text_content_ja":    {"type": "text"},
             "acquisition_types":  {"type": "keyword"},
             "acquisition_sources": {"type": "keyword"},
+            "dropped_by":          {"type": "keyword"},
+            "sold_by":             {"type": "keyword"},
             "base_item":           {"type": "keyword"},
             "is_legendary":        {"type": "boolean"},
             "achievement_set":     {"type": "keyword"},
