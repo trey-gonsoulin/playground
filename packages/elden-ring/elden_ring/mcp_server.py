@@ -1,8 +1,11 @@
 """MCP server exposing Elden Ring build and lore search tools."""
 
 from mcp.server.fastmcp import FastMCP
+from mcp.types import ToolAnnotations
 
 import elden_ring._client as _os
+
+_READ_ONLY = ToolAnnotations(readOnlyHint=True)
 
 mcp = FastMCP(
     "elden-ring",
@@ -32,7 +35,7 @@ def start_search_service() -> dict:
         return {"status": "timeout", "message": str(e)}
 
 
-@mcp.tool()
+@mcp.tool(annotations=_READ_ONLY)
 def search_entities(
     query: str,
     entity_type: str | None = None,
@@ -83,7 +86,7 @@ def search_entities(
     return _os.search(_os.get_client(), query, entity_type, patch_version, min(limit, 100))
 
 
-@mcp.tool()
+@mcp.tool(annotations=_READ_ONLY)
 def get_entity(name: str, entity_type: str | None = None) -> dict | None:
     """Retrieve the full data document for a named Elden Ring entity.
 
@@ -99,7 +102,7 @@ def get_entity(name: str, entity_type: str | None = None) -> dict | None:
     return _os.get_entity(_os.get_client(), name, entity_type)
 
 
-@mcp.tool()
+@mcp.tool(annotations=_READ_ONLY)
 def list_entity_types() -> list[str]:
     """List the entity types currently loaded in the index.
 
@@ -111,7 +114,7 @@ def list_entity_types() -> list[str]:
     return _os.list_entity_types(_os.get_client())
 
 
-@mcp.tool()
+@mcp.tool(annotations=_READ_ONLY)
 def list_patch_versions() -> list[str]:
     """List the patch versions currently loaded in the index, sorted oldest-first.
 
@@ -123,7 +126,7 @@ def list_patch_versions() -> list[str]:
     return _os.list_patch_versions(_os.get_client())
 
 
-@mcp.tool()
+@mcp.tool(annotations=_READ_ONLY)
 def search_entities_literal(
     pattern: str,
     fields: list[str] | None = None,
@@ -164,7 +167,7 @@ def search_entities_literal(
     return _os.search_literal(_os.get_client(), pattern, fields, entity_type, patch_version, min(limit, 500))
 
 
-@mcp.tool()
+@mcp.tool(annotations=_READ_ONLY)
 def text_changed_between(
     entity_type: str,
     field: str,
@@ -202,7 +205,7 @@ def text_changed_between(
     return _os.text_changed_between(_os.get_client(), entity_type, field, v1, v2)
 
 
-@mcp.tool()
+@mcp.tool(annotations=_READ_ONLY)
 def diff_entities(
     name: str,
     v1: str,

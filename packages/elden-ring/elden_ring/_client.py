@@ -259,7 +259,11 @@ def get_entity(client: OpenSearch, name: str, entity_type: str | None = None) ->
 
     resp = client.search(
         index=INDEX,
-        body={"size": 1, "query": {"bool": {"filter": filters}}},
+        body={
+            "size": 1,
+            "query": {"bool": {"filter": filters}},
+            "sort": [{"patch_version": "desc"}],
+        },
     )
     hits = resp["hits"]["hits"]
     return hits[0]["_source"] if hits else None
