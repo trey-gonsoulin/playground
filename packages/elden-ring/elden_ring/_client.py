@@ -411,7 +411,7 @@ def text_changed_between(
 ) -> list[dict]:
     """Return all entities of entity_type where field differs between v1 and v2.
 
-    Fetches each version in a single bulk query; comparison happens in Python.
+    Fetches all entities for each version (up to 10 000 per call); comparison happens in Python.
     Only entities present in both versions are included (added/removed entities
     are excluded — use diff_entities for per-entity existence checks).
     """
@@ -419,7 +419,7 @@ def text_changed_between(
         resp = client.search(
             index=INDEX,
             body={
-                "size": 2000,
+                "size": 10000,
                 "_source": ["name", field],
                 "query": {
                     "bool": {
