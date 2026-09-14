@@ -112,3 +112,202 @@ def test_index_and_retrieve(client):
         # Always clean up the test document
         client.delete(index=_os.INDEX, id=doc_id, ignore=[404])
         client.indices.refresh(index=_os.INDEX)
+
+
+def test_search_count_only(client):
+    """count_only=True returns {"total": N} instead of a document list."""
+    doc = {
+        "entity_type": "weapon",
+        "name": "__test_count_sword__",
+        "patch_version": "test",
+        "source": "test",
+        "description": "count_only integration test weapon.",
+        "text_content": "count only test placeholder",
+    }
+    doc_id = "weapon::__test_count_sword__::test"
+    try:
+        client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
+
+        result = _os.search(client, "count only test placeholder", entity_type="weapon", count_only=True)
+        assert isinstance(result, dict), f"Expected dict, got {type(result)}"
+        assert "total" in result
+        assert result["total"] >= 1
+
+    finally:
+        client.delete(index=_os.INDEX, id=doc_id, ignore=[404])
+        client.indices.refresh(index=_os.INDEX)
+
+
+def test_search_include_fields(client):
+    """include_fields restricts returned document fields."""
+    doc = {
+        "entity_type": "weapon",
+        "name": "__test_fields_sword__",
+        "patch_version": "test",
+        "source": "test",
+        "description": "include_fields integration test weapon.",
+        "text_content": "fields test placeholder",
+        "req_str": 15,
+    }
+    doc_id = "weapon::__test_fields_sword__::test"
+    try:
+        client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
+
+        results = _os.search(
+            client, "fields test placeholder",
+            entity_type="weapon",
+            include_fields=["name"],
+        )
+        assert results, "Expected at least one result"
+        for hit in results:
+            # score is added by the client layer, not from _source
+            keys = {k for k in hit if k != "score"}
+            assert keys == {"name"}, f"Unexpected keys in projected doc: {keys}"
+
+    finally:
+        client.delete(index=_os.INDEX, id=doc_id, ignore=[404])
+        client.indices.refresh(index=_os.INDEX)
+
+
+def test_search_literal_count_only(client):
+    """search_literal count_only=True returns {"total": N} with no results key."""
+    doc = {
+        "entity_type": "weapon",
+        "name": "__test_lit_count__",
+        "patch_version": "test",
+        "source": "test",
+        "description": "literal count only test unique xyz987.",
+        "text_content": "",
+    }
+    doc_id = "weapon::__test_lit_count__::test"
+    try:
+        client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
+
+        result = _os.search_literal(client, "literal count only test unique xyz987", count_only=True)
+        assert isinstance(result, dict)
+        assert "total" in result
+        assert "results" not in result
+        assert result["total"] >= 1
+
+    finally:
+        client.delete(index=_os.INDEX, id=doc_id, ignore=[404])
+        client.indices.refresh(index=_os.INDEX)
+
+
+def test_search_literal_match_all(client):
+    """search_literal with no pattern enumerates entities via match_all."""
+    doc = {
+        "entity_type": "weapon",
+        "name": "__test_match_all__",
+        "patch_version": "test",
+        "source": "test",
+        "description": "match_all test weapon.",
+        "text_content": "",
+    }
+    doc_id = "weapon::__test_match_all__::test"
+    try:
+        client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
+
+        result = _os.search_literal(client, entity_type="weapon", patch_version="test")
+        assert "total" in result
+        assert "results" in result
+        names = [r["name"] for r in result["results"]]
+        assert "__test_match_all__" in names
+
+    finally:
+        client.delete(index=_os.INDEX, id=doc_id, ignore=[404])
+        client.indices.refresh(index=_os.INDEX)
+
+
+def test_search_literal_sort_id_mod(client):
+    """sort_id_mod filter keeps only entities where sort_id % mod == remainder."""
+    docs = [
+        {
+            "entity_type": "weapon",
+            "name": "__test_sortid_match__",
+            "patch_version": "test",
+            "source": "test",
+            "description": "",
+            "text_content": "",
+            "sort_id": 2000,  # 2000 % 1000 == 0 → should match
+        },
+        {
+            "entity_type": "weapon",
+            "name": "__test_sortid_nomatch__",
+            "patch_version": "test",
+            "source": "test",
+            "description": "",
+            "text_content": "",
+            "sort_id": 2500,  # 2500 % 1000 == 500 → should not match
+        },
+    ]
+    ids = [
+        "weapon::__test_sortid_match__::test",
+        "weapon::__test_sortid_nomatch__::test",
+    ]
+    try:
+        for doc, doc_id in zip(docs, ids):
+            client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
+
+        result = _os.search_literal(
+            client,
+            entity_type="weapon",
+            patch_version="test",
+            sort_id_mod=1000,
+            sort_id_remainder=0,
+        )
+        names = [r["name"] for r in result["results"]]
+        assert "__test_sortid_match__" in names, f"Expected match, got: {names}"
+        assert "__test_sortid_nomatch__" not in names, f"Expected no-match excluded, got: {names}"
+
+    finally:
+        for doc_id in ids:
+            client.delete(index=_os.INDEX, id=doc_id, ignore=[404])
+        client.indices.refresh(index=_os.INDEX)
+
+
+def test_search_literal_sort_id_range(client):
+    """sort_id_gte / sort_id_lte filter entities by sort_id range."""
+    docs = [
+        {
+            "entity_type": "weapon",
+            "name": "__test_sortid_low__",
+            "patch_version": "test",
+            "source": "test",
+            "description": "",
+            "text_content": "",
+            "sort_id": 100,
+        },
+        {
+            "entity_type": "weapon",
+            "name": "__test_sortid_high__",
+            "patch_version": "test",
+            "source": "test",
+            "description": "",
+            "text_content": "",
+            "sort_id": 900,
+        },
+    ]
+    ids = [
+        "weapon::__test_sortid_low__::test",
+        "weapon::__test_sortid_high__::test",
+    ]
+    try:
+        for doc, doc_id in zip(docs, ids):
+            client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
+
+        result = _os.search_literal(
+            client,
+            entity_type="weapon",
+            patch_version="test",
+            sort_id_gte=200,
+            sort_id_lte=1000,
+        )
+        names = [r["name"] for r in result["results"]]
+        assert "__test_sortid_high__" in names, f"Expected high in range, got: {names}"
+        assert "__test_sortid_low__" not in names, f"Expected low excluded, got: {names}"
+
+    finally:
+        for doc_id in ids:
+            client.delete(index=_os.INDEX, id=doc_id, ignore=[404])
+        client.indices.refresh(index=_os.INDEX)

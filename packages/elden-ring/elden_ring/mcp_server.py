@@ -41,7 +41,9 @@ def search_entities(
     entity_type: str | None = None,
     patch_version: str | None = None,
     limit: int = 20,
-) -> list[dict]:
+    include_fields: list[str] | None = None,
+    count_only: bool = False,
+) -> list[dict] | dict:
     """Search Elden Ring entities by name, description, location, or tags.
 
     Results are ranked by relevance; name matches score 3× higher than body text.
@@ -76,14 +78,28 @@ def search_entities(
             Omit to return one result per entity (latest indexed version); pass
             a specific version to scope results to that snapshot only.
         limit: Maximum results to return (default 20, max 100).
+        include_fields: If provided, only these fields are returned per document (e.g.
+            ["name", "sort_id"]). Reduces payload size for large result sets.
+        count_only: If True, return {"total": N} instead of the full document list.
+            N is the distinct-entity count when no patch_version is given, or the
+            raw match count when a specific version is specified. Useful for counting
+            query matches without fetching documents. For a type-level census
+            (counting all entities of a given type without a search query), use
+            search_entities_literal with count_only=True instead.
 
-    Returns a list of entity documents, each with at minimum: entity_type, name,
-    patch_version, source, description. Use get_entity() for the full document of
-    a specific named entity. Item documents may include cross-reference edge fields:
+    Returns a list of entity documents when count_only is False, each with at minimum:
+    entity_type, name, patch_version, source, description. Use get_entity() for the
+    full document of a specific named entity. Item documents may include cross-reference
+    edge fields:
       dropped_by — enemy/boss names that drop this item
       sold_by    — merchant names that sell this item
+
+    Returns {"total": N} when count_only is True.
     """
-    return _os.search(_os.get_client(), query, entity_type, patch_version, min(limit, 100))
+    return _os.search(
+        _os.get_client(), query, entity_type, patch_version, min(limit, 100),
+        include_fields, count_only,
+    )
 
 
 @mcp.tool(annotations=_READ_ONLY)
@@ -128,17 +144,27 @@ def list_patch_versions() -> list[str]:
 
 @mcp.tool(annotations=_READ_ONLY)
 def search_entities_literal(
-    pattern: str,
+    pattern: str | None = None,
     fields: list[str] | None = None,
     entity_type: str | None = None,
     patch_version: str | None = None,
     limit: int = 200,
+    include_fields: list[str] | None = None,
+    count_only: bool = False,
+    sort_id_gte: int | None = None,
+    sort_id_lte: int | None = None,
+    sort_id_mod: int | None = None,
+    sort_id_remainder: int = 0,
 ) -> dict:
     """Search for entities containing an exact literal substring across text fields.
 
     Uses phrase matching rather than fuzzy relevance ranking, so the pattern must
     appear verbatim in the text. Suited for corpus-wide morpheme and construction
     tracking where exact counts matter more than relevance ordering.
+
+    Omit pattern (or pass None) to enumerate all entities matching other filters
+    without a text constraint — useful for structural queries like "all named weapons"
+    via sort_id_mod, or census queries via count_only.
 
     For Japanese text the standard analyzer produces character-level (unigram) tokens,
     so phrase matching correctly handles CJK and hiragana substrings like "象った".
@@ -151,6 +177,7 @@ def search_entities_literal(
 
     Args:
         pattern: Literal substring to find, e.g. "象った", "という", "Eternal Dragon".
+            Omit to enumerate all entities matching other filters (match_all mode).
         fields: Which fields to search. Defaults to all six text fields:
             name, description, text_content, name_ja, description_ja, text_content_ja.
         entity_type: Narrow to one entity category (weapon, armor, spell, enemy, etc.).
@@ -158,13 +185,28 @@ def search_entities_literal(
             search across all patches and return one result per entity (latest version).
             Use list_patch_versions() to see available versions.
         limit: Maximum results to return (default 200, max 500).
+        include_fields: If provided, only these fields are returned per document (e.g.
+            ["name", "sort_id"]). Reduces payload when full documents aren't needed.
+        count_only: If True, return {"total": N} without a results list. Useful for
+            census queries (e.g. count all weapons of a given type) without fetching
+            any documents. N is distinct-entity count without patch_version, raw hit
+            count with patch_version.
+        sort_id_gte: Filter to entities with sort_id >= this value.
+        sort_id_lte: Filter to entities with sort_id <= this value.
+        sort_id_mod: If set, keep only entities where sort_id % sort_id_mod == sort_id_remainder.
+            Example: sort_id_mod=1000, sort_id_remainder=0 matches every base named weapon
+            (sort_id is a multiple of 1000 for named armaments, +N for upgrade variants).
+        sort_id_remainder: Remainder for the modulo filter (default 0).
 
     Returns a dict with:
         total: int — distinct entity count when no patch_version is given (deduplicated);
             raw document count when a specific patch_version is specified.
-        results: list of entity documents
+        results: list of entity documents (omitted when count_only is True).
     """
-    return _os.search_literal(_os.get_client(), pattern, fields, entity_type, patch_version, min(limit, 500))
+    return _os.search_literal(
+        _os.get_client(), pattern, fields, entity_type, patch_version, min(limit, 500),
+        include_fields, count_only, sort_id_gte, sort_id_lte, sort_id_mod, sort_id_remainder,
+    )
 
 
 @mcp.tool(annotations=_READ_ONLY)
