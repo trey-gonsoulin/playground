@@ -1247,6 +1247,7 @@ def _supplement_weapons(erdb_docs: list[dict], location_map: dict[str, list[str]
             "description": description,
             "text_content": "\n".join(parts),
             "tags": [category] if category else [],
+            "menu_category": category or None,
             "location": loc_str,
             "weight": weight,
             "req_str": req_str,
@@ -1347,6 +1348,7 @@ def _supplement_spells(erdb_docs: list[dict], drop_map: dict[str, dict[str, list
                 "description": description,
                 "text_content": "\n".join(parts),
                 "tags": [spell_type],
+                "menu_category": spell_type,
                 "location": location,
                 "fp_cost": _int(row.get("FP")),
                 "slots":   _int(row.get("slot")),
@@ -1860,10 +1862,10 @@ def main() -> None:
                 location_map=location_map,
                 jp_fmgs=jp_fmgs,
                 npc_loc_map=npc_loc_map,
-                # DLC supplements have no patch history; only add them once on the
-                # default (latest) erdb load, not when loading all historical patches.
-                supplement_dlc=not args.all_patches,
-                supplement_dlc_aow=not args.all_patches,
+                # DLC supplements have no patch history; only add them on the latest
+                # erdb version, regardless of whether --all-patches is set.
+                supplement_dlc=(version == ERDB_DEFAULT_VERSION),
+                supplement_dlc_aow=(version == ERDB_DEFAULT_VERSION),
                 drop_map=drop_map,
             )
 
