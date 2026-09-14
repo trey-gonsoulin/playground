@@ -460,6 +460,11 @@ def _parse_weapons(z: zipfile.ZipFile, patch_version: str, location_map: dict[st
     rows = _csv_rows(z, "EquipParamWeapon.csv")
 
     docs = []
+    # Maps English description → first description_ja seen for that description.
+    # Used in the second pass to propagate description_ja to affinity variants,
+    # which share English descriptions with their base form but have no FMG entry.
+    desc_to_desc_ja: dict[str, str] = {}
+
     for row in rows:
         if not _is_valid_row(row):
             continue
@@ -492,6 +497,9 @@ def _parse_weapons(z: zipfile.ZipFile, patch_version: str, location_map: dict[st
         rarity = int(float(row.get("rarity", 0) or 0))
         trophy_grade = int(float(row.get("trophySGradeId", -1) or -1))
         is_legendary = rarity == 3 and trophy_grade >= 0
+
+        if description_ja and description:
+            desc_to_desc_ja.setdefault(description, description_ja)
 
         docs.append({
             "entity_type": "weapon",
@@ -530,6 +538,14 @@ def _parse_weapons(z: zipfile.ZipFile, patch_version: str, location_map: dict[st
             "name_ja":          name_ja,
             "description_ja":   description_ja,
         })
+
+    # Second pass: fill description_ja on affinity variants that share an
+    # English description with their base form but have no FMG entry of their own.
+    for doc in docs:
+        if doc.get("description_ja") is None and doc.get("description"):
+            inherited = desc_to_desc_ja.get(doc["description"])
+            if inherited:
+                doc["description_ja"] = inherited
 
     return docs
 
@@ -1262,6 +1278,14 @@ def _supplement_weapons(erdb_docs: list[dict], location_map: dict[str, list[str]
     return docs
 
 
+_ARMOR_TYPE_TO_CATEGORY: dict[str, str] = {
+    "helm":       "Head",
+    "chest armor": "Body",
+    "gauntlets":  "Arms",
+    "leg armor":  "Legs",
+}
+
+
 def _supplement_armor(erdb_docs: list[dict], drop_map: dict[str, dict[str, list[str]]] | None = None, merchant_items: dict[str, list[str]] | None = None) -> list[dict]:
     """Return Discord bot armor docs for DLC entries missing from erdb."""
     known_names = {d["name"] for d in erdb_docs}
@@ -1278,6 +1302,7 @@ def _supplement_armor(erdb_docs: list[dict], drop_map: dict[str, dict[str, list[
 
         description = row.get("description", "").strip()
         armor_type = row.get("type", "").strip()
+        menu_category = _ARMOR_TYPE_TO_CATEGORY.get(armor_type.lower())
         weight = _float(row.get("weight"))
         location = row.get("how to acquire", "").strip() or None
 
@@ -1300,8 +1325,9 @@ def _supplement_armor(erdb_docs: list[dict], drop_map: dict[str, dict[str, list[
             "source": "fextralife-discord-bot",
             "description": description,
             "text_content": "\n".join(parts),
-            "tags": [armor_type] if armor_type else [],
+            "tags": [menu_category] if menu_category else ([armor_type] if armor_type else []),
             "location": location,
+            "menu_category": menu_category,
             "weight": weight,
             "defense_physical":  def_physical,
             "defense_magic":     def_magic,

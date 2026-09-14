@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import time
+import unicodedata
 
 import boto3
 import requests
@@ -145,13 +146,21 @@ INDEX_MAPPING = {
                         "kuromoji_stemmer",
                     ],
                 }
-            }
+            },
+            "normalizer": {
+                # ASCII-folding normalizer for diacritic-insensitive name lookup.
+                # Powers name.folded subfield used by get_entity() fallback.
+                "ascii_normalizer": {
+                    "type": "custom",
+                    "filter": ["asciifolding", "lowercase"],
+                }
+            },
         },
     },
     "mappings": {
         "properties": {
             "entity_type":      {"type": "keyword"},
-            "name":             {"type": "text", "fields": {"keyword": {"type": "keyword"}}},
+            "name":             {"type": "text", "fields": {"keyword": {"type": "keyword"}, "folded": {"type": "keyword", "normalizer": "ascii_normalizer"}}},
             "patch_version":    {"type": "keyword"},
             "source":           {"type": "keyword"},
             "description":      {"type": "text"},
@@ -252,20 +261,36 @@ def search(
     return [{"score": hit["_score"], **hit["_source"]} for hit in resp["hits"]["hits"]]
 
 
+def _ascii_fold(s: str) -> str:
+    nfkd = unicodedata.normalize("NFKD", s)
+    return "".join(c for c in nfkd if not unicodedata.combining(c)).lower()
+
+
 def get_entity(client: OpenSearch, name: str, entity_type: str | None = None) -> dict | None:
+    def _search(filters: list[dict]) -> list[dict]:
+        resp = client.search(
+            index=INDEX,
+            body={
+                "size": 1,
+                "query": {"bool": {"filter": filters}},
+                "sort": [{"patch_version": "desc"}],
+            },
+        )
+        return resp["hits"]["hits"]
+
     filters: list[dict] = [{"term": {"name.keyword": name}}]
     if entity_type:
         filters.append({"term": {"entity_type": entity_type}})
+    hits = _search(filters)
+    if hits:
+        return hits[0]["_source"]
 
-    resp = client.search(
-        index=INDEX,
-        body={
-            "size": 1,
-            "query": {"bool": {"filter": filters}},
-            "sort": [{"patch_version": "desc"}],
-        },
-    )
-    hits = resp["hits"]["hits"]
+    # Fallback: ASCII-fold + lowercase for diacritic-insensitive lookup
+    # (e.g. "Misericorde" finds "Miséricorde")
+    folded_filters: list[dict] = [{"term": {"name.folded": _ascii_fold(name)}}]
+    if entity_type:
+        folded_filters.append({"term": {"entity_type": entity_type}})
+    hits = _search(folded_filters)
     return hits[0]["_source"] if hits else None
 
 
