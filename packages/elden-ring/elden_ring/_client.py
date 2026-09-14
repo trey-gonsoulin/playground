@@ -220,7 +220,9 @@ def search(
     entity_type: str | None = None,
     patch_version: str | None = None,
     limit: int = 20,
-) -> list[dict]:
+    include_fields: list[str] | None = None,
+    count_only: bool = False,
+) -> list[dict] | dict:
     filters = []
     if entity_type:
         filters.append({"term": {"entity_type": entity_type}})
@@ -228,7 +230,7 @@ def search(
         filters.append({"term": {"patch_version": patch_version}})
 
     body: dict = {
-        "size": limit,
+        "size": 0 if count_only else limit,
         "query": {
             "bool": {
                 "must": [
@@ -251,13 +253,33 @@ def search(
         },
     }
 
-    # Without a specific patch filter, collapse by entity name to deduplicate across
-    # the 16+ indexed patch versions. Relevance ordering is preserved; the representative
-    # doc per entity is the highest-scoring version (identical content → deterministic).
-    if not patch_version:
-        body["collapse"] = {"field": "name.keyword"}
+    if include_fields is not None:
+        body["_source"] = include_fields
+
+    if count_only:
+        body["track_total_hits"] = True
+        if not patch_version:
+            # Cardinality agg gives distinct entity count; raw hits would be inflated
+            # by multi-version docs.
+            body["aggs"] = {
+                "distinct_entities": {
+                    "cardinality": {"field": "name.keyword", "precision_threshold": 40000}
+                }
+            }
+    else:
+        # Without a specific patch filter, collapse by entity name to deduplicate across
+        # the 16+ indexed patch versions. Relevance ordering is preserved; the representative
+        # doc per entity is the highest-scoring version (identical content → deterministic).
+        if not patch_version:
+            body["collapse"] = {"field": "name.keyword"}
 
     resp = client.search(index=INDEX, body=body)
+
+    if count_only:
+        if not patch_version:
+            return {"total": resp["aggregations"]["distinct_entities"]["value"]}
+        return {"total": resp["hits"]["total"]["value"]}
+
     return [{"score": hit["_score"], **hit["_source"]} for hit in resp["hits"]["hits"]]
 
 
@@ -367,55 +389,87 @@ _LITERAL_FIELDS = [
 
 def search_literal(
     client: OpenSearch,
-    pattern: str,
+    pattern: str | None = None,
     fields: list[str] | None = None,
     entity_type: str | None = None,
     patch_version: str | None = None,
     limit: int = 200,
+    include_fields: list[str] | None = None,
+    count_only: bool = False,
+    sort_id_gte: int | None = None,
+    sort_id_lte: int | None = None,
+    sort_id_mod: int | None = None,
+    sort_id_remainder: int = 0,
 ) -> dict:
-    """Exact-phrase search across text fields.
+    """Exact-phrase search across text fields, with optional structural filters.
 
     When patch_version is None (default): collapses by entity name and returns the
     latest version per entity; total reflects distinct entities, not raw index hits.
     When patch_version is specified: filters to that snapshot; total is the raw hit count.
     """
     search_fields = fields or _LITERAL_FIELDS
-    filters = []
+    filters: list[dict] = []
     if entity_type:
         filters.append({"term": {"entity_type": entity_type}})
     if patch_version:
         filters.append({"term": {"patch_version": patch_version}})
+    if sort_id_gte is not None or sort_id_lte is not None:
+        sort_id_range: dict = {}
+        if sort_id_gte is not None:
+            sort_id_range["gte"] = sort_id_gte
+        if sort_id_lte is not None:
+            sort_id_range["lte"] = sort_id_lte
+        filters.append({"range": {"sort_id": sort_id_range}})
+    if sort_id_mod is not None:
+        filters.append({
+            "script": {
+                "script": {
+                    "source": "doc['sort_id'].size() > 0 && doc['sort_id'].value % params.mod == params.remainder",
+                    "params": {"mod": sort_id_mod, "remainder": sort_id_remainder},
+                }
+            }
+        })
+
+    # If pattern provided, use phrase multi_match; otherwise enumerate via match_all.
+    must_clause: list[dict]
+    if pattern:
+        must_clause = [
+            {
+                "multi_match": {
+                    "query": pattern,
+                    "fields": search_fields,
+                    "type": "phrase",
+                }
+            }
+        ]
+    else:
+        must_clause = [{"match_all": {}}]
 
     body: dict = {
-        "size": limit,
+        "size": 0 if count_only else limit,
         "track_total_hits": True,
         "query": {
             "bool": {
-                "must": [
-                    {
-                        "multi_match": {
-                            "query": pattern,
-                            "fields": search_fields,
-                            "type": "phrase",
-                        }
-                    }
-                ],
+                "must": must_clause,
                 "filter": filters,
             }
         },
     }
 
+    if include_fields is not None:
+        body["_source"] = include_fields
+
     if not patch_version:
-        # Collapse by entity name, sorting by patch_version desc so the representative
-        # doc is the latest version of each entity. Cardinality agg gives the exact
-        # distinct-entity count (accurate for corpora well under precision_threshold).
-        body["sort"] = [{"patch_version": "desc"}, "_score"]
-        body["collapse"] = {"field": "name.keyword"}
+        # Cardinality agg gives exact distinct-entity count; collapse + sort ensure the
+        # representative doc per entity is the latest version.
         body["aggs"] = {
             "distinct_entities": {
                 "cardinality": {"field": "name.keyword", "precision_threshold": 40000}
             }
         }
+        if not count_only:
+            body["sort"] = [{"patch_version": "desc"}, "_score"]
+            body["collapse"] = {"field": "name.keyword"}
 
     resp = client.search(index=INDEX, body=body)
 
@@ -424,6 +478,8 @@ def search_literal(
     else:
         total = resp["hits"]["total"]["value"]
 
+    if count_only:
+        return {"total": total}
     return {"total": total, "results": [hit["_source"] for hit in resp["hits"]["hits"]]}
 
 
