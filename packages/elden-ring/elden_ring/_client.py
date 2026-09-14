@@ -130,11 +130,18 @@ INDEX_MAPPING = {
         "number_of_shards": 1,
         "number_of_replicas": 0,
         "analysis": {
+            "tokenizer": {
+                # Kuromoji in normal mode: dictionary-based segmentation with no
+                # search-mode decompounding. Compounds like 象牙 stay as one token;
+                # 象 never accidentally matches them.
+                "kuromoji_normal": {
+                    "type": "kuromoji_tokenizer",
+                    "mode": "normal",
+                }
+            },
             "analyzer": {
-                # Kuromoji morphological analyzer for Japanese relevance search.
-                # Standard analyzer (the default) remains on the primary ja fields so
-                # search_literal() phrase queries still do exact CJK-unigram substring
-                # matching. This analyzer powers the .ja sub-fields used only by search().
+                # Relevance analyzer for .ja subfields used by search(). Full filter
+                # chain: baseform lemmatization, stopword removal, stemming.
                 "kuromoji_analyzer": {
                     "type": "custom",
                     "tokenizer": "kuromoji_tokenizer",
@@ -145,7 +152,15 @@ INDEX_MAPPING = {
                         "lowercase",
                         "kuromoji_stemmer",
                     ],
-                }
+                },
+                # Segmentation-only analyzer for .morph subfields used by
+                # search_literal(use_kuromoji=True). No filters: tokens are raw
+                # morphemes so phrase queries respect dictionary word boundaries
+                # without lemmatization, stopword removal, or stemming.
+                "kuromoji_segmenter": {
+                    "type": "custom",
+                    "tokenizer": "kuromoji_normal",
+                },
             },
             "normalizer": {
                 # ASCII-folding normalizer for diacritic-insensitive name lookup.
@@ -159,47 +174,71 @@ INDEX_MAPPING = {
     },
     "mappings": {
         "properties": {
-            "entity_type":      {"type": "keyword"},
-            "name":             {"type": "text", "fields": {"keyword": {"type": "keyword"}, "folded": {"type": "keyword", "normalizer": "ascii_normalizer"}}},
-            "patch_version":    {"type": "keyword"},
-            "source":           {"type": "keyword"},
-            "description":      {"type": "text"},
-            "text_content":     {"type": "text"},
-            "tags":             {"type": "keyword"},
-            "location":         {"type": "text", "fields": {"keyword": {"type": "keyword"}}},
-            "weight":           {"type": "float"},
-            "attack_physical":  {"type": "integer"},
-            "attack_magic":     {"type": "integer"},
-            "attack_fire":      {"type": "integer"},
+            "entity_type": {"type": "keyword"},
+            "name": {
+                "type": "text",
+                "fields": {
+                    "keyword": {"type": "keyword"},
+                    "folded": {"type": "keyword", "normalizer": "ascii_normalizer"},
+                },
+            },
+            "patch_version": {"type": "keyword"},
+            "source": {"type": "keyword"},
+            "description": {"type": "text"},
+            "text_content": {"type": "text"},
+            "tags": {"type": "keyword"},
+            "location": {"type": "text", "fields": {"keyword": {"type": "keyword"}}},
+            "weight": {"type": "float"},
+            "attack_physical": {"type": "integer"},
+            "attack_magic": {"type": "integer"},
+            "attack_fire": {"type": "integer"},
             "attack_lightning": {"type": "integer"},
-            "attack_holy":      {"type": "integer"},
-            "scaling_str":      {"type": "keyword"},
-            "scaling_dex":      {"type": "keyword"},
-            "scaling_int":      {"type": "keyword"},
-            "scaling_fai":      {"type": "keyword"},
-            "scaling_arc":      {"type": "keyword"},
-            "req_str":          {"type": "integer"},
-            "req_dex":          {"type": "integer"},
-            "req_int":          {"type": "integer"},
-            "req_fai":          {"type": "integer"},
-            "req_arc":          {"type": "integer"},
-            "fp_cost":          {"type": "integer"},
-            "slots":            {"type": "integer"},
-            "sort_id":          {"type": "integer"},
-            "menu_category":    {"type": "keyword"},
-            "npc_id":             {"type": "keyword"},
-            "name_ja":            {"type": "text", "fields": {"ja": {"type": "text", "analyzer": "kuromoji_analyzer"}}},
-            "description_ja":     {"type": "text", "fields": {"ja": {"type": "text", "analyzer": "kuromoji_analyzer"}}},
-            "text_content_ja":    {"type": "text", "fields": {"ja": {"type": "text", "analyzer": "kuromoji_analyzer"}}},
-            "acquisition_types":  {"type": "keyword"},
+            "attack_holy": {"type": "integer"},
+            "scaling_str": {"type": "keyword"},
+            "scaling_dex": {"type": "keyword"},
+            "scaling_int": {"type": "keyword"},
+            "scaling_fai": {"type": "keyword"},
+            "scaling_arc": {"type": "keyword"},
+            "req_str": {"type": "integer"},
+            "req_dex": {"type": "integer"},
+            "req_int": {"type": "integer"},
+            "req_fai": {"type": "integer"},
+            "req_arc": {"type": "integer"},
+            "fp_cost": {"type": "integer"},
+            "slots": {"type": "integer"},
+            "sort_id": {"type": "integer"},
+            "menu_category": {"type": "keyword"},
+            "npc_id": {"type": "keyword"},
+            "name_ja": {
+                "type": "text",
+                "fields": {
+                    "ja": {"type": "text", "analyzer": "kuromoji_analyzer"},
+                    "morph": {"type": "text", "analyzer": "kuromoji_segmenter"},
+                },
+            },
+            "description_ja": {
+                "type": "text",
+                "fields": {
+                    "ja": {"type": "text", "analyzer": "kuromoji_analyzer"},
+                    "morph": {"type": "text", "analyzer": "kuromoji_segmenter"},
+                },
+            },
+            "text_content_ja": {
+                "type": "text",
+                "fields": {
+                    "ja": {"type": "text", "analyzer": "kuromoji_analyzer"},
+                    "morph": {"type": "text", "analyzer": "kuromoji_segmenter"},
+                },
+            },
+            "acquisition_types": {"type": "keyword"},
             "acquisition_sources": {"type": "keyword"},
-            "dropped_by":          {"type": "keyword"},
-            "sold_by":             {"type": "keyword"},
-            "base_item":           {"type": "keyword"},
-            "is_legendary":        {"type": "boolean"},
-            "achievement_set":     {"type": "keyword"},
-            "effect":              {"type": "text"},
-            "effect_value":        {"type": "float"},
+            "dropped_by": {"type": "keyword"},
+            "sold_by": {"type": "keyword"},
+            "base_item": {"type": "keyword"},
+            "is_legendary": {"type": "boolean"},
+            "achievement_set": {"type": "keyword"},
+            "effect": {"type": "text"},
+            "effect_value": {"type": "float"},
         }
     },
 }
@@ -213,6 +252,7 @@ def ensure_index(client: OpenSearch) -> None:
 # ---------------------------------------------------------------------------
 # Query helpers
 # ---------------------------------------------------------------------------
+
 
 def search(
     client: OpenSearch,
@@ -238,10 +278,17 @@ def search(
                         "multi_match": {
                             "query": query,
                             "fields": [
-                                "name^3", "name_ja^3", "name_ja.ja^3",
-                                "description", "description_ja", "description_ja.ja",
-                                "text_content", "text_content_ja", "text_content_ja.ja",
-                                "location^1.5", "tags^2",
+                                "name^3",
+                                "name_ja^3",
+                                "name_ja.ja^3",
+                                "description",
+                                "description_ja",
+                                "description_ja.ja",
+                                "text_content",
+                                "text_content_ja",
+                                "text_content_ja.ja",
+                                "location^1.5",
+                                "tags^2",
                             ],
                             "type": "most_fields",
                             "fuzziness": "AUTO",
@@ -263,7 +310,10 @@ def search(
             # by multi-version docs.
             body["aggs"] = {
                 "distinct_entities": {
-                    "cardinality": {"field": "name.keyword", "precision_threshold": 40000}
+                    "cardinality": {
+                        "field": "name.keyword",
+                        "precision_threshold": 40000,
+                    }
                 }
             }
     else:
@@ -288,7 +338,9 @@ def _ascii_fold(s: str) -> str:
     return "".join(c for c in nfkd if not unicodedata.combining(c)).lower()
 
 
-def get_entity(client: OpenSearch, name: str, entity_type: str | None = None) -> dict | None:
+def get_entity(
+    client: OpenSearch, name: str, entity_type: str | None = None
+) -> dict | None:
     def _search(filters: list[dict]) -> list[dict]:
         resp = client.search(
             index=INDEX,
@@ -327,7 +379,9 @@ def list_patch_versions(client: OpenSearch) -> list[str]:
     return sorted(b["key"] for b in resp["aggregations"]["versions"]["buckets"])
 
 
-_DIFF_SKIP_FIELDS: frozenset[str] = frozenset({"entity_type", "patch_version", "source", "npc_id"})
+_DIFF_SKIP_FIELDS: frozenset[str] = frozenset(
+    {"entity_type", "patch_version", "source", "npc_id"}
+)
 
 
 def diff_entities(
@@ -382,8 +436,22 @@ def diff_entities(
 
 
 _LITERAL_FIELDS = [
-    "name", "description", "text_content",
-    "name_ja", "description_ja", "text_content_ja",
+    "name",
+    "description",
+    "text_content",
+    "name_ja",
+    "description_ja",
+    "text_content_ja",
+]
+# Same as above but Japanese fields routed through the segmentation-only .morph
+# subfield so phrase queries respect kuromoji morpheme boundaries.
+_LITERAL_FIELDS_MORPH = [
+    "name",
+    "description",
+    "text_content",
+    "name_ja.morph",
+    "description_ja.morph",
+    "text_content_ja.morph",
 ]
 
 
@@ -400,14 +468,21 @@ def search_literal(
     sort_id_lte: int | None = None,
     sort_id_mod: int | None = None,
     sort_id_remainder: int = 0,
+    use_kuromoji: bool = False,
 ) -> dict:
     """Exact-phrase search across text fields, with optional structural filters.
 
     When patch_version is None (default): collapses by entity name and returns the
     latest version per entity; total reflects distinct entities, not raw index hits.
     When patch_version is specified: filters to that snapshot; total is the raw hit count.
+
+    use_kuromoji routes Japanese fields through .morph subfields (kuromoji_segmenter:
+    tokenizer-only, no lemmatization/stopwords/stemming) so phrase queries respect
+    dictionary word boundaries. Single-kanji queries like 象 will not match 象徴 or 象牙.
     """
-    search_fields = fields or _LITERAL_FIELDS
+    search_fields = fields or (
+        _LITERAL_FIELDS_MORPH if use_kuromoji else _LITERAL_FIELDS
+    )
     filters: list[dict] = []
     if entity_type:
         filters.append({"term": {"entity_type": entity_type}})
@@ -421,14 +496,16 @@ def search_literal(
             sort_id_range["lte"] = sort_id_lte
         filters.append({"range": {"sort_id": sort_id_range}})
     if sort_id_mod is not None:
-        filters.append({
-            "script": {
+        filters.append(
+            {
                 "script": {
-                    "source": "doc['sort_id'].size() > 0 && doc['sort_id'].value % params.mod == params.remainder",
-                    "params": {"mod": sort_id_mod, "remainder": sort_id_remainder},
+                    "script": {
+                        "source": "doc['sort_id'].size() > 0 && doc['sort_id'].value % params.mod == params.remainder",
+                        "params": {"mod": sort_id_mod, "remainder": sort_id_remainder},
+                    }
                 }
             }
-        })
+        )
 
     # If pattern provided, use phrase multi_match; otherwise enumerate via match_all.
     must_clause: list[dict]
@@ -496,6 +573,7 @@ def text_changed_between(
     Only entities present in both versions are included (added/removed entities
     are excluded — use diff_entities for per-entity existence checks).
     """
+
     def _fetch_all(version: str) -> dict[str, object]:
         resp = client.search(
             index=INDEX,

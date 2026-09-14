@@ -97,8 +97,13 @@ def search_entities(
     Returns {"total": N} when count_only is True.
     """
     return _os.search(
-        _os.get_client(), query, entity_type, patch_version, min(limit, 100),
-        include_fields, count_only,
+        _os.get_client(),
+        query,
+        entity_type,
+        patch_version,
+        min(limit, 100),
+        include_fields,
+        count_only,
     )
 
 
@@ -155,6 +160,7 @@ def search_entities_literal(
     sort_id_lte: int | None = None,
     sort_id_mod: int | None = None,
     sort_id_remainder: int = 0,
+    use_kuromoji: bool = False,
 ) -> dict:
     """Search for entities containing an exact literal substring across text fields.
 
@@ -166,12 +172,17 @@ def search_entities_literal(
     without a text constraint — useful for structural queries like "all named weapons"
     via sort_id_mod, or census queries via count_only.
 
-    For Japanese text the standard analyzer produces character-level (unigram) tokens,
-    so phrase matching correctly handles CJK and hiragana substrings like "象った".
+    For Japanese text there are two modes:
+    - Default (use_kuromoji=False): standard CJK-unigram tokenization. Every character
+      is its own token, so phrase matching finds any verbatim byte sequence — including
+      multi-char strings like "象った" and particles like "という".
+    - use_kuromoji=True: segmentation-only kuromoji tokenization (normal mode, no
+      lemmatization or stopword removal). Tokens are dictionary morphemes, so a search
+      for "象" only matches documents where 象 is a standalone word — it will NOT match
+      象徴 (symbol) or 象牙 (ivory). Use this when counting a specific morpheme and
+      false positives from compound words would inflate the count.
 
-    Note: regex patterns are not supported. The text fields use an analyzed mapping
-    that does not allow regex across multi-character sequences. A reindex with
-    keyword subfields would be needed to enable regex mode.
+    Note: regex patterns are not supported.
 
     If this tool returns a connection error, call start_search_service() first.
 
@@ -179,7 +190,8 @@ def search_entities_literal(
         pattern: Literal substring to find, e.g. "象った", "という", "Eternal Dragon".
             Omit to enumerate all entities matching other filters (match_all mode).
         fields: Which fields to search. Defaults to all six text fields:
-            name, description, text_content, name_ja, description_ja, text_content_ja.
+            name, description, text_content, name_ja, description_ja, text_content_ja
+            (or their .morph equivalents when use_kuromoji=True).
         entity_type: Narrow to one entity category (weapon, armor, spell, enemy, etc.).
         patch_version: Filter to a specific patch snapshot (e.g. "1.10.0"). Omit to
             search across all patches and return one result per entity (latest version).
@@ -197,6 +209,10 @@ def search_entities_literal(
             Example: sort_id_mod=1000, sort_id_remainder=0 matches every base named weapon
             (sort_id is a multiple of 1000 for named armaments, +N for upgrade variants).
         sort_id_remainder: Remainder for the modulo filter (default 0).
+        use_kuromoji: If True, route Japanese fields through kuromoji morpheme segmentation
+            so phrase queries respect dictionary word boundaries. Prevents single-kanji
+            queries from matching compounds that contain that kanji as a sub-character.
+            Has no effect on English fields. Default False (standard CJK-unigram mode).
 
     Returns a dict with:
         total: int — distinct entity count when no patch_version is given (deduplicated);
@@ -204,8 +220,19 @@ def search_entities_literal(
         results: list of entity documents (omitted when count_only is True).
     """
     return _os.search_literal(
-        _os.get_client(), pattern, fields, entity_type, patch_version, min(limit, 500),
-        include_fields, count_only, sort_id_gte, sort_id_lte, sort_id_mod, sort_id_remainder,
+        _os.get_client(),
+        pattern,
+        fields,
+        entity_type,
+        patch_version,
+        min(limit, 500),
+        include_fields,
+        count_only,
+        sort_id_gte,
+        sort_id_lte,
+        sort_id_mod,
+        sort_id_remainder,
+        use_kuromoji,
     )
 
 
