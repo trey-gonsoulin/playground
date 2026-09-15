@@ -94,7 +94,9 @@ def test_index_and_retrieve(client):
         client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
 
         # Search
-        results = _os.search(client, "integration test placeholder", entity_type="weapon")
+        results = _os.search(
+            client, "integration test placeholder", entity_type="weapon"
+        )
         names = [r["name"] for r in results]
         assert "__test_sword__" in names, f"Expected test doc in results, got: {names}"
 
@@ -128,7 +130,9 @@ def test_search_count_only(client):
     try:
         client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
 
-        result = _os.search(client, "count only test placeholder", entity_type="weapon", count_only=True)
+        result = _os.search(
+            client, "count only test placeholder", entity_type="weapon", count_only=True
+        )
         assert isinstance(result, dict), f"Expected dict, got {type(result)}"
         assert "total" in result
         assert result["total"] >= 1
@@ -154,7 +158,8 @@ def test_search_include_fields(client):
         client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
 
         results = _os.search(
-            client, "fields test placeholder",
+            client,
+            "fields test placeholder",
             entity_type="weapon",
             include_fields=["name"],
         )
@@ -183,7 +188,9 @@ def test_search_literal_count_only(client):
     try:
         client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
 
-        result = _os.search_literal(client, "literal count only test unique xyz987", count_only=True)
+        result = _os.search_literal(
+            client, "literal count only test unique xyz987", count_only=True
+        )
         assert isinstance(result, dict)
         assert "total" in result
         assert "results" not in result
@@ -258,7 +265,9 @@ def test_search_literal_sort_id_mod(client):
         )
         names = [r["name"] for r in result["results"]]
         assert "__test_sortid_match__" in names, f"Expected match, got: {names}"
-        assert "__test_sortid_nomatch__" not in names, f"Expected no-match excluded, got: {names}"
+        assert "__test_sortid_nomatch__" not in names, (
+            f"Expected no-match excluded, got: {names}"
+        )
 
     finally:
         for doc_id in ids:
@@ -305,7 +314,9 @@ def test_search_literal_sort_id_range(client):
         )
         names = [r["name"] for r in result["results"]]
         assert "__test_sortid_high__" in names, f"Expected high in range, got: {names}"
-        assert "__test_sortid_low__" not in names, f"Expected low excluded, got: {names}"
+        assert "__test_sortid_low__" not in names, (
+            f"Expected low excluded, got: {names}"
+        )
 
     finally:
         for doc_id in ids:
