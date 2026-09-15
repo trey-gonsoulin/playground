@@ -372,15 +372,37 @@ def get_entity(
     return hits[0]["_source"] if hits else None
 
 
-def list_patch_versions(client: OpenSearch) -> list[str]:
+def _version_info(client: OpenSearch) -> dict:
+    """Return loaded versions and dominant source per version in one query.
+
+    Returns {"versions": [...sorted...], "sources": {"1.10.0": "erdb", ...}}
+    """
     resp = client.search(
         index=INDEX,
         body={
             "size": 0,
-            "aggs": {"versions": {"terms": {"field": "patch_version", "size": 30}}},
+            "aggs": {
+                "versions": {
+                    "terms": {"field": "patch_version", "size": 30},
+                    "aggs": {
+                        "top_source": {"terms": {"field": "source", "size": 1}}
+                    },
+                }
+            },
         },
     )
-    return sorted(b["key"] for b in resp["aggregations"]["versions"]["buckets"])
+    buckets = resp["aggregations"]["versions"]["buckets"]
+    versions = sorted(b["key"] for b in buckets)
+    sources = {
+        b["key"]: b["top_source"]["buckets"][0]["key"]
+        for b in buckets
+        if b["top_source"]["buckets"]
+    }
+    return {"versions": versions, "sources": sources}
+
+
+def list_patch_versions(client: OpenSearch) -> list[str]:
+    return _version_info(client)["versions"]
 
 
 _DIFF_SKIP_FIELDS: frozenset[str] = frozenset(
@@ -394,7 +416,30 @@ def diff_entities(
     v1: str,
     v2: str,
     entity_type: str | None = None,
+    allow_cross_source: bool = False,
 ) -> dict:
+    info = _version_info(client)
+    loaded = set(info["versions"])
+
+    for v in (v1, v2):
+        if v not in loaded:
+            return {
+                "error": f"patch version '{v}' is not loaded; "
+                f"loaded versions: {sorted(loaded)}"
+            }
+
+    if not allow_cross_source:
+        src1 = info["sources"].get(v1)
+        src2 = info["sources"].get(v2)
+        if src1 and src2 and src1 != src2:
+            return {
+                "error": (
+                    f"'{v1}' (source: {src1}) and '{v2}' (source: {src2}) are from "
+                    f"different data sources — a diff measures scrape differences, not "
+                    f"game revisions. Pass allow_cross_source=True to proceed anyway."
+                )
+            }
+
     def _fetch(version: str) -> dict | None:
         filters: list[dict] = [
             {"term": {"name.keyword": name}},
@@ -412,12 +457,24 @@ def diff_entities(
     doc1 = _fetch(v1)
     doc2 = _fetch(v2)
 
-    if not doc1 and not doc2:
-        return {"error": f"'{name}' not found in {v1} or {v2}"}
-    if not doc1:
-        return {"error": f"'{name}' not found in {v1} — may not exist in that patch"}
-    if not doc2:
-        return {"error": f"'{name}' not found in {v2}"}
+    if not doc1 or not doc2:
+        # Distinguish "not in these patches" from "not in the index at all"
+        missing = [v for v, d in ((v1, doc1), (v2, doc2)) if not d]
+        any_filters: list[dict] = [{"term": {"name.keyword": name}}]
+        if entity_type:
+            any_filters.append({"term": {"entity_type": entity_type}})
+        exists_resp = client.search(
+            index=INDEX,
+            body={
+                "size": 0,
+                "query": {"bool": {"filter": any_filters}},
+                "track_total_hits": True,
+            },
+        )
+        if exists_resp["hits"]["total"]["value"] == 0:
+            return {"error": f"'{name}' not found in any loaded version"}
+        missing_str = " and ".join(missing)
+        return {"error": f"'{name}' not present in {missing_str}"}
 
     all_fields = (set(doc1) | set(doc2)) - _DIFF_SKIP_FIELDS
     changed: dict = {}
@@ -570,13 +627,35 @@ def text_changed_between(
     field: str,
     v1: str,
     v2: str,
-) -> list[dict]:
+    allow_cross_source: bool = False,
+) -> list[dict] | dict:
     """Return all entities of entity_type where field differs between v1 and v2.
 
     Fetches all entities for each version (up to 10 000 per call); comparison happens in Python.
     Only entities present in both versions are included (added/removed entities
     are excluded — use diff_entities for per-entity existence checks).
     """
+    info = _version_info(client)
+    loaded = set(info["versions"])
+
+    for v in (v1, v2):
+        if v not in loaded:
+            return {
+                "error": f"patch version '{v}' is not loaded; "
+                f"loaded versions: {sorted(loaded)}"
+            }
+
+    if not allow_cross_source:
+        src1 = info["sources"].get(v1)
+        src2 = info["sources"].get(v2)
+        if src1 and src2 and src1 != src2:
+            return {
+                "error": (
+                    f"'{v1}' (source: {src1}) and '{v2}' (source: {src2}) are from "
+                    f"different data sources — a comparison measures scrape differences, "
+                    f"not game revisions. Pass allow_cross_source=True to proceed anyway."
+                )
+            }
 
     def _fetch_all(version: str) -> dict[str, object]:
         resp = client.search(
