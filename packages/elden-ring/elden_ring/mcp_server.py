@@ -124,6 +124,29 @@ def get_entity(name: str, entity_type: str | None = None) -> dict | None:
 
 
 @mcp.tool(annotations=_READ_ONLY)
+def list_menu_categories(entity_type: str | None = None) -> list[str] | dict:
+    """List the distinct menu_category values in the index.
+
+    menu_category reflects the in-game equipment menu grouping (e.g. "Straight Sword",
+    "Glintstone Sorcery", "Head", "Consumables"). Use these values to enumerate
+    all entities in a specific in-game class via search_entities_literal with
+    no pattern, which replaces the previous 34-round-trip census approach.
+
+    If this tool returns a connection error, call start_search_service() first.
+
+    Args:
+        entity_type: If provided, return a flat sorted list of category values for
+            that entity type (e.g. "weapon", "armor", "spell"). If omitted, return
+            a dict mapping every entity type that has menu_category set to its
+            sorted category list — all data in one call.
+
+    Returns:
+        list[str] when entity_type is given; dict[str, list[str]] otherwise.
+    """
+    return _os.list_menu_categories(_os.get_client(), entity_type)
+
+
+@mcp.tool(annotations=_READ_ONLY)
 def list_entity_types() -> list[str]:
     """List the entity types currently loaded in the index.
 

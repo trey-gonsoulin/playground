@@ -608,6 +608,52 @@ def text_changed_between(
     return results
 
 
+def list_menu_categories(
+    client: OpenSearch,
+    entity_type: str | None = None,
+) -> list[str] | dict[str, list[str]]:
+    """Return distinct menu_category values.
+
+    With entity_type: returns a sorted list of categories for that type.
+    Without entity_type: returns a dict mapping each entity type to its
+    sorted category list, covering only types that have at least one doc
+    with a menu_category set.
+    """
+    if entity_type:
+        body: dict = {
+            "size": 0,
+            "query": {"term": {"entity_type": entity_type}},
+            "aggs": {
+                "categories": {"terms": {"field": "menu_category", "size": 200}}
+            },
+        }
+        resp = client.search(index=INDEX, body=body)
+        return sorted(b["key"] for b in resp["aggregations"]["categories"]["buckets"])
+
+    # Nested aggregation: entity_type → menu_category
+    body = {
+        "size": 0,
+        "query": {"exists": {"field": "menu_category"}},
+        "aggs": {
+            "by_type": {
+                "terms": {"field": "entity_type", "size": 50},
+                "aggs": {
+                    "categories": {
+                        "terms": {"field": "menu_category", "size": 200}
+                    }
+                },
+            }
+        },
+    }
+    resp = client.search(index=INDEX, body=body)
+    return {
+        bucket["key"]: sorted(
+            c["key"] for c in bucket["categories"]["buckets"]
+        )
+        for bucket in resp["aggregations"]["by_type"]["buckets"]
+    }
+
+
 def list_entity_types(client: OpenSearch) -> list[str]:
     resp = client.search(
         index=INDEX,
