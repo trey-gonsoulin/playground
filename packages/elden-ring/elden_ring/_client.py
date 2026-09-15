@@ -161,6 +161,15 @@ INDEX_MAPPING = {
                     "type": "custom",
                     "tokenizer": "kuromoji_normal",
                 },
+                # Lemmatizing analyzer for .lemma subfields used by
+                # search_literal(use_lemmatize=True). Applies kuromoji_baseform to
+                # convert each token to its dictionary form; no stopword/POS removal
+                # so phrase queries don't break at particle/stopword boundaries.
+                "kuromoji_lemmatizer": {
+                    "type": "custom",
+                    "tokenizer": "kuromoji_normal",
+                    "filter": ["kuromoji_baseform"],
+                },
             },
             "normalizer": {
                 # ASCII-folding normalizer for diacritic-insensitive name lookup.
@@ -214,6 +223,7 @@ INDEX_MAPPING = {
                 "fields": {
                     "ja": {"type": "text", "analyzer": "kuromoji_analyzer"},
                     "morph": {"type": "text", "analyzer": "kuromoji_segmenter"},
+                    "lemma": {"type": "text", "analyzer": "kuromoji_lemmatizer"},
                 },
             },
             "description_ja": {
@@ -221,6 +231,7 @@ INDEX_MAPPING = {
                 "fields": {
                     "ja": {"type": "text", "analyzer": "kuromoji_analyzer"},
                     "morph": {"type": "text", "analyzer": "kuromoji_segmenter"},
+                    "lemma": {"type": "text", "analyzer": "kuromoji_lemmatizer"},
                 },
             },
             "text_content_ja": {
@@ -228,6 +239,7 @@ INDEX_MAPPING = {
                 "fields": {
                     "ja": {"type": "text", "analyzer": "kuromoji_analyzer"},
                     "morph": {"type": "text", "analyzer": "kuromoji_segmenter"},
+                    "lemma": {"type": "text", "analyzer": "kuromoji_lemmatizer"},
                 },
             },
             "acquisition_types": {"type": "keyword"},
@@ -259,13 +271,15 @@ def ensure_index(client: OpenSearch) -> None:
 
 
 def analyze_text(client: OpenSearch, text: str) -> dict:
-    """Return token streams for text under both indexed analyzers.
+    """Return token streams for text under all three indexed JP analyzers.
 
     Calls OpenSearch's _analyze API via the field path so the result reflects
-    exactly what search_literal() applies: default CJK unigram on description_ja,
-    kuromoji_segmenter on description_ja.morph.
+    exactly what each search mode applies:
+    - standard: CJK unigram (description_ja), used by search_literal() default
+    - kuromoji_segmenter: morpheme segmentation (description_ja.morph), use_kuromoji=True
+    - kuromoji_lemmatizer: segmentation + baseform (description_ja.lemma), use_lemmatize=True
 
-    Returns {"standard": [...tokens...], "kuromoji_segmenter": [...tokens...]}
+    Returns {"standard": [...], "kuromoji_segmenter": [...], "kuromoji_lemmatizer": [...]}
     """
 
     def _tokens(field: str) -> list[str]:
@@ -275,6 +289,7 @@ def analyze_text(client: OpenSearch, text: str) -> dict:
     return {
         "standard": _tokens("description_ja"),
         "kuromoji_segmenter": _tokens("description_ja.morph"),
+        "kuromoji_lemmatizer": _tokens("description_ja.lemma"),
     }
 
 
@@ -535,6 +550,16 @@ _LITERAL_FIELDS_MORPH = [
     "description_ja.morph",
     "text_content_ja.morph",
 ]
+# Same as above but Japanese fields routed through the lemmatizing .lemma
+# subfield (kuromoji_baseform only) so a baseform query matches all inflections.
+_LITERAL_FIELDS_LEMMA = [
+    "name",
+    "description",
+    "text_content",
+    "name_ja.lemma",
+    "description_ja.lemma",
+    "text_content_ja.lemma",
+]
 
 
 def search_literal(
@@ -553,6 +578,7 @@ def search_literal(
     use_kuromoji: bool = False,
     patterns: list[str] | None = None,
     source: str | None = None,
+    use_lemmatize: bool = False,
 ) -> dict:
     """Exact-phrase search across text fields, with optional structural filters.
 
@@ -563,10 +589,19 @@ def search_literal(
     use_kuromoji routes Japanese fields through .morph subfields (kuromoji_segmenter:
     tokenizer-only, no lemmatization/stopwords/stemming) so phrase queries respect
     dictionary word boundaries. Single-kanji queries like 象 will not match 象徴 or 象牙.
+
+    use_lemmatize routes Japanese fields through .lemma subfields (kuromoji_lemmatizer:
+    segmentation + kuromoji_baseform, no stopword/POS removal) so a single baseform
+    query matches all inflected surface forms. Pass the dictionary form of the verb
+    (e.g. 与える) to match 与えた, 与えられ, etc. Use analyze_text() to verify the
+    expected baseform before querying. use_lemmatize takes precedence over use_kuromoji.
     """
-    search_fields = fields or (
-        _LITERAL_FIELDS_MORPH if use_kuromoji else _LITERAL_FIELDS
-    )
+    if use_lemmatize:
+        search_fields = fields or _LITERAL_FIELDS_LEMMA
+    else:
+        search_fields = fields or (
+            _LITERAL_FIELDS_MORPH if use_kuromoji else _LITERAL_FIELDS
+        )
     filters: list[dict] = []
     if entity_type:
         filters.append({"term": {"entity_type": entity_type}})
