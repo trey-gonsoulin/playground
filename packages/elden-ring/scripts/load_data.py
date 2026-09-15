@@ -578,6 +578,12 @@ def _parse_weapons(
         is_legendary = rarity == 3 and trophy_grade >= 0
         disable_gem = row.get("disableGemAttr", "0").strip()
         infusable = disable_gem == "0"
+        # In older erdb versions the 12 affinity-variant rows for non-infusable weapons
+        # carry plain Row Names (e.g. "Heavy Serpentbone Blade") instead of "[ERROR]",
+        # so the FMG-name guard above doesn't catch them. Filter structurally: base
+        # forms always have sort_id % 1000 == 0; affinity variants have % 1000 in 1..12.
+        if not infusable and sort_id is not None and sort_id % 1000 != 0:
+            continue
         sa_id = row.get("swordArtsParamId", "").strip()
         default_ash = (sword_arts_map or {}).get(sa_id) if sa_id else None
 
@@ -646,6 +652,16 @@ def _parse_weapons(
             inherited = desc_to_name_ja.get(doc["description"])
             if inherited:
                 doc["name_ja"] = inherited
+
+    # Guard: each non-infusable weapon must appear exactly once (no phantom variants).
+    _groups: dict[int, list[str]] = {}
+    for doc in docs:
+        if not doc.get("infusable") and doc.get("sort_id") is not None:
+            _groups.setdefault(doc["sort_id"] // 1000, []).append(doc["name"])
+    for _g, _names in _groups.items():
+        assert len(_names) == 1, (
+            f"Non-infusable weapon sort_id group {_g} has {len(_names)} entries: {_names}"
+        )
 
     return docs
 

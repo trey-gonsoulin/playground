@@ -322,3 +322,23 @@ def test_search_literal_sort_id_range(client):
         for doc_id in ids:
             client.delete(index=_os.INDEX, id=doc_id, ignore=[404])
         client.indices.refresh(index=_os.INDEX)
+
+
+def test_no_phantom_affinity_rows(client):
+    """Non-infusable weapons must contribute exactly one indexed document.
+
+    Regression guard for #56 — erdb generates 12 affinity-variant rows per
+    non-infusable weapon that should be dropped at ingest. If the filter is
+    missing, Serpentbone Blade (infusable=False) returns 13 instead of 1.
+
+    Requires a loaded index; skips gracefully on an empty one.
+    """
+    result = _os.search_literal(
+        client, pattern="Serpentbone Blade", entity_type="weapon", count_only=True
+    )
+    if result["total"] == 0:
+        pytest.skip("Serpentbone Blade not in index — load data first")
+    assert result["total"] == 1, (
+        f"Expected 1 document for Serpentbone Blade, got {result['total']}; "
+        "phantom affinity variants may have slipped through the ingest filter (#56)"
+    )
