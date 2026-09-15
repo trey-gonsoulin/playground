@@ -239,6 +239,10 @@ INDEX_MAPPING = {
             "achievement_set": {"type": "keyword"},
             "effect": {"type": "text"},
             "effect_value": {"type": "float"},
+            "infusable": {"type": "boolean"},
+            "default_ash_of_war": {"type": "keyword"},
+            "depicted_in_talisman": {"type": "keyword"},
+            "depicts_weapon": {"type": "keyword"},
         }
     },
 }
