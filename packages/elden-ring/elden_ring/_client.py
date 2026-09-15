@@ -258,6 +258,26 @@ def ensure_index(client: OpenSearch) -> None:
 # ---------------------------------------------------------------------------
 
 
+def analyze_text(client: OpenSearch, text: str) -> dict:
+    """Return token streams for text under both indexed analyzers.
+
+    Calls OpenSearch's _analyze API via the field path so the result reflects
+    exactly what search_literal() applies: default CJK unigram on description_ja,
+    kuromoji_segmenter on description_ja.morph.
+
+    Returns {"standard": [...tokens...], "kuromoji_segmenter": [...tokens...]}
+    """
+
+    def _tokens(field: str) -> list[str]:
+        resp = client.indices.analyze(index=INDEX, body={"field": field, "text": text})
+        return [t["token"] for t in resp["tokens"]]
+
+    return {
+        "standard": _tokens("description_ja"),
+        "kuromoji_segmenter": _tokens("description_ja.morph"),
+    }
+
+
 def search(
     client: OpenSearch,
     query: str,
@@ -266,12 +286,15 @@ def search(
     limit: int = 20,
     include_fields: list[str] | None = None,
     count_only: bool = False,
+    source: str | None = None,
 ) -> list[dict] | dict:
     filters = []
     if entity_type:
         filters.append({"term": {"entity_type": entity_type}})
     if patch_version:
         filters.append({"term": {"patch_version": patch_version}})
+    if source:
+        filters.append({"term": {"source": source}})
 
     body: dict = {
         "size": 0 if count_only else limit,
@@ -384,9 +407,7 @@ def _version_info(client: OpenSearch) -> dict:
             "aggs": {
                 "versions": {
                     "terms": {"field": "patch_version", "size": 30},
-                    "aggs": {
-                        "top_source": {"terms": {"field": "source", "size": 1}}
-                    },
+                    "aggs": {"top_source": {"terms": {"field": "source", "size": 1}}},
                 }
             },
         },
@@ -530,6 +551,8 @@ def search_literal(
     sort_id_mod: int | None = None,
     sort_id_remainder: int = 0,
     use_kuromoji: bool = False,
+    patterns: list[str] | None = None,
+    source: str | None = None,
 ) -> dict:
     """Exact-phrase search across text fields, with optional structural filters.
 
@@ -549,6 +572,8 @@ def search_literal(
         filters.append({"term": {"entity_type": entity_type}})
     if patch_version:
         filters.append({"term": {"patch_version": patch_version}})
+    if source:
+        filters.append({"term": {"source": source}})
     if sort_id_gte is not None or sort_id_lte is not None:
         sort_id_range: dict = {}
         if sort_id_gte is not None:
@@ -568,20 +593,45 @@ def search_literal(
             }
         )
 
-    # If pattern provided, use phrase multi_match; otherwise enumerate via match_all.
-    must_clause: list[dict]
+    # Collect all phrase patterns (singular + list). OR them via bool.should.
+    all_patterns: list[str] = []
     if pattern:
+        all_patterns.append(pattern)
+    if patterns:
+        all_patterns.extend(patterns)
+
+    must_clause: list[dict]
+    if not all_patterns:
+        must_clause = [{"match_all": {}}]
+    elif len(all_patterns) == 1:
         must_clause = [
             {
                 "multi_match": {
-                    "query": pattern,
+                    "query": all_patterns[0],
                     "fields": search_fields,
                     "type": "phrase",
                 }
             }
         ]
     else:
-        must_clause = [{"match_all": {}}]
+        # OR across multiple patterns; dedup rides on cardinality agg + collapse.
+        must_clause = [
+            {
+                "bool": {
+                    "should": [
+                        {
+                            "multi_match": {
+                                "query": p,
+                                "fields": search_fields,
+                                "type": "phrase",
+                            }
+                        }
+                        for p in all_patterns
+                    ],
+                    "minimum_should_match": 1,
+                }
+            }
+        ]
 
     body: dict = {
         "size": 0 if count_only else limit,
@@ -701,6 +751,7 @@ _ENTITY_COUNT_AGG = {
 def list_menu_categories(
     client: OpenSearch,
     entity_type: str | None = None,
+    source: str | None = None,
 ) -> dict[str, int] | dict[str, dict[str, int]]:
     """Return distinct menu_category values with distinct entity counts.
 
@@ -712,9 +763,12 @@ def list_menu_categories(
     doc counts, so multi-patch duplication doesn't inflate the numbers.
     """
     if entity_type:
+        filters: list[dict] = [{"term": {"entity_type": entity_type}}]
+        if source:
+            filters.append({"term": {"source": source}})
         body: dict = {
             "size": 0,
-            "query": {"term": {"entity_type": entity_type}},
+            "query": {"bool": {"filter": filters}},
             "aggs": {
                 "categories": {
                     "terms": {"field": "menu_category", "size": 200},
@@ -731,9 +785,12 @@ def list_menu_categories(
         )
 
     # Nested aggregation: entity_type → menu_category → distinct entity count
+    base_filters: list[dict] = [{"exists": {"field": "menu_category"}}]
+    if source:
+        base_filters.append({"term": {"source": source}})
     body = {
         "size": 0,
-        "query": {"exists": {"field": "menu_category"}},
+        "query": {"bool": {"filter": base_filters}},
         "aggs": {
             "by_type": {
                 "terms": {"field": "entity_type", "size": 50},
