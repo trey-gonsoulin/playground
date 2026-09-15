@@ -36,6 +36,7 @@ import json
 import os
 import re
 import sys
+import unicodedata
 import xml.etree.ElementTree as ET
 import zipfile
 from collections import defaultdict
@@ -1185,6 +1186,70 @@ def load_location_map() -> dict[str, list[str]]:
     return item_to_locations
 
 
+def _fold(s: str) -> str:
+    """ASCII-fold + strip punctuation + lowercase for fuzzy name comparison.
+
+    Handles diacritics (Miséricorde == Misericorde) and punctuation variants
+    (Sword of St. Trina == Sword of St Trina).
+    """
+    nfkd = unicodedata.normalize("NFKD", s)
+    no_diacritics = "".join(c for c in nfkd if not unicodedata.combining(c))
+    no_punct = re.sub(r"[^\w\s]", "", no_diacritics)
+    return " ".join(no_punct.lower().split())
+
+
+def _known_set(docs: list[dict]) -> tuple[set[str], dict[str, str]]:
+    """Return (exact_names, folded_name → original) from a list of documents."""
+    exact = {d["name"] for d in docs}
+    folded = {_fold(d["name"]): d["name"] for d in docs}
+    return exact, folded
+
+
+def _is_known(name: str, exact: set[str], folded: dict[str, str]) -> bool:
+    return name in exact or _fold(name) in folded
+
+
+# Fextralife category names → canonical names used in WEAPON_TYPES.
+# Fextralife uses plural forms; base-game categories are singular.
+# "Glinstone Staves" also fixes a typo in the Fextralife data.
+# DLC-new categories (Backhand Blades, Great Katanas, etc.) are absent here and
+# pass through unmodified.
+_FEXTRALIFE_CATEGORY_ALIASES: dict[str, str] = {
+    "Axes":                    "Axe",
+    "Ballistas":               "Ballista",
+    "Bows":                    "Bow",
+    "Claws":                   "Claw",
+    "Colossal Swords":         "Colossal Sword",
+    "Colossal Weapons":        "Colossal Weapon",
+    "Crossbows":               "Crossbow",
+    "Curved Greatswords":      "Curved Greatsword",
+    "Curved Swords":           "Curved Sword",
+    "Daggers":                 "Dagger",
+    "Fists":                   "Fist",
+    "Flails":                  "Flail",
+    "Glinstone Staves":        "Glintstone Staff",  # typo + normalize
+    "Glintstone Staffs":       "Glintstone Staff",
+    "Great Hammers":           "Great Hammer",
+    "Great Spears":            "Great Spear",
+    "Greataxes":               "Greataxe",
+    "Greatbows":               "Greatbow",
+    "Greatswords":             "Greatsword",
+    "Halberds":                "Halberd",
+    "Hammers":                 "Hammer",
+    "Heavy Thrusting Swords":  "Heavy Thrusting Sword",
+    "Katanas":                 "Katana",
+    "Light Bows":              "Light Bow",
+    "Reapers":                 "Reaper",
+    "Sacred Seals":            "Sacred Seal",
+    "Spears":                  "Spear",
+    "Straight Swords":         "Straight Sword",
+    "Thrusting Swords":        "Thrusting Sword",
+    "Torches":                 "Torch",
+    "Twinblades":              "Twinblade",
+    "Whips":                   "Whip",
+}
+
+
 def _supplement_aow(erdb_docs: list[dict], location_map: dict[str, list[str]] | None = None, drop_map: dict[str, dict[str, list[str]]] | None = None, merchant_items: dict[str, list[str]] | None = None) -> list[dict]:
     """Return Discord bot AoW docs for the 26 DLC entries missing from erdb FMGs.
 
@@ -1193,7 +1258,7 @@ def _supplement_aow(erdb_docs: list[dict], location_map: dict[str, list[str]] | 
     Discord bot's ashesOfWar.csv and skills.csv (for effect text), filters to only
     the entries not already present in erdb_docs, and returns supplement documents.
     """
-    known_names = {d["name"] for d in erdb_docs}
+    known_exact, known_folded = _known_set(erdb_docs)
 
     print("  Downloading ashesOfWar.csv + skills.csv (DLC supplement) …")
     resp_aow = requests.get(f"{DISCORD_BOT_BASE}/ashesOfWar.csv", timeout=30)
@@ -1212,7 +1277,7 @@ def _supplement_aow(erdb_docs: list[dict], location_map: dict[str, list[str]] | 
     docs: list[dict] = []
     for row in csv.DictReader(io.StringIO(resp_aow.text)):
         name = row.get("name", "").strip()
-        if not name or name in known_names:
+        if not name or _is_known(name, known_exact, known_folded):
             continue
         skill_name = row.get("skill", "").strip()
         affinity = row.get("affinity", "").strip()
@@ -1257,7 +1322,7 @@ def _supplement_weapons(erdb_docs: list[dict], location_map: dict[str, list[str]
     in erdb_docs by name. Attack values and scaling grades are unavailable from this
     source; only descriptive and stat-requirement fields are populated.
     """
-    known_names = {d["name"] for d in erdb_docs}
+    known_exact, known_folded = _known_set(erdb_docs)
 
     print("  Downloading weapons.csv (DLC supplement) …")
     resp = requests.get(f"{DISCORD_BOT_BASE}/weapons.csv", timeout=30)
@@ -1266,11 +1331,12 @@ def _supplement_weapons(erdb_docs: list[dict], location_map: dict[str, list[str]
     docs: list[dict] = []
     for row in csv.DictReader(io.StringIO(resp.text)):
         name = row.get("name", "").strip()
-        if not name or name in known_names:
+        if not name or _is_known(name, known_exact, known_folded):
             continue
 
         description = row.get("description", "").strip()
-        category = row.get("category", "").strip()
+        raw_category = row.get("category", "").strip()
+        category = _FEXTRALIFE_CATEGORY_ALIASES.get(raw_category, raw_category)
         weight = _float(row.get("weight"))
         skill = row.get("skill", "").strip() or None
 
@@ -1326,7 +1392,7 @@ _ARMOR_TYPE_TO_CATEGORY: dict[str, str] = {
 
 def _supplement_armor(erdb_docs: list[dict], drop_map: dict[str, dict[str, list[str]]] | None = None, merchant_items: dict[str, list[str]] | None = None) -> list[dict]:
     """Return Discord bot armor docs for DLC entries missing from erdb."""
-    known_names = {d["name"] for d in erdb_docs}
+    known_exact, known_folded = _known_set(erdb_docs)
 
     print("  Downloading armors.csv (DLC supplement) …")
     resp = requests.get(f"{DISCORD_BOT_BASE}/armors.csv", timeout=30)
@@ -1335,7 +1401,7 @@ def _supplement_armor(erdb_docs: list[dict], drop_map: dict[str, dict[str, list[
     docs: list[dict] = []
     for row in csv.DictReader(io.StringIO(resp.text)):
         name = row.get("name", "").strip()
-        if not name or name in known_names:
+        if not name or _is_known(name, known_exact, known_folded):
             continue
 
         description = row.get("description", "").strip()
@@ -1381,7 +1447,7 @@ def _supplement_armor(erdb_docs: list[dict], drop_map: dict[str, dict[str, list[
 
 def _supplement_spells(erdb_docs: list[dict], drop_map: dict[str, dict[str, list[str]]] | None = None, merchant_items: dict[str, list[str]] | None = None) -> list[dict]:
     """Return Discord bot spell docs for DLC sorceries and incantations missing from erdb."""
-    known_names = {d["name"] for d in erdb_docs}
+    known_exact, known_folded = _known_set(erdb_docs)
 
     docs: list[dict] = []
     for csv_name, spell_type in (("sorceries.csv", "Sorcery"), ("incantations.csv", "Incantation")):
@@ -1391,7 +1457,7 @@ def _supplement_spells(erdb_docs: list[dict], drop_map: dict[str, dict[str, list
 
         for row in csv.DictReader(io.StringIO(resp.text)):
             name = row.get("name", "").strip()
-            if not name or name in known_names:
+            if not name or _is_known(name, known_exact, known_folded):
                 continue
 
             description = row.get("description", "").strip()
@@ -1428,14 +1494,14 @@ def _supplement_spells(erdb_docs: list[dict], drop_map: dict[str, dict[str, list
 
 def _supplement_talismans(erdb_docs: list[dict], location_map: dict[str, list[str]] | None = None, drop_map: dict[str, dict[str, list[str]]] | None = None, merchant_items: dict[str, list[str]] | None = None, discord_bot_map: dict[str, dict] | None = None) -> list[dict]:
     """Return Discord bot talisman docs for DLC entries missing from erdb."""
-    known_names = {d["name"] for d in erdb_docs}
+    known_exact, known_folded = _known_set(erdb_docs)
 
     if discord_bot_map is None:
         discord_bot_map = _load_discord_bot_talismans()
 
     docs: list[dict] = []
     for normalized_name, row in discord_bot_map.items():
-        if not normalized_name or normalized_name in known_names:
+        if not normalized_name or _is_known(normalized_name, known_exact, known_folded):
             continue
 
         description = row.get("description", "").strip()
