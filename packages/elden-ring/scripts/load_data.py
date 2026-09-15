@@ -149,6 +149,17 @@ _LEGENDARY_SPELLS: frozenset[str] = frozenset({
 })
 
 
+# Weapons depicted in specific talismans (and vice versa).
+# The connection is established by lore rather than algorithmic text matching
+# (JP weapon names share vocabulary with talisman descriptions but do not
+# appear as exact substrings, so a manual map is required).
+_WEAPON_DEPICTS_TALISMAN: dict[str, str] = {
+    "Miséricorde": "Dagger Talisman",
+    "Raptor Talons": "Claw Talisman",
+}
+_TALISMAN_DEPICTS_WEAPON: dict[str, str] = {v: k for k, v in _WEAPON_DEPICTS_TALISMAN.items()}
+
+
 def _variant_base_name(name: str) -> str | None:
     """Return the base talisman name for a +N or +N Variant name, or None."""
     m = re.match(r'^(.+?)\s+\+\d+(?:\s+Variant)?$', name)
@@ -454,7 +465,24 @@ def _count_ja(docs: list[dict]) -> int:
 # Weapons
 # ---------------------------------------------------------------------------
 
-def _parse_weapons(z: zipfile.ZipFile, patch_version: str, location_map: dict[str, list[str]] | None = None, jp_fmgs: dict | None = None, drop_map: dict[str, dict[str, list[str]]] | None = None, merchant_items: dict[str, list[str]] | None = None) -> list[dict]:
+def _build_sword_arts_map(z: zipfile.ZipFile) -> dict[str, str]:
+    """Return swordArtsParamId → skill name from SwordArtsParam.csv.
+
+    Row Name is the human-readable skill name ("Quickstep", "Unsheathe", etc.).
+    Rows with empty Row Name or "No Skill" (id 10) are excluded.
+    """
+    result: dict[str, str] = {}
+    with z.open("SwordArtsParam.csv") as f:
+        text = f.read().decode("utf-8")
+    for row in csv.DictReader(io.StringIO(text), delimiter=";"):
+        id_ = row.get("Row ID", "").strip()
+        name = row.get("Row Name", "").strip()
+        if id_ and name and name != "No Skill":
+            result[id_] = name
+    return result
+
+
+def _parse_weapons(z: zipfile.ZipFile, patch_version: str, location_map: dict[str, list[str]] | None = None, jp_fmgs: dict | None = None, drop_map: dict[str, dict[str, list[str]]] | None = None, merchant_items: dict[str, list[str]] | None = None, sword_arts_map: dict[str, str] | None = None) -> list[dict]:
     names = _load_fmg(z, "WeaponName.fmg.xml")
     captions = _load_fmg(z, "WeaponCaption.fmg.xml")
     rows = _csv_rows(z, "EquipParamWeapon.csv")
@@ -497,6 +525,10 @@ def _parse_weapons(z: zipfile.ZipFile, patch_version: str, location_map: dict[st
         rarity = int(float(row.get("rarity", 0) or 0))
         trophy_grade = int(float(row.get("trophySGradeId", -1) or -1))
         is_legendary = rarity == 3 and trophy_grade >= 0
+        disable_gem = row.get("disableGemAttr", "0").strip()
+        infusable = disable_gem == "0"
+        sa_id = row.get("swordArtsParamId", "").strip()
+        default_ash = (sword_arts_map or {}).get(sa_id) if sa_id else None
 
         if description_ja and description:
             desc_to_desc_ja.setdefault(description, description_ja)
@@ -535,8 +567,11 @@ def _parse_weapons(z: zipfile.ZipFile, patch_version: str, location_map: dict[st
             "req_int":          _int(row.get("properMagic")),
             "req_fai":          _int(row.get("properFaith")),
             "req_arc":          _int(row.get("properLuck")),
-            "name_ja":          name_ja,
-            "description_ja":   description_ja,
+            "name_ja":              name_ja,
+            "description_ja":       description_ja,
+            "infusable":            infusable,
+            "default_ash_of_war":   default_ash,
+            "depicted_in_talisman": _WEAPON_DEPICTS_TALISMAN.get(name),
         })
 
     # Second pass: fill description_ja on affinity variants that share an
@@ -787,6 +822,7 @@ def _parse_talismans(z: zipfile.ZipFile, patch_version: str, location_map: dict[
             "achievement_set": "Legendary Talismans" if is_legendary else None,
             "name_ja":        name_ja,
             "description_ja": description_ja,
+            "depicts_weapon": _TALISMAN_DEPICTS_WEAPON.get(name),
             **_acquisition_fields(name, drop_map, merchant_items),
         })
 
@@ -1236,7 +1272,7 @@ def _supplement_weapons(erdb_docs: list[dict], location_map: dict[str, list[str]
         description = row.get("description", "").strip()
         category = row.get("category", "").strip()
         weight = _float(row.get("weight"))
-        skill = row.get("skill", "").strip()
+        skill = row.get("skill", "").strip() or None
 
         reqs = _parse_python_literal(row.get("requirements", ""))
         req_str = _int(reqs.get("Str")) if isinstance(reqs, dict) else None
@@ -1271,6 +1307,8 @@ def _supplement_weapons(erdb_docs: list[dict], location_map: dict[str, list[str]
             "req_int": req_int,
             "req_fai": req_fai,
             "req_arc": req_arc,
+            "default_ash_of_war":   skill,
+            "depicted_in_talisman": _WEAPON_DEPICTS_TALISMAN.get(name),
             **_acquisition_fields(name, drop_map, merchant_items),
         })
 
@@ -1426,6 +1464,7 @@ def _supplement_talismans(erdb_docs: list[dict], location_map: dict[str, list[st
             "effect":       effect,
             "effect_value": effect_value,
             "base_item":    _variant_base_name(normalized_name),
+            "depicts_weapon": _TALISMAN_DEPICTS_WEAPON.get(normalized_name),
             **_acquisition_fields(normalized_name, drop_map, merchant_items),
         })
 
@@ -1701,7 +1740,8 @@ def load_erdb(
     bot_talisman_map = _load_discord_bot_talismans()
     with zipfile.ZipFile(zip_data) as z:
         merchant_items = _extract_merchant_items(z)
-        weapons   = _parse_weapons(z, patch_version, lm, jp_fmgs, drop_map, merchant_items)
+        sword_arts_map = _build_sword_arts_map(z)
+        weapons   = _parse_weapons(z, patch_version, lm, jp_fmgs, drop_map, merchant_items, sword_arts_map=sword_arts_map)
         armor     = _parse_armor(z, patch_version, lm, jp_fmgs, drop_map, merchant_items)
         spells    = _parse_spells(z, patch_version, lm, jp_fmgs, drop_map, merchant_items)
         aow       = _parse_ashes_of_war(z, patch_version, lm, jp_fmgs, drop_map, merchant_items)
