@@ -158,15 +158,20 @@ def list_entity_types() -> list[str]:
 
 
 @mcp.tool(annotations=_READ_ONLY)
-def list_patch_versions() -> list[str]:
-    """List the patch versions currently loaded in the index, sorted oldest-first.
+def list_patch_versions() -> dict:
+    """List the patch versions currently loaded in the index with their data sources.
 
-    Use these values as the v1/v2 arguments to diff_entities(), or as the
+    Use the version strings as v1/v2 arguments to diff_entities(), or as the
     patch_version filter in search_entities().
 
     If this tool returns a connection error, call start_search_service() first.
+
+    Returns a dict with:
+        versions: list[str] — version strings sorted oldest-first
+        sources:  dict[str, str] — maps each version to its dominant source
+                  (e.g. {"1.10.0": "erdb", "1.16.0": "fextralife-discord-bot"})
     """
-    return _os.list_patch_versions(_os.get_client())
+    return _os._version_info(_os.get_client())
 
 
 @mcp.tool(annotations=_READ_ONLY)
@@ -264,7 +269,8 @@ def text_changed_between(
     field: str,
     v1: str,
     v2: str,
-) -> list[dict]:
+    allow_cross_source: bool = False,
+) -> list[dict] | dict:
     """Find all entities of a type where a specific field changed between two patch versions.
 
     Runs two bulk queries (one per version) and compares at the application layer.
@@ -286,14 +292,21 @@ def text_changed_between(
             "location", "effect". Any indexed field works; missing values compare as null.
         v1: Older patch version, e.g. "1.02.1".
         v2: Newer patch version, e.g. "1.10.0".
+        allow_cross_source: If True, allow comparing versions from different data sources
+            (erdb vs fextralife). By default this is refused because cross-source diffs
+            measure scrape differences, not game revisions.
 
     Returns a list of dicts, one per changed entity, each with:
         name: entity name
         text_before: field value at v1 (null if absent)
         text_after: field value at v2 (null if absent)
     Sorted alphabetically by name.
+
+    Returns {"error": "..."} if either version is not loaded or sources differ.
     """
-    return _os.text_changed_between(_os.get_client(), entity_type, field, v1, v2)
+    return _os.text_changed_between(
+        _os.get_client(), entity_type, field, v1, v2, allow_cross_source
+    )
 
 
 @mcp.tool(annotations=_READ_ONLY)
@@ -302,6 +315,7 @@ def diff_entities(
     v1: str,
     v2: str,
     entity_type: str | None = None,
+    allow_cross_source: bool = False,
 ) -> dict:
     """Compare an entity's fields between two patch versions.
 
@@ -318,10 +332,20 @@ def diff_entities(
         v1: Older patch version, e.g. "1.06.0".
         v2: Newer patch version, e.g. "1.07.0".
         entity_type: Optional type hint to disambiguate if two entities share a name.
+        allow_cross_source: If True, allow comparing versions from different data sources
+            (erdb vs fextralife). By default this is refused because cross-source diffs
+            measure scrape differences, not game revisions.
 
     Returns a dict with:
         changed: bool — whether any fields differ
         changed_fields: {field: {v1: old_value, v2: new_value}} for each changed field
         unchanged_fields: [field, ...] for fields present in both with identical values
+
+    Returns {"error": "..."} if either version is not loaded, sources differ, or
+    the entity is not present in the requested versions.
+    Error cases:
+        patch version 'X' is not loaded → version not in the index
+        'Name' not present in X         → version loaded but entity absent from it
+        'Name' not found in any loaded version → entity not in the index at all
     """
-    return _os.diff_entities(_os.get_client(), name, v1, v2, entity_type)
+    return _os.diff_entities(_os.get_client(), name, v1, v2, entity_type, allow_cross_source)
