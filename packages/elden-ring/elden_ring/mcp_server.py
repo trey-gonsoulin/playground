@@ -189,17 +189,19 @@ def list_patch_versions() -> dict:
 
 @mcp.tool(annotations=_READ_ONLY)
 def analyze_text(text: str) -> dict:
-    """Return the token stream for a text string under both indexed analyzers.
+    """Return the token stream for a text string under all three indexed JP analyzers.
 
     Calls OpenSearch's _analyze API using the exact field paths that search_literal()
     applies, so the output reflects precisely what a phrase query will match:
     - standard: CJK unigram tokenization (default mode, use_kuromoji=False)
     - kuromoji_segmenter: dictionary segmentation, no lemmatization (use_kuromoji=True)
+    - kuromoji_lemmatizer: dictionary segmentation + baseform reduction (use_lemmatize=True)
 
     Use this to diagnose unexpected zeros before concluding a morpheme is absent.
     In particular, single-kanji suru-verbs that lack IPADIC entries (e.g. 模す, 象る)
     may be split differently than expected — see the use_kuromoji docstring on
-    search_entities_literal for details.
+    search_entities_literal for details. Also use this to verify what baseform a verb
+    reduces to before using use_lemmatize=True.
 
     If this tool returns a connection error, call start_search_service() first.
 
@@ -209,6 +211,7 @@ def analyze_text(text: str) -> dict:
     Returns:
         standard: list[str] — tokens under standard CJK-unigram tokenization
         kuromoji_segmenter: list[str] — tokens under kuromoji segmentation-only mode
+        kuromoji_lemmatizer: list[str] — tokens under kuromoji baseform reduction
     """
     return _os.analyze_text(_os.get_client(), text)
 
@@ -229,6 +232,7 @@ def search_entities_literal(
     use_kuromoji: bool = False,
     patterns: list[str] | None = None,
     source: str | None = None,
+    use_lemmatize: bool = False,
 ) -> dict:
     """Search for entities containing an exact literal substring across text fields.
 
@@ -297,6 +301,14 @@ def search_entities_literal(
         source: If provided, restrict to documents from this data source (e.g. "erdb"
             or "fextralife-discord-bot"). Useful for clean corpus counts that exclude
             cross-source duplicates. See list_patch_versions() for source values.
+        use_lemmatize: If True, route Japanese fields through kuromoji baseform reduction
+            so a single query in dictionary form matches all inflected surface forms.
+            Example: pattern="与える" matches docs containing 与えた, 与えられ, 与えて, etc.
+            Uses segmentation + kuromoji_baseform only (no stopword/POS removal), so
+            phrase queries across word boundaries work correctly. Takes precedence over
+            use_kuromoji when both are True. Use analyze_text() to verify the expected
+            baseform before querying — IPADIC-unknown verbs (e.g. 模す, 象る) may not
+            reduce to the expected baseform.
 
     Returns a dict with:
         total: int — distinct entity count when no patch_version is given (deduplicated);
@@ -319,6 +331,7 @@ def search_entities_literal(
         use_kuromoji,
         patterns,
         source,
+        use_lemmatize,
     )
 
 
