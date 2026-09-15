@@ -114,7 +114,7 @@ WEAPON_TYPES: dict[int, str] = {
     25: "Spear",
     28: "Great Spear",
     29: "Halberd",
-    31: "Scythe",
+    31: "Reaper",  # erdb param label is "Scythe"; in-game menu says "Reaper"
     35: "Fist",
     37: "Claw",
     39: "Whip",

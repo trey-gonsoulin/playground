@@ -124,24 +124,23 @@ def get_entity(name: str, entity_type: str | None = None) -> dict | None:
 
 
 @mcp.tool(annotations=_READ_ONLY)
-def list_menu_categories(entity_type: str | None = None) -> list[str] | dict:
-    """List the distinct menu_category values in the index.
+def list_menu_categories(entity_type: str | None = None) -> dict:
+    """List the distinct menu_category values in the index with entity counts.
 
     menu_category reflects the in-game equipment menu grouping (e.g. "Straight Sword",
-    "Glintstone Sorcery", "Head", "Consumables"). Use these values to enumerate
-    all entities in a specific in-game class via search_entities_literal with
-    no pattern, which replaces the previous 34-round-trip census approach.
+    "Reaper", "Head", "Consumables"). Counts are distinct-entity counts (not raw
+    document counts), so multi-patch duplication does not inflate the numbers.
 
     If this tool returns a connection error, call start_search_service() first.
 
     Args:
-        entity_type: If provided, return a flat sorted list of category values for
-            that entity type (e.g. "weapon", "armor", "spell"). If omitted, return
-            a dict mapping every entity type that has menu_category set to its
-            sorted category list — all data in one call.
+        entity_type: If provided, return {category: entity_count} for that type
+            (e.g. entity_type="weapon" → {"Straight Sword": 26, "Reaper": 4, ...}).
+            If omitted, return {entity_type: {category: entity_count}} for every
+            type that has menu_category set — all data in one call.
 
     Returns:
-        list[str] when entity_type is given; dict[str, list[str]] otherwise.
+        dict[str, int] when entity_type is given; dict[str, dict[str, int]] otherwise.
     """
     return _os.list_menu_categories(_os.get_client(), entity_type)
 

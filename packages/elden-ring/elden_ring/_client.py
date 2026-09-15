@@ -608,29 +608,46 @@ def text_changed_between(
     return results
 
 
+_ENTITY_COUNT_AGG = {
+    "entity_count": {
+        "cardinality": {"field": "name.keyword", "precision_threshold": 1000}
+    }
+}
+
+
 def list_menu_categories(
     client: OpenSearch,
     entity_type: str | None = None,
-) -> list[str] | dict[str, list[str]]:
-    """Return distinct menu_category values.
+) -> dict[str, int] | dict[str, dict[str, int]]:
+    """Return distinct menu_category values with distinct entity counts.
 
-    With entity_type: returns a sorted list of categories for that type.
-    Without entity_type: returns a dict mapping each entity type to its
-    sorted category list, covering only types that have at least one doc
-    with a menu_category set.
+    With entity_type: returns {category: entity_count} sorted by category name.
+    Without entity_type: returns {entity_type: {category: entity_count}} for
+    every type that has at least one doc with menu_category set.
+
+    Counts are distinct-entity counts (cardinality on name.keyword), not raw
+    doc counts, so multi-patch duplication doesn't inflate the numbers.
     """
     if entity_type:
         body: dict = {
             "size": 0,
             "query": {"term": {"entity_type": entity_type}},
             "aggs": {
-                "categories": {"terms": {"field": "menu_category", "size": 200}}
+                "categories": {
+                    "terms": {"field": "menu_category", "size": 200},
+                    "aggs": _ENTITY_COUNT_AGG,
+                }
             },
         }
         resp = client.search(index=INDEX, body=body)
-        return sorted(b["key"] for b in resp["aggregations"]["categories"]["buckets"])
+        return dict(
+            sorted(
+                (b["key"], b["entity_count"]["value"])
+                for b in resp["aggregations"]["categories"]["buckets"]
+            )
+        )
 
-    # Nested aggregation: entity_type → menu_category
+    # Nested aggregation: entity_type → menu_category → distinct entity count
     body = {
         "size": 0,
         "query": {"exists": {"field": "menu_category"}},
@@ -639,7 +656,8 @@ def list_menu_categories(
                 "terms": {"field": "entity_type", "size": 50},
                 "aggs": {
                     "categories": {
-                        "terms": {"field": "menu_category", "size": 200}
+                        "terms": {"field": "menu_category", "size": 200},
+                        "aggs": _ENTITY_COUNT_AGG,
                     }
                 },
             }
@@ -647,8 +665,11 @@ def list_menu_categories(
     }
     resp = client.search(index=INDEX, body=body)
     return {
-        bucket["key"]: sorted(
-            c["key"] for c in bucket["categories"]["buckets"]
+        bucket["key"]: dict(
+            sorted(
+                (c["key"], c["entity_count"]["value"])
+                for c in bucket["categories"]["buckets"]
+            )
         )
         for bucket in resp["aggregations"]["by_type"]["buckets"]
     }
