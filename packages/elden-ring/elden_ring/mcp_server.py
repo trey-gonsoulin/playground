@@ -159,15 +159,15 @@ def list_menu_categories(
 
 
 @mcp.tool(annotations=_READ_ONLY)
-def list_entity_types() -> list[str]:
+def list_entity_types() -> dict:
     """List the entity types currently loaded in the index.
 
-    Returns a list of type strings, e.g. ["weapon", "armor", "spell", "boss"].
+    Returns {"entity_types": ["weapon", "armor", "spell", "boss", ...]}.
     Use these values as the entity_type argument to search_entities().
 
     If this tool returns a connection error, call start_search_service() first.
     """
-    return _os.list_entity_types(_os.get_client())
+    return {"entity_types": _os.list_entity_types(_os.get_client())}
 
 
 @mcp.tool(annotations=_READ_ONLY)

@@ -49,6 +49,7 @@ from opensearchpy.helpers import bulk
 # OpenSearch client
 # ---------------------------------------------------------------------------
 
+
 def _get_client() -> OpenSearch:
     endpoint = os.environ.get("OPENSEARCH_ENDPOINT")
     user = os.environ.get("OPENSEARCH_USER", "admin")
@@ -78,10 +79,22 @@ from elden_ring._client import INDEX_MAPPING  # reuse mapping definition
 # erdb only covers base-game patches (last updated 2023-07-31, frozen at 1.10.0).
 # DLC content (patch 1.12+) is supplemented from the Discord bot CSVs instead.
 ERDB_VERSIONS = [
-    "1.10.0", "1.09.0", "1.08.1", "1.08.0", "1.07.1", "1.07.0",
-    "1.06.0", "1.05.0", "1.04.2", "1.04.1",
-    "1.03.3", "1.03.2", "1.03.1",
-    "1.02.3", "1.02.2", "1.02.1",
+    "1.10.0",
+    "1.09.0",
+    "1.08.1",
+    "1.08.0",
+    "1.07.1",
+    "1.07.0",
+    "1.06.0",
+    "1.05.0",
+    "1.04.2",
+    "1.04.1",
+    "1.03.3",
+    "1.03.2",
+    "1.03.1",
+    "1.02.3",
+    "1.02.2",
+    "1.02.1",
 ]
 ERDB_DEFAULT_VERSION = ERDB_VERSIONS[0]  # most recent base-game patch
 
@@ -97,11 +110,11 @@ ERDB_ZIP_URL = (
 # wepType param field → in-game weapon category display name.
 # Values confirmed against known weapons extracted from EquipParamWeapon.csv.
 WEAPON_TYPES: dict[int, str] = {
-    1:  "Dagger",
-    3:  "Straight Sword",
-    5:  "Greatsword",
-    7:  "Colossal Sword",
-    9:  "Curved Sword",
+    1: "Dagger",
+    3: "Straight Sword",
+    5: "Greatsword",
+    7: "Colossal Sword",
+    9: "Curved Sword",
     11: "Curved Greatsword",
     13: "Katana",
     14: "Twinblade",
@@ -144,10 +157,17 @@ ARMOR_CATEGORIES: dict[int, str] = {0: "Head", 1: "Body", 2: "Arms", 3: "Legs"}
 
 
 # Legendary sorceries/incantations have no param encoding; identified by name.
-_LEGENDARY_SPELLS: frozenset[str] = frozenset({
-    "Comet Azur", "Founding Rain of Stars", "Stars of Ruin",
-    "Ranni's Dark Moon", "Flame of the Fell God", "Elden Stars", "Greyoll's Roar",
-})
+_LEGENDARY_SPELLS: frozenset[str] = frozenset(
+    {
+        "Comet Azur",
+        "Founding Rain of Stars",
+        "Stars of Ruin",
+        "Ranni's Dark Moon",
+        "Flame of the Fell God",
+        "Elden Stars",
+        "Greyoll's Roar",
+    }
+)
 
 
 # Weapons depicted in specific talismans (and vice versa).
@@ -158,12 +178,14 @@ _WEAPON_DEPICTS_TALISMAN: dict[str, str] = {
     "Miséricorde": "Dagger Talisman",
     "Raptor Talons": "Claw Talisman",
 }
-_TALISMAN_DEPICTS_WEAPON: dict[str, str] = {v: k for k, v in _WEAPON_DEPICTS_TALISMAN.items()}
+_TALISMAN_DEPICTS_WEAPON: dict[str, str] = {
+    v: k for k, v in _WEAPON_DEPICTS_TALISMAN.items()
+}
 
 
 def _variant_base_name(name: str) -> str | None:
     """Return the base talisman name for a +N or +N Variant name, or None."""
-    m = re.match(r'^(.+?)\s+\+\d+(?:\s+Variant)?$', name)
+    m = re.match(r"^(.+?)\s+\+\d+(?:\s+Variant)?$", name)
     return m.group(1) if m else None
 
 
@@ -186,6 +208,7 @@ def _talisman_group(sort_id: int | None) -> str | None:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _int(val) -> int | None:
     try:
@@ -249,12 +272,20 @@ def _is_valid_spell_row(row: dict) -> bool:
 # Japanese text enrichment — ihascats/Elden-Text-JP (base game only)
 # ---------------------------------------------------------------------------
 
-JP_BASE_GAME_URL = "https://raw.githubusercontent.com/ihascats/Elden-Text-JP/main/index.html"
+JP_BASE_GAME_URL = (
+    "https://raw.githubusercontent.com/ihascats/Elden-Text-JP/main/index.html"
+)
 
 # These sections use <h3>Name [id]</h3><p>description</p> format.
-_JP_NAME_FORMAT_SECTIONS: frozenset[str] = frozenset({
-    "WeaponName", "GemName", "GoodsName", "AccessoryName", "ProtectorName",
-})
+_JP_NAME_FORMAT_SECTIONS: frozenset[str] = frozenset(
+    {
+        "WeaponName",
+        "GemName",
+        "GoodsName",
+        "AccessoryName",
+        "ProtectorName",
+    }
+)
 
 # NpcName FMG IDs for enemy entities — maps English names (as used in the Discord
 # bot CSVs) to NpcName message IDs from ihascats/Elden-Text-JP. Base-game only;
@@ -262,111 +293,111 @@ _JP_NAME_FORMAT_SECTIONS: frozenset[str] = frozenset({
 # IDs verified against the NpcName section of the JP FMG file.
 _ENEMY_NPCNAME_IDS: dict[str, str] = {
     # --- Great Enemies (base game) ---
-    "Margit, the Fell Omen":                        "902130000",
+    "Margit, the Fell Omen": "902130000",
     "Morgott The Grace-Given Veiled Monarch Omen King": "902130002",
-    "Godrick the Grafted":                          "904750000",
-    "Godefroy The Grafted":                         "904750520",
-    "Rennala Carian Queen of the Full Moon":        "120000",
-    "Starscourge Radahn":                           "904730000",
-    "Rykard, Lord of Blasphemy":                    "904710001",
-    "God-Devouring Serpent":                        "904710000",
-    "Mohg, Lord of Blood":                          "904800000",
-    "Mohg, the Omen":                               "904800002",
-    "Malenia, Blade of Miquella":                   "902120000",
-    "Lichdragon Fortissax":                         "904510000",
-    "Maliketh, The Black Blade":                    "902110001",
-    "Astel, Naturalborn of the Void":               "904620001",
-    "Astel, Stars of Darkness":                     "904620320",
-    "Regal Ancestor Spirit":                        "904670001",
-    "Ancestor Spirit":                              "904670000",
-    "Radagon of the Golden Order":                  "902190000",
-    "Godfrey, First Elden Lord":                    "904720000",
-    "Godfrey, First Elden Lord (Golden Shade)":     "904720001",
-    "Fire Giant":                                   "904760000",
-    "Dragonlord Placidusax":                        "904520000",
+    "Godrick the Grafted": "904750000",
+    "Godefroy The Grafted": "904750520",
+    "Rennala Carian Queen of the Full Moon": "120000",
+    "Starscourge Radahn": "904730000",
+    "Rykard, Lord of Blasphemy": "904710001",
+    "God-Devouring Serpent": "904710000",
+    "Mohg, Lord of Blood": "904800000",
+    "Mohg, the Omen": "904800002",
+    "Malenia, Blade of Miquella": "902120000",
+    "Lichdragon Fortissax": "904510000",
+    "Maliketh, The Black Blade": "902110001",
+    "Astel, Naturalborn of the Void": "904620001",
+    "Astel, Stars of Darkness": "904620320",
+    "Regal Ancestor Spirit": "904670001",
+    "Ancestor Spirit": "904670000",
+    "Radagon of the Golden Order": "902190000",
+    "Godfrey, First Elden Lord": "904720000",
+    "Godfrey, First Elden Lord (Golden Shade)": "904720001",
+    "Fire Giant": "904760000",
+    "Dragonlord Placidusax": "904520000",
     # --- Named bosses ---
-    "Flying Dragon Agheel":                         "904500600",
-    "Flying Dragon Greyll":                         "904500601",
-    "Decaying Ekzykes":                             "904501600",
-    "Glintstone Dragon Smarag":                     "904502600",
-    "Glintstone Dragon Adula":                      "904502601",
-    "Borealis, the Freezing Fog":                   "904503600",
-    "Ancient Dragon Lansseax":                      "904510600",
-    "MAGMA WYRM MAKAR":                             "904910000",
-    "Magma Wyrm":                                   "904910320",
-    "Great Wyrm Theodorix":                         "904911600",
-    "Dragonkin Soldier":                            "904650600",
-    "Dragonkin Soldier of Nokstella":               "904650000",
-    "Red Wolf of Radagon":                          "903181000",
-    "Red Wolf of the Champion":                     "903181300",
-    "Valiant Gargoyle":                             "904770000",
-    "Black Blade Kindred":                          "904770600",
-    "Godskin Apostle":                              "903560000",
-    "Godskin Noble":                                "903570000",
-    "Godskin Duo":                                  "903575000",
-    "Godskin Apostle and Godskin Noble":            "903575000",
-    "Fell Twins":                                   "904820310",
-    "Mimic Tear":                                   "903320300",
-    "Crucible Knight Ordovis":                      "902500300",
-    "Crucible Knights":                             "902500301",
-    "Crucible Knight Siluria":                      "902500600",
-    "Night's Cavalry":                              "903150600",
-    "Black Knife Assassin":                         "902100300",
-    "Alecto, Black Knife Ringleader":               "902100521",
-    "Roundtable Knight Vyke":                       "900000521",
-    "Commander O'Neil":                             "903050600",
-    "Commander Niall":                              "903050500",
-    "Elemer of the Briar":                          "903100500",
-    "Bell Bearing Hunter":                          "903100600",
-    "Loretta, Knight of the Haligtree":             "903252000",
-    "Royal Knight Loretta":                         "903253500",
-    "Tree Sentinel":                                "903251600",
-    "Draconic Tree Sentinel":                       "903250600",
-    "Bloodhound Knight":                            "904290310",
-    "Bloodhound Knight Darriwil":                   "904290520",
-    "Fallingstar Beast":                            "904680320",
-    "Full-Grown Fallingstar Beast":                 "904680603",
-    "Ulcerated Tree Spirit":                        "904640000",
-    "Putrid Tree Spirit":                           "904640300",
-    "Putrid Avatar":                                "904811600",
-    "Erdtree Avatar":                               "904810600",
-    "Tibia Mariner":                                "904950600",
-    "Death Rite Bird":                              "904980600",
-    "Deathbird":                                    "904980601",
-    "Spiritcaller Snail":                           "904140300",
-    "Runebear":                                     "904630310",
-    "Stonedigger Troll":                            "904600320",
-    "Bols, Carian Knight":                          "904600520",
-    "Grafted Scion":                                "904690000",
-    "Mad Pumpkin Head":                             "904340540",
-    "Erdtree Burial Watchdog":                      "904260300",
-    "Royal Revenant":                               "904020540",
-    "Beastman of Farum Azula":                      "903970310",
-    "Wormface":                                     "904580600",
-    "Abductor Virgins":                             "904470000",
-    "Miranda The Blighted Bloom":                   "904480310",
-    "Demi-Human Chiefs":                            "904120310",
-    "Demi-Human Queen Margot":                      "904130310",
-    "Demi-Human Queen Gilika":                      "904130540",
-    "Demi-Human Queen Maggie":                      "904130600",
-    "Onyx Lord":                                    "903600320",
-    "Ancient Hero of Zamor":                        "907100300",
-    "Grave Warden Duelist":                         "903400300",
-    "Putrid Grave Warden Duelist":                  "903400302",
-    "Cleanrot Knight":                              "903800310",
-    "Scaly Misbegotten":                            "903451320",
-    "Misbegotten Warrior":                          "903460300",
-    "Misbegotten Crusader":                         "903460310",
-    "Leonine Misbegotten":                          "903460500",
-    "Battlemage Hugues":                            "903704520",
-    "Guardian Golem":                               "904660310",
-    "Perfumer Tricia and Misbegotten Warrior":      "903700300",
+    "Flying Dragon Agheel": "904500600",
+    "Flying Dragon Greyll": "904500601",
+    "Decaying Ekzykes": "904501600",
+    "Glintstone Dragon Smarag": "904502600",
+    "Glintstone Dragon Adula": "904502601",
+    "Borealis, the Freezing Fog": "904503600",
+    "Ancient Dragon Lansseax": "904510600",
+    "MAGMA WYRM MAKAR": "904910000",
+    "Magma Wyrm": "904910320",
+    "Great Wyrm Theodorix": "904911600",
+    "Dragonkin Soldier": "904650600",
+    "Dragonkin Soldier of Nokstella": "904650000",
+    "Red Wolf of Radagon": "903181000",
+    "Red Wolf of the Champion": "903181300",
+    "Valiant Gargoyle": "904770000",
+    "Black Blade Kindred": "904770600",
+    "Godskin Apostle": "903560000",
+    "Godskin Noble": "903570000",
+    "Godskin Duo": "903575000",
+    "Godskin Apostle and Godskin Noble": "903575000",
+    "Fell Twins": "904820310",
+    "Mimic Tear": "903320300",
+    "Crucible Knight Ordovis": "902500300",
+    "Crucible Knights": "902500301",
+    "Crucible Knight Siluria": "902500600",
+    "Night's Cavalry": "903150600",
+    "Black Knife Assassin": "902100300",
+    "Alecto, Black Knife Ringleader": "902100521",
+    "Roundtable Knight Vyke": "900000521",
+    "Commander O'Neil": "903050600",
+    "Commander Niall": "903050500",
+    "Elemer of the Briar": "903100500",
+    "Bell Bearing Hunter": "903100600",
+    "Loretta, Knight of the Haligtree": "903252000",
+    "Royal Knight Loretta": "903253500",
+    "Tree Sentinel": "903251600",
+    "Draconic Tree Sentinel": "903250600",
+    "Bloodhound Knight": "904290310",
+    "Bloodhound Knight Darriwil": "904290520",
+    "Fallingstar Beast": "904680320",
+    "Full-Grown Fallingstar Beast": "904680603",
+    "Ulcerated Tree Spirit": "904640000",
+    "Putrid Tree Spirit": "904640300",
+    "Putrid Avatar": "904811600",
+    "Erdtree Avatar": "904810600",
+    "Tibia Mariner": "904950600",
+    "Death Rite Bird": "904980600",
+    "Deathbird": "904980601",
+    "Spiritcaller Snail": "904140300",
+    "Runebear": "904630310",
+    "Stonedigger Troll": "904600320",
+    "Bols, Carian Knight": "904600520",
+    "Grafted Scion": "904690000",
+    "Mad Pumpkin Head": "904340540",
+    "Erdtree Burial Watchdog": "904260300",
+    "Royal Revenant": "904020540",
+    "Beastman of Farum Azula": "903970310",
+    "Wormface": "904580600",
+    "Abductor Virgins": "904470000",
+    "Miranda The Blighted Bloom": "904480310",
+    "Demi-Human Chiefs": "904120310",
+    "Demi-Human Queen Margot": "904130310",
+    "Demi-Human Queen Gilika": "904130540",
+    "Demi-Human Queen Maggie": "904130600",
+    "Onyx Lord": "903600320",
+    "Ancient Hero of Zamor": "907100300",
+    "Grave Warden Duelist": "903400300",
+    "Putrid Grave Warden Duelist": "903400302",
+    "Cleanrot Knight": "903800310",
+    "Scaly Misbegotten": "903451320",
+    "Misbegotten Warrior": "903460300",
+    "Misbegotten Crusader": "903460310",
+    "Leonine Misbegotten": "903460500",
+    "Battlemage Hugues": "903704520",
+    "Guardian Golem": "904660310",
+    "Perfumer Tricia and Misbegotten Warrior": "903700300",
     # --- NPC-bosses (6-digit NpcName IDs) ---
-    "Adan, Thief of Fire":                          "135600",
-    "Esgar, Priest of Blood":                       "138600",
-    "Patches":                                      "130900",
-    "Necromancer Garris":                           "137600",
-    "Sanguine Noble":                               "134310",
+    "Adan, Thief of Fire": "135600",
+    "Esgar, Priest of Blood": "138600",
+    "Patches": "130900",
+    "Necromancer Garris": "137600",
+    "Sanguine Noble": "134310",
 }
 
 
@@ -377,7 +408,7 @@ def _parse_jp_name_section(sec_html: str) -> dict[str, dict[str, str]]:
     current_name: str | None = None
     desc_parts: list[str] = []
 
-    for m in re.finditer(r'<h3>([^<]+)</h3>|<p>(.*?)</p>', sec_html, re.DOTALL):
+    for m in re.finditer(r"<h3>([^<]+)</h3>|<p>(.*?)</p>", sec_html, re.DOTALL):
         if m.group(1) is not None:
             if current_id is not None:
                 result[current_id] = {
@@ -385,7 +416,7 @@ def _parse_jp_name_section(sec_html: str) -> dict[str, dict[str, str]]:
                     "description": " ".join(" ".join(desc_parts).split()),
                 }
             text = m.group(1).strip()
-            id_m = re.match(r'^(.+?)\s+\[(\d+)\]$', text)
+            id_m = re.match(r"^(.+?)\s+\[(\d+)\]$", text)
             if id_m:
                 current_name = id_m.group(1).strip()
                 current_id = id_m.group(2)
@@ -407,9 +438,9 @@ def _parse_jp_name_section(sec_html: str) -> dict[str, dict[str, str]]:
 
 def _parse_jp_info_section(sec_html: str) -> dict[str, str]:
     """Parse [id] text HTML → {id: text}. Strips h3 entries first to avoid ID collisions."""
-    clean = re.sub(r'<h3>[^<]*</h3>', '', sec_html)
+    clean = re.sub(r"<h3>[^<]*</h3>", "", sec_html)
     result: dict[str, str] = {}
-    for m in re.finditer(r'\[(\d+)\]\s*([^<\[]+)', clean):
+    for m in re.finditer(r"\[(\d+)\]\s*([^<\[]+)", clean):
         id_ = m.group(1)
         text = " ".join(m.group(2).split()).strip()
         if text:
@@ -433,7 +464,7 @@ def _load_jp_fmgs() -> dict[str, dict] | None:
         return None
 
     html = resp.text
-    parts = re.split(r'<h2>([^<]+)</h2>', html)
+    parts = re.split(r"<h2>([^<]+)</h2>", html)
     parsed: dict[str, dict] = {}
     for i in range(1, len(parts), 2):
         sec_name = parts[i].replace(".fmg", "").strip()
@@ -448,7 +479,9 @@ def _load_jp_fmgs() -> dict[str, dict] | None:
     return parsed
 
 
-def _jp_name_desc(jp_fmgs: dict | None, section: str, row_id: str) -> tuple[str | None, str | None]:
+def _jp_name_desc(
+    jp_fmgs: dict | None, section: str, row_id: str
+) -> tuple[str | None, str | None]:
     """Return (name_ja, description_ja) from a JP name-format section, or (None, None)."""
     if jp_fmgs is None:
         return None, None
@@ -465,6 +498,7 @@ def _count_ja(docs: list[dict]) -> int:
 # ---------------------------------------------------------------------------
 # Weapons
 # ---------------------------------------------------------------------------
+
 
 def _build_sword_arts_map(z: zipfile.ZipFile) -> dict[str, str]:
     """Return swordArtsParamId → skill name from SwordArtsParam.csv.
@@ -483,16 +517,25 @@ def _build_sword_arts_map(z: zipfile.ZipFile) -> dict[str, str]:
     return result
 
 
-def _parse_weapons(z: zipfile.ZipFile, patch_version: str, location_map: dict[str, list[str]] | None = None, jp_fmgs: dict | None = None, drop_map: dict[str, dict[str, list[str]]] | None = None, merchant_items: dict[str, list[str]] | None = None, sword_arts_map: dict[str, str] | None = None) -> list[dict]:
+def _parse_weapons(
+    z: zipfile.ZipFile,
+    patch_version: str,
+    location_map: dict[str, list[str]] | None = None,
+    jp_fmgs: dict | None = None,
+    drop_map: dict[str, dict[str, list[str]]] | None = None,
+    merchant_items: dict[str, list[str]] | None = None,
+    sword_arts_map: dict[str, str] | None = None,
+) -> list[dict]:
     names = _load_fmg(z, "WeaponName.fmg.xml")
     captions = _load_fmg(z, "WeaponCaption.fmg.xml")
     rows = _csv_rows(z, "EquipParamWeapon.csv")
 
     docs = []
-    # Maps English description → first description_ja seen for that description.
-    # Used in the second pass to propagate description_ja to affinity variants,
-    # which share English descriptions with their base form but have no FMG entry.
+    # Maps English description → first description_ja / name_ja seen for that description.
+    # Used in the second pass to propagate these fields to affinity variants, which share
+    # English descriptions with their base form but have no FMG entry of their own.
     desc_to_desc_ja: dict[str, str] = {}
+    desc_to_name_ja: dict[str, str] = {}
 
     for row in rows:
         if not _is_valid_row(row):
@@ -511,8 +554,13 @@ def _parse_weapons(z: zipfile.ZipFile, patch_version: str, location_map: dict[st
         # have no in-game description (internal engine entries).
         has_attack = any(
             float(row.get(f, 0) or 0) > 0
-            for f in ("attackBasePhysics", "attackBaseMagic", "attackBaseFire",
-                      "attackBaseThunder", "attackBaseDark")
+            for f in (
+                "attackBasePhysics",
+                "attackBaseMagic",
+                "attackBaseFire",
+                "attackBaseThunder",
+                "attackBaseDark",
+            )
         )
         description = captions.get(row_id, "")
         if not has_attack and not description:
@@ -520,7 +568,9 @@ def _parse_weapons(z: zipfile.ZipFile, patch_version: str, location_map: dict[st
 
         cat_name = WEAPON_TYPES.get(wep_type_id, f"weapon_type_{wep_type_id}")
         locs = (location_map or {}).get(name)
-        loc_str = ", ".join(locs) if locs else None
+        loc_str = (
+            ", ".join(locs) if locs else None
+        )  # display only; location field stores the list
         name_ja, description_ja = _jp_name_desc(jp_fmgs, "WeaponName", row_id)
         sort_id = _int(row.get("sortId"))
         rarity = int(float(row.get("rarity", 0) or 0))
@@ -533,55 +583,69 @@ def _parse_weapons(z: zipfile.ZipFile, patch_version: str, location_map: dict[st
 
         if description_ja and description:
             desc_to_desc_ja.setdefault(description, description_ja)
+        if name_ja and description:
+            desc_to_name_ja.setdefault(description, name_ja)
 
-        docs.append({
-            "entity_type": "weapon",
-            "name": name,
-            "patch_version": patch_version,
-            "source": "erdb",
-            "description": description,
-            "text_content": "\n\n".join(filter(None, [
-                description,
-                f"Weapon type: {cat_name}",
-                f"Found in: {loc_str}" if loc_str else None,
-            ])),
-            "tags": [cat_name],
-            "location": loc_str,
-            "sort_id":          sort_id,
-            "menu_category":    cat_name,
-            "is_legendary":     True if is_legendary else None,
-            "achievement_set":  "Legendary Armaments" if is_legendary else None,
-            **_acquisition_fields(name, drop_map, merchant_items),
-            "weight":           _float(row.get("weight")),
-            "attack_physical":  _int(row.get("attackBasePhysics")),
-            "attack_magic":     _int(row.get("attackBaseMagic")),
-            "attack_fire":      _int(row.get("attackBaseFire")),
-            "attack_lightning": _int(row.get("attackBaseThunder")),
-            "attack_holy":      _int(row.get("attackBaseDark")),  # "dark" = holy in ER
-            "scaling_str":      _scaling_grade(row.get("correctStrength")),
-            "scaling_dex":      _scaling_grade(row.get("correctAgility")),
-            "scaling_int":      _scaling_grade(row.get("correctMagic")),
-            "scaling_fai":      _scaling_grade(row.get("correctFaith")),
-            "scaling_arc":      _scaling_grade(row.get("correctLuck")),
-            "req_str":          _int(row.get("properStrength")),
-            "req_dex":          _int(row.get("properAgility")),
-            "req_int":          _int(row.get("properMagic")),
-            "req_fai":          _int(row.get("properFaith")),
-            "req_arc":          _int(row.get("properLuck")),
-            "name_ja":              name_ja,
-            "description_ja":       description_ja,
-            "infusable":            infusable,
-            "default_ash_of_war":   default_ash,
-            "depicted_in_talisman": _WEAPON_DEPICTS_TALISMAN.get(name),
-        })
+        docs.append(
+            {
+                "entity_type": "weapon",
+                "name": name,
+                "patch_version": patch_version,
+                "source": "erdb",
+                "description": description,
+                "text_content": "\n\n".join(
+                    filter(
+                        None,
+                        [
+                            description,
+                            f"Weapon type: {cat_name}",
+                            f"Found in: {loc_str}" if loc_str else None,
+                        ],
+                    )
+                ),
+                "tags": [cat_name],
+                "location": locs if locs else None,
+                "sort_id": sort_id,
+                "menu_category": cat_name,
+                "is_legendary": True if is_legendary else None,
+                "achievement_set": "Legendary Armaments" if is_legendary else None,
+                **_acquisition_fields(name, drop_map, merchant_items),
+                "weight": _float(row.get("weight")),
+                "attack_physical": _int(row.get("attackBasePhysics")),
+                "attack_magic": _int(row.get("attackBaseMagic")),
+                "attack_fire": _int(row.get("attackBaseFire")),
+                "attack_lightning": _int(row.get("attackBaseThunder")),
+                "attack_holy": _int(row.get("attackBaseDark")),  # "dark" = holy in ER
+                "scaling_str": _scaling_grade(row.get("correctStrength")),
+                "scaling_dex": _scaling_grade(row.get("correctAgility")),
+                "scaling_int": _scaling_grade(row.get("correctMagic")),
+                "scaling_fai": _scaling_grade(row.get("correctFaith")),
+                "scaling_arc": _scaling_grade(row.get("correctLuck")),
+                "req_str": _int(row.get("properStrength")),
+                "req_dex": _int(row.get("properAgility")),
+                "req_int": _int(row.get("properMagic")),
+                "req_fai": _int(row.get("properFaith")),
+                "req_arc": _int(row.get("properLuck")),
+                "name_ja": name_ja,
+                "description_ja": description_ja,
+                "infusable": infusable,
+                "default_ash_of_war": default_ash,
+                "depicted_in_talisman": _WEAPON_DEPICTS_TALISMAN.get(name),
+            }
+        )
 
-    # Second pass: fill description_ja on affinity variants that share an
+    # Second pass: fill description_ja and name_ja on affinity variants that share an
     # English description with their base form but have no FMG entry of their own.
     for doc in docs:
         if doc.get("description_ja") is None and doc.get("description"):
             inherited = desc_to_desc_ja.get(doc["description"])
             if inherited:
                 doc["description_ja"] = inherited
+    for doc in docs:
+        if doc.get("name_ja") is None and doc.get("description"):
+            inherited = desc_to_name_ja.get(doc["description"])
+            if inherited:
+                doc["name_ja"] = inherited
 
     return docs
 
@@ -590,7 +654,15 @@ def _parse_weapons(z: zipfile.ZipFile, patch_version: str, location_map: dict[st
 # Armor
 # ---------------------------------------------------------------------------
 
-def _parse_armor(z: zipfile.ZipFile, patch_version: str, location_map: dict[str, list[str]] | None = None, jp_fmgs: dict | None = None, drop_map: dict[str, dict[str, list[str]]] | None = None, merchant_items: dict[str, list[str]] | None = None) -> list[dict]:
+
+def _parse_armor(
+    z: zipfile.ZipFile,
+    patch_version: str,
+    location_map: dict[str, list[str]] | None = None,
+    jp_fmgs: dict | None = None,
+    drop_map: dict[str, dict[str, list[str]]] | None = None,
+    merchant_items: dict[str, list[str]] | None = None,
+) -> list[dict]:
     names = _load_fmg(z, "ProtectorName.fmg.xml")
     captions = _load_fmg(z, "ProtectorCaption.fmg.xml")
     rows = _csv_rows(z, "EquipParamProtector.csv")
@@ -611,35 +683,41 @@ def _parse_armor(z: zipfile.ZipFile, patch_version: str, location_map: dict[str,
 
         description = captions.get(row_id, "")
         locs = (location_map or {}).get(name)
-        loc_str = ", ".join(locs) if locs else None
+        loc_str = ", ".join(locs) if locs else None  # display only
         name_ja, description_ja = _jp_name_desc(jp_fmgs, "ProtectorName", row_id)
         sort_id = _int(row.get("sortId"))
         armor_cat_id = int(float(row.get("protectorCategory", 0) or 0))
         armor_cat = ARMOR_CATEGORIES.get(armor_cat_id)
 
-        docs.append({
-            "entity_type": "armor",
-            "name": name,
-            "patch_version": patch_version,
-            "source": "erdb",
-            "description": description,
-            "text_content": "\n\n".join(filter(None, [description, f"Found in: {loc_str}" if loc_str else None])),
-            "tags": [armor_cat] if armor_cat else [],
-            "location": loc_str,
-            "sort_id":          sort_id,
-            "menu_category":    armor_cat,
-            **_acquisition_fields(name, drop_map, merchant_items),
-            "weight": weight,
-            # Defense cut rates (0-1 scale → stored as-is for filtering)
-            # physical defense is split across several sub-types; store the main cut rate
-            "defense_physical":  _float(row.get("defensePhysics")),
-            "defense_magic":     _float(row.get("defenseMagic")),
-            "defense_fire":      _float(row.get("defenseFire")),
-            "defense_lightning": _float(row.get("defenseThunder")),
-            "defense_holy":      _float(row.get("defenseDark")),
-            "name_ja":           name_ja,
-            "description_ja":    description_ja,
-        })
+        docs.append(
+            {
+                "entity_type": "armor",
+                "name": name,
+                "patch_version": patch_version,
+                "source": "erdb",
+                "description": description,
+                "text_content": "\n\n".join(
+                    filter(
+                        None, [description, f"Found in: {loc_str}" if loc_str else None]
+                    )
+                ),
+                "tags": [armor_cat] if armor_cat else [],
+                "location": locs if locs else None,
+                "sort_id": sort_id,
+                "menu_category": armor_cat,
+                **_acquisition_fields(name, drop_map, merchant_items),
+                "weight": weight,
+                # Defense cut rates (0-1 scale → stored as-is for filtering)
+                # physical defense is split across several sub-types; store the main cut rate
+                "defense_physical": _float(row.get("defensePhysics")),
+                "defense_magic": _float(row.get("defenseMagic")),
+                "defense_fire": _float(row.get("defenseFire")),
+                "defense_lightning": _float(row.get("defenseThunder")),
+                "defense_holy": _float(row.get("defenseDark")),
+                "name_ja": name_ja,
+                "description_ja": description_ja,
+            }
+        )
 
     return docs
 
@@ -648,7 +726,15 @@ def _parse_armor(z: zipfile.ZipFile, patch_version: str, location_map: dict[str,
 # Spells (sorceries and incantations)
 # ---------------------------------------------------------------------------
 
-def _parse_spells(z: zipfile.ZipFile, patch_version: str, location_map: dict[str, list[str]] | None = None, jp_fmgs: dict | None = None, drop_map: dict[str, dict[str, list[str]]] | None = None, merchant_items: dict[str, list[str]] | None = None) -> list[dict]:
+
+def _parse_spells(
+    z: zipfile.ZipFile,
+    patch_version: str,
+    location_map: dict[str, list[str]] | None = None,
+    jp_fmgs: dict | None = None,
+    drop_map: dict[str, dict[str, list[str]]] | None = None,
+    merchant_items: dict[str, list[str]] | None = None,
+) -> list[dict]:
     # Spell names/descriptions live in the Goods FMG (spells are "goods" in the param system)
     names = _load_fmg(z, "GoodsName.fmg.xml")
     captions = _load_fmg(z, "GoodsCaption.fmg.xml")
@@ -670,31 +756,39 @@ def _parse_spells(z: zipfile.ZipFile, patch_version: str, location_map: dict[str
 
         description = captions.get(row_id, "")
         locs = (location_map or {}).get(name)
-        loc_str = ", ".join(locs) if locs else None
+        loc_str = ", ".join(locs) if locs else None  # display only
         name_ja, description_ja = _jp_name_desc(jp_fmgs, "GoodsName", row_id)
         is_legendary = name in _LEGENDARY_SPELLS
 
-        docs.append({
-            "entity_type": "spell",
-            "name": name,
-            "patch_version": patch_version,
-            "source": "erdb",
-            "description": description,
-            "text_content": "\n\n".join(filter(None, [description, f"Found in: {loc_str}" if loc_str else None])),
-            "tags": [spell_type],
-            "location": loc_str,
-            "sort_id":        _int(row.get("sortId")),
-            "menu_category":  spell_type,
-            "is_legendary":   True if is_legendary else None,
-            "achievement_set": "Legendary Sorceries and Incantations" if is_legendary else None,
-            "fp_cost":        _int(row.get("mp")),
-            "slots":          _int(row.get("slotLength")),
-            "req_int":        _int(row.get("requirementIntellect")),
-            "req_fai":        _int(row.get("requirementFaith")),
-            "name_ja":        name_ja,
-            "description_ja": description_ja,
-            **_acquisition_fields(name, drop_map, merchant_items),
-        })
+        docs.append(
+            {
+                "entity_type": "spell",
+                "name": name,
+                "patch_version": patch_version,
+                "source": "erdb",
+                "description": description,
+                "text_content": "\n\n".join(
+                    filter(
+                        None, [description, f"Found in: {loc_str}" if loc_str else None]
+                    )
+                ),
+                "tags": [spell_type],
+                "location": locs if locs else None,
+                "sort_id": _int(row.get("sortId")),
+                "menu_category": spell_type,
+                "is_legendary": True if is_legendary else None,
+                "achievement_set": "Legendary Sorceries and Incantations"
+                if is_legendary
+                else None,
+                "fp_cost": _int(row.get("mp")),
+                "slots": _int(row.get("slotLength")),
+                "req_int": _int(row.get("requirementIntellect")),
+                "req_fai": _int(row.get("requirementFaith")),
+                "name_ja": name_ja,
+                "description_ja": description_ja,
+                **_acquisition_fields(name, drop_map, merchant_items),
+            }
+        )
 
     return docs
 
@@ -703,7 +797,15 @@ def _parse_spells(z: zipfile.ZipFile, patch_version: str, location_map: dict[str
 # Ashes of War
 # ---------------------------------------------------------------------------
 
-def _parse_ashes_of_war(z: zipfile.ZipFile, patch_version: str, location_map: dict[str, list[str]] | None = None, jp_fmgs: dict | None = None, drop_map: dict[str, dict[str, list[str]]] | None = None, merchant_items: dict[str, list[str]] | None = None) -> list[dict]:
+
+def _parse_ashes_of_war(
+    z: zipfile.ZipFile,
+    patch_version: str,
+    location_map: dict[str, list[str]] | None = None,
+    jp_fmgs: dict | None = None,
+    drop_map: dict[str, dict[str, list[str]]] | None = None,
+    merchant_items: dict[str, list[str]] | None = None,
+) -> list[dict]:
     names = _load_fmg(z, "GemName.fmg.xml")
     captions = _load_fmg(z, "GemCaption.fmg.xml")
     infos = _load_fmg(z, "GemInfo.fmg.xml")
@@ -723,24 +825,28 @@ def _parse_ashes_of_war(z: zipfile.ZipFile, patch_version: str, location_map: di
         info = infos.get(row_id, "")
         description = caption or info
         locs = (location_map or {}).get(name)
-        loc_str = ", ".join(locs) if locs else None
-        text_content = "\n\n".join(filter(None, [caption, info, f"Found in: {loc_str}" if loc_str else None]))
+        loc_str = ", ".join(locs) if locs else None  # display only
+        text_content = "\n\n".join(
+            filter(None, [caption, info, f"Found in: {loc_str}" if loc_str else None])
+        )
         name_ja, description_ja = _jp_name_desc(jp_fmgs, "GemName", row_id)
 
-        docs.append({
-            "entity_type": "ash_of_war",
-            "name": name,
-            "patch_version": patch_version,
-            "source": "erdb",
-            "description": description,
-            "text_content": text_content or description,
-            "tags": [],
-            "location": loc_str,
-            "sort_id":        _int(row.get("sortId")),
-            "name_ja":        name_ja,
-            "description_ja": description_ja,
-            **_acquisition_fields(name, drop_map, merchant_items),
-        })
+        docs.append(
+            {
+                "entity_type": "ash_of_war",
+                "name": name,
+                "patch_version": patch_version,
+                "source": "erdb",
+                "description": description,
+                "text_content": text_content or description,
+                "tags": [],
+                "location": locs if locs else None,
+                "sort_id": _int(row.get("sortId")),
+                "name_ja": name_ja,
+                "description_ja": description_ja,
+                **_acquisition_fields(name, drop_map, merchant_items),
+            }
+        )
 
     return docs
 
@@ -748,6 +854,7 @@ def _parse_ashes_of_war(z: zipfile.ZipFile, patch_version: str, location_map: di
 # ---------------------------------------------------------------------------
 # Talismans
 # ---------------------------------------------------------------------------
+
 
 def _load_discord_bot_talismans() -> dict[str, dict]:
     """Fetch Discord bot talismans.csv and return normalized-name → row dict.
@@ -773,7 +880,15 @@ def _extract_effect_value(effect: str) -> float | None:
     return float(m.group(1)) if m else None
 
 
-def _parse_talismans(z: zipfile.ZipFile, patch_version: str, location_map: dict[str, list[str]] | None = None, jp_fmgs: dict | None = None, drop_map: dict[str, dict[str, list[str]]] | None = None, merchant_items: dict[str, list[str]] | None = None, discord_bot_map: dict[str, dict] | None = None) -> list[dict]:
+def _parse_talismans(
+    z: zipfile.ZipFile,
+    patch_version: str,
+    location_map: dict[str, list[str]] | None = None,
+    jp_fmgs: dict | None = None,
+    drop_map: dict[str, dict[str, list[str]]] | None = None,
+    merchant_items: dict[str, list[str]] | None = None,
+    discord_bot_map: dict[str, dict] | None = None,
+) -> list[dict]:
     names = _load_fmg(z, "AccessoryName.fmg.xml")
     captions = _load_fmg(z, "AccessoryCaption.fmg.xml")
     rows = _csv_rows(z, "EquipParamAccessory.csv")
@@ -790,7 +905,7 @@ def _parse_talismans(z: zipfile.ZipFile, patch_version: str, location_map: dict[
 
         description = captions.get(row_id, "")
         locs = (location_map or {}).get(name)
-        loc_str = ", ".join(locs) if locs else None
+        loc_str = ", ".join(locs) if locs else None  # display only
         name_ja, description_ja = _jp_name_desc(jp_fmgs, "AccessoryName", row_id)
         sort_id = _int(row.get("sortId"))
         comp_trophy_sed = int(float(row.get("compTrophySedId", 0) or 0))
@@ -800,32 +915,42 @@ def _parse_talismans(z: zipfile.ZipFile, patch_version: str, location_map: dict[
         # Effect text comes from Discord bot (not erdb). Only stamp it on the
         # latest base-game patch to avoid version anachronism: the Discord bot
         # is a single snapshot with no per-patch history.
-        bot_row = (discord_bot_map or {}).get(name) if patch_version == ERDB_DEFAULT_VERSION else None
+        bot_row = (
+            (discord_bot_map or {}).get(name)
+            if patch_version == ERDB_DEFAULT_VERSION
+            else None
+        )
         effect = bot_row.get("effect", "").strip() if bot_row else None
         effect_value = _extract_effect_value(effect) if effect else None
 
-        docs.append({
-            "entity_type": "item",
-            "name": name,
-            "patch_version": patch_version,
-            "source": "erdb",
-            "description": description,
-            "text_content": "\n\n".join(filter(None, [description, f"Found in: {loc_str}" if loc_str else None])),
-            "tags": ["Talisman"],
-            "location": loc_str,
-            "weight":         weight,
-            "effect":         effect,
-            "effect_value":   effect_value,
-            "sort_id":        sort_id,
-            "menu_category":  _talisman_group(sort_id),
-            "base_item":      _variant_base_name(name),
-            "is_legendary":   True if is_legendary else None,
-            "achievement_set": "Legendary Talismans" if is_legendary else None,
-            "name_ja":        name_ja,
-            "description_ja": description_ja,
-            "depicts_weapon": _TALISMAN_DEPICTS_WEAPON.get(name),
-            **_acquisition_fields(name, drop_map, merchant_items),
-        })
+        docs.append(
+            {
+                "entity_type": "item",
+                "name": name,
+                "patch_version": patch_version,
+                "source": "erdb",
+                "description": description,
+                "text_content": "\n\n".join(
+                    filter(
+                        None, [description, f"Found in: {loc_str}" if loc_str else None]
+                    )
+                ),
+                "tags": ["Talisman"],
+                "location": locs if locs else None,
+                "weight": weight,
+                "effect": effect,
+                "effect_value": effect_value,
+                "sort_id": sort_id,
+                "menu_category": _talisman_group(sort_id),
+                "base_item": _variant_base_name(name),
+                "is_legendary": True if is_legendary else None,
+                "achievement_set": "Legendary Talismans" if is_legendary else None,
+                "name_ja": name_ja,
+                "description_ja": description_ja,
+                "depicts_weapon": _TALISMAN_DEPICTS_WEAPON.get(name),
+                **_acquisition_fields(name, drop_map, merchant_items),
+            }
+        )
 
     return docs
 
@@ -871,7 +996,9 @@ def load_fromsoft_fts(jp_fmgs: dict | None = None) -> list[dict]:
         section_texts = []
         lines_ja: list[str] = []
         for section in entry.get("sections", []):
-            lines = [l["text"] for l in section.get("lines", []) if l.get("text", "").strip()]
+            lines = [
+                l["text"] for l in section.get("lines", []) if l.get("text", "").strip()
+            ]
             if lines:
                 section_texts.append("\n".join(lines))
             if talk_msg_jp:
@@ -884,23 +1011,31 @@ def load_fromsoft_fts(jp_fmgs: dict | None = None) -> list[dict]:
         if not text_content.strip():
             continue
 
-        docs.append({
-            "entity_type": "npc_dialogue",
-            "name": name,
-            "patch_version": DLC_PATCH_VERSION,  # dataset does not version
-            "source": "fromsoft-fts",
-            "description": text_content[:500],  # first ~500 chars as summary
-            "text_content": text_content,
-            "tags": ["named_npc"] if entry.get("name", "").strip() else ["unattributed"],
-            "npc_id": npc_id,
-            "text_content_ja": "\n".join(lines_ja) if lines_ja else None,
-        })
+        docs.append(
+            {
+                "entity_type": "npc_dialogue",
+                "name": name,
+                "patch_version": DLC_PATCH_VERSION,  # dataset does not version
+                "source": "fromsoft-fts",
+                "description": text_content[:500],  # first ~500 chars as summary
+                "text_content": text_content,
+                "tags": ["named_npc"]
+                if entry.get("name", "").strip()
+                else ["unattributed"],
+                "npc_id": npc_id,
+                "text_content_ja": "\n".join(lines_ja) if lines_ja else None,
+            }
+        )
 
     named = sum(1 for d in docs if "named_npc" in d["tags"])
     ja_count = sum(1 for d in docs if d.get("text_content_ja"))
-    print(f"  Parsed: {{'npc_dialogue': {len(docs)}}} ({named} named, {len(docs) - named} unattributed)")
+    print(
+        f"  Parsed: {{'npc_dialogue': {len(docs)}}} ({named} named, {len(docs) - named} unattributed)"
+    )
     if talk_msg_jp:
-        print(f"  JP dialogue coverage: {ja_count}/{len(docs)} NPC documents have Japanese text")
+        print(
+            f"  JP dialogue coverage: {ja_count}/{len(docs)} NPC documents have Japanese text"
+        )
     return docs
 
 
@@ -1105,17 +1240,19 @@ def load_discord_bot_enemies(jp_fmgs: dict | None = None) -> list[dict]:
         text_content = "\n".join(parts)
 
         name_ja = _enemy_name_ja(name, jp_fmgs)
-        docs.append({
-            "entity_type": "enemy",
-            "name": name,
-            "name_ja": name_ja,
-            "patch_version": DLC_PATCH_VERSION,
-            "source": "fextralife-discord-bot",
-            "description": lore[:500] if lore else text_content[:500],
-            "text_content": text_content,
-            "tags": ["boss"],
-            "location": ", ".join(locations) if locations else None,
-        })
+        docs.append(
+            {
+                "entity_type": "enemy",
+                "name": name,
+                "name_ja": name_ja,
+                "patch_version": DLC_PATCH_VERSION,
+                "source": "fextralife-discord-bot",
+                "description": lore[:500] if lore else text_content[:500],
+                "text_content": text_content,
+                "tags": ["boss"],
+                "location": locations if locations else None,
+            }
+        )
 
     boss_count = len(docs)
 
@@ -1142,21 +1279,25 @@ def load_discord_bot_enemies(jp_fmgs: dict | None = None) -> list[dict]:
         text_content = "\n".join(parts)
 
         name_ja = _enemy_name_ja(name, jp_fmgs)
-        docs.append({
-            "entity_type": "enemy",
-            "name": name,
-            "name_ja": name_ja,
-            "patch_version": DLC_PATCH_VERSION,
-            "source": "fextralife-discord-bot",
-            "description": lore[:500] if lore else text_content[:500],
-            "text_content": text_content,
-            "tags": ["creature"],
-            "location": ", ".join(str(l) for l in locations) if locations else None,
-        })
+        docs.append(
+            {
+                "entity_type": "enemy",
+                "name": name,
+                "name_ja": name_ja,
+                "patch_version": DLC_PATCH_VERSION,
+                "source": "fextralife-discord-bot",
+                "description": lore[:500] if lore else text_content[:500],
+                "text_content": text_content,
+                "tags": ["creature"],
+                "location": [str(l) for l in locations] if locations else None,
+            }
+        )
 
     creature_count = len(docs) - boss_count
     ja_count = sum(1 for d in docs if d.get("name_ja"))
-    print(f"  Parsed: {{'enemy': {len(docs)}}} ({boss_count} bosses, {creature_count} creatures, {ja_count} with name_ja)")
+    print(
+        f"  Parsed: {{'enemy': {len(docs)}}} ({boss_count} bosses, {creature_count} creatures, {ja_count} with name_ja)"
+    )
     return docs
 
 
@@ -1215,42 +1356,47 @@ def _is_known(name: str, exact: set[str], folded: dict[str, str]) -> bool:
 # DLC-new categories (Backhand Blades, Great Katanas, etc.) are absent here and
 # pass through unmodified.
 _FEXTRALIFE_CATEGORY_ALIASES: dict[str, str] = {
-    "Axes":                    "Axe",
-    "Ballistas":               "Ballista",
-    "Bows":                    "Bow",
-    "Claws":                   "Claw",
-    "Colossal Swords":         "Colossal Sword",
-    "Colossal Weapons":        "Colossal Weapon",
-    "Crossbows":               "Crossbow",
-    "Curved Greatswords":      "Curved Greatsword",
-    "Curved Swords":           "Curved Sword",
-    "Daggers":                 "Dagger",
-    "Fists":                   "Fist",
-    "Flails":                  "Flail",
-    "Glinstone Staves":        "Glintstone Staff",  # typo + normalize
-    "Glintstone Staffs":       "Glintstone Staff",
-    "Great Hammers":           "Great Hammer",
-    "Great Spears":            "Great Spear",
-    "Greataxes":               "Greataxe",
-    "Greatbows":               "Greatbow",
-    "Greatswords":             "Greatsword",
-    "Halberds":                "Halberd",
-    "Hammers":                 "Hammer",
-    "Heavy Thrusting Swords":  "Heavy Thrusting Sword",
-    "Katanas":                 "Katana",
-    "Light Bows":              "Light Bow",
-    "Reapers":                 "Reaper",
-    "Sacred Seals":            "Sacred Seal",
-    "Spears":                  "Spear",
-    "Straight Swords":         "Straight Sword",
-    "Thrusting Swords":        "Thrusting Sword",
-    "Torches":                 "Torch",
-    "Twinblades":              "Twinblade",
-    "Whips":                   "Whip",
+    "Axes": "Axe",
+    "Ballistas": "Ballista",
+    "Bows": "Bow",
+    "Claws": "Claw",
+    "Colossal Swords": "Colossal Sword",
+    "Colossal Weapons": "Colossal Weapon",
+    "Crossbows": "Crossbow",
+    "Curved Greatswords": "Curved Greatsword",
+    "Curved Swords": "Curved Sword",
+    "Daggers": "Dagger",
+    "Fists": "Fist",
+    "Flails": "Flail",
+    "Glinstone Staves": "Glintstone Staff",  # typo + normalize
+    "Glintstone Staffs": "Glintstone Staff",
+    "Great Hammers": "Great Hammer",
+    "Great Spears": "Great Spear",
+    "Greataxes": "Greataxe",
+    "Greatbows": "Greatbow",
+    "Greatswords": "Greatsword",
+    "Halberds": "Halberd",
+    "Hammers": "Hammer",
+    "Heavy Thrusting Swords": "Heavy Thrusting Sword",
+    "Katanas": "Katana",
+    "Light Bows": "Light Bow",
+    "Reapers": "Reaper",
+    "Sacred Seals": "Sacred Seal",
+    "Spears": "Spear",
+    "Straight Swords": "Straight Sword",
+    "Thrusting Swords": "Thrusting Sword",
+    "Torches": "Torch",
+    "Twinblades": "Twinblade",
+    "Whips": "Whip",
 }
 
 
-def _supplement_aow(erdb_docs: list[dict], location_map: dict[str, list[str]] | None = None, drop_map: dict[str, dict[str, list[str]]] | None = None, merchant_items: dict[str, list[str]] | None = None) -> list[dict]:
+def _supplement_aow(
+    erdb_docs: list[dict],
+    location_map: dict[str, list[str]] | None = None,
+    drop_map: dict[str, dict[str, list[str]]] | None = None,
+    merchant_items: dict[str, list[str]] | None = None,
+) -> list[dict]:
     """Return Discord bot AoW docs for the 26 DLC entries missing from erdb FMGs.
 
     erdb 1.10.0's GemName.fmg.xml returns '[ERROR]' for all Shadow of the Erdtree
@@ -1284,7 +1430,7 @@ def _supplement_aow(erdb_docs: list[dict], location_map: dict[str, list[str]] | 
         intro = row.get("description", "").strip()
         effect = skill_effects.get(skill_name, "")
         locs = (location_map or {}).get(name)
-        loc_str = ", ".join(locs) if locs else None
+        loc_str = ", ".join(locs) if locs else None  # display only
 
         parts = []
         if affinity and affinity.lower() != "none":
@@ -1297,23 +1443,30 @@ def _supplement_aow(erdb_docs: list[dict], location_map: dict[str, list[str]] | 
             parts.append(f"Found in: {loc_str}")
         text_content = "\n".join(parts)
 
-        docs.append({
-            "entity_type": "ash_of_war",
-            "name": name,
-            "patch_version": DLC_PATCH_VERSION,
-            "source": "fextralife-discord-bot",
-            "description": text_content[:500],
-            "text_content": text_content,
-            "tags": [affinity] if affinity else [],
-            "location": loc_str,
-            **_acquisition_fields(name, drop_map, merchant_items),
-        })
+        docs.append(
+            {
+                "entity_type": "ash_of_war",
+                "name": name,
+                "patch_version": DLC_PATCH_VERSION,
+                "source": "fextralife-discord-bot",
+                "description": text_content[:500],
+                "text_content": text_content,
+                "tags": [affinity] if affinity else [],
+                "location": locs if locs else None,
+                **_acquisition_fields(name, drop_map, merchant_items),
+            }
+        )
 
     print(f"  AoW supplement: {len(docs)} DLC entries added")
     return docs
 
 
-def _supplement_weapons(erdb_docs: list[dict], location_map: dict[str, list[str]] | None = None, drop_map: dict[str, dict[str, list[str]]] | None = None, merchant_items: dict[str, list[str]] | None = None) -> list[dict]:
+def _supplement_weapons(
+    erdb_docs: list[dict],
+    location_map: dict[str, list[str]] | None = None,
+    drop_map: dict[str, dict[str, list[str]]] | None = None,
+    merchant_items: dict[str, list[str]] | None = None,
+) -> list[dict]:
     """Return Discord bot weapon docs for DLC entries missing from erdb.
 
     erdb 1.10.0 predates the Shadow of the Erdtree DLC (patch 1.12+), so new weapon
@@ -1347,7 +1500,7 @@ def _supplement_weapons(erdb_docs: list[dict], location_map: dict[str, list[str]
         req_fai = _int(reqs.get("Fai")) if isinstance(reqs, dict) else None
         req_arc = _int(reqs.get("Arc")) if isinstance(reqs, dict) else None
         locs = (location_map or {}).get(name)
-        loc_str = ", ".join(locs) if locs else None
+        loc_str = ", ".join(locs) if locs else None  # display only
 
         parts = [description] if description else []
         if category:
@@ -1357,40 +1510,46 @@ def _supplement_weapons(erdb_docs: list[dict], location_map: dict[str, list[str]
         if loc_str:
             parts.append(f"Found in: {loc_str}")
 
-        docs.append({
-            "entity_type": "weapon",
-            "name": name,
-            "patch_version": DLC_PATCH_VERSION,
-            "source": "fextralife-discord-bot",
-            "description": description,
-            "text_content": "\n".join(parts),
-            "tags": [category] if category else [],
-            "menu_category": category or None,
-            "location": loc_str,
-            "weight": weight,
-            "req_str": req_str,
-            "req_dex": req_dex,
-            "req_int": req_int,
-            "req_fai": req_fai,
-            "req_arc": req_arc,
-            "default_ash_of_war":   skill,
-            "depicted_in_talisman": _WEAPON_DEPICTS_TALISMAN.get(name),
-            **_acquisition_fields(name, drop_map, merchant_items),
-        })
+        docs.append(
+            {
+                "entity_type": "weapon",
+                "name": name,
+                "patch_version": DLC_PATCH_VERSION,
+                "source": "fextralife-discord-bot",
+                "description": description,
+                "text_content": "\n".join(parts),
+                "tags": [category] if category else [],
+                "menu_category": category or None,
+                "location": locs if locs else None,
+                "weight": weight,
+                "req_str": req_str,
+                "req_dex": req_dex,
+                "req_int": req_int,
+                "req_fai": req_fai,
+                "req_arc": req_arc,
+                "default_ash_of_war": skill,
+                "depicted_in_talisman": _WEAPON_DEPICTS_TALISMAN.get(name),
+                **_acquisition_fields(name, drop_map, merchant_items),
+            }
+        )
 
     print(f"  Weapon supplement: {len(docs)} DLC entries added")
     return docs
 
 
 _ARMOR_TYPE_TO_CATEGORY: dict[str, str] = {
-    "helm":       "Head",
+    "helm": "Head",
     "chest armor": "Body",
-    "gauntlets":  "Arms",
-    "leg armor":  "Legs",
+    "gauntlets": "Arms",
+    "leg armor": "Legs",
 }
 
 
-def _supplement_armor(erdb_docs: list[dict], drop_map: dict[str, dict[str, list[str]]] | None = None, merchant_items: dict[str, list[str]] | None = None) -> list[dict]:
+def _supplement_armor(
+    erdb_docs: list[dict],
+    drop_map: dict[str, dict[str, list[str]]] | None = None,
+    merchant_items: dict[str, list[str]] | None = None,
+) -> list[dict]:
     """Return Discord bot armor docs for DLC entries missing from erdb."""
     known_exact, known_folded = _known_set(erdb_docs)
 
@@ -1408,49 +1567,61 @@ def _supplement_armor(erdb_docs: list[dict], drop_map: dict[str, dict[str, list[
         armor_type = row.get("type", "").strip()
         menu_category = _ARMOR_TYPE_TO_CATEGORY.get(armor_type.lower())
         weight = _float(row.get("weight"))
-        location = row.get("how to acquire", "").strip() or None
+        loc_raw = row.get("how to acquire", "").strip() or None
+        location = [loc_raw] if loc_raw else None
 
         neg_raw = _parse_python_literal(row.get("damage negation", ""))
         neg = neg_raw[0] if isinstance(neg_raw, list) and neg_raw else {}
-        def_physical  = _float(neg.get("Phy"))
-        def_magic     = _float(neg.get("Mag"))
-        def_fire      = _float(neg.get("Fir"))
+        def_physical = _float(neg.get("Phy"))
+        def_magic = _float(neg.get("Mag"))
+        def_fire = _float(neg.get("Fir"))
         def_lightning = _float(neg.get("Lit"))
-        def_holy      = _float(neg.get("Hol"))
+        def_holy = _float(neg.get("Hol"))
 
         parts = [description] if description else []
-        if location:
-            parts.append(f"Found in: {location}")
+        if loc_raw:
+            parts.append(f"Found in: {loc_raw}")
 
-        docs.append({
-            "entity_type": "armor",
-            "name": name,
-            "patch_version": DLC_PATCH_VERSION,
-            "source": "fextralife-discord-bot",
-            "description": description,
-            "text_content": "\n".join(parts),
-            "tags": [menu_category] if menu_category else ([armor_type] if armor_type else []),
-            "location": location,
-            "menu_category": menu_category,
-            "weight": weight,
-            "defense_physical":  def_physical,
-            "defense_magic":     def_magic,
-            "defense_fire":      def_fire,
-            "defense_lightning": def_lightning,
-            "defense_holy":      def_holy,
-            **_acquisition_fields(name, drop_map, merchant_items),
-        })
+        docs.append(
+            {
+                "entity_type": "armor",
+                "name": name,
+                "patch_version": DLC_PATCH_VERSION,
+                "source": "fextralife-discord-bot",
+                "description": description,
+                "text_content": "\n".join(parts),
+                "tags": [menu_category]
+                if menu_category
+                else ([armor_type] if armor_type else []),
+                "location": location,
+                "menu_category": menu_category,
+                "weight": weight,
+                "defense_physical": def_physical,
+                "defense_magic": def_magic,
+                "defense_fire": def_fire,
+                "defense_lightning": def_lightning,
+                "defense_holy": def_holy,
+                **_acquisition_fields(name, drop_map, merchant_items),
+            }
+        )
 
     print(f"  Armor supplement: {len(docs)} DLC entries added")
     return docs
 
 
-def _supplement_spells(erdb_docs: list[dict], drop_map: dict[str, dict[str, list[str]]] | None = None, merchant_items: dict[str, list[str]] | None = None) -> list[dict]:
+def _supplement_spells(
+    erdb_docs: list[dict],
+    drop_map: dict[str, dict[str, list[str]]] | None = None,
+    merchant_items: dict[str, list[str]] | None = None,
+) -> list[dict]:
     """Return Discord bot spell docs for DLC sorceries and incantations missing from erdb."""
     known_exact, known_folded = _known_set(erdb_docs)
 
     docs: list[dict] = []
-    for csv_name, spell_type in (("sorceries.csv", "Sorcery"), ("incantations.csv", "Incantation")):
+    for csv_name, spell_type in (
+        ("sorceries.csv", "Sorcery"),
+        ("incantations.csv", "Incantation"),
+    ):
         print(f"  Downloading {csv_name} (DLC supplement) …")
         resp = requests.get(f"{DISCORD_BOT_BASE}/{csv_name}", timeout=30)
         resp.raise_for_status()
@@ -1462,37 +1633,45 @@ def _supplement_spells(erdb_docs: list[dict], drop_map: dict[str, dict[str, list
 
             description = row.get("description", "").strip()
             effect = row.get("effect", "").strip()
-            location = row.get("location", "").strip() or None
+            loc_raw = row.get("location", "").strip() or None
 
             parts = [description] if description else []
             if effect and effect != description:
                 parts.append(effect)
-            if location:
-                parts.append(f"Found in: {location}")
+            if loc_raw:
+                parts.append(f"Found in: {loc_raw}")
 
-            docs.append({
-                "entity_type": "spell",
-                "name": name,
-                "patch_version": DLC_PATCH_VERSION,
-                "source": "fextralife-discord-bot",
-                "description": description,
-                "text_content": "\n".join(parts),
-                "tags": [spell_type],
-                "menu_category": spell_type,
-                "location": location,
-                "fp_cost": _int(row.get("FP")),
-                "slots":   _int(row.get("slot")),
-                "req_int": _int(row.get("INT")),
-                "req_fai": _int(row.get("FAI")),
-                "req_arc": _int(row.get("ARC")),
-                **_acquisition_fields(name, drop_map, merchant_items),
-            })
+            docs.append(
+                {
+                    "entity_type": "spell",
+                    "name": name,
+                    "patch_version": DLC_PATCH_VERSION,
+                    "source": "fextralife-discord-bot",
+                    "description": description,
+                    "text_content": "\n".join(parts),
+                    "tags": [spell_type],
+                    "menu_category": spell_type,
+                    "location": [loc_raw] if loc_raw else None,
+                    "fp_cost": _int(row.get("FP")),
+                    "slots": _int(row.get("slot")),
+                    "req_int": _int(row.get("INT")),
+                    "req_fai": _int(row.get("FAI")),
+                    "req_arc": _int(row.get("ARC")),
+                    **_acquisition_fields(name, drop_map, merchant_items),
+                }
+            )
 
     print(f"  Spell supplement: {len(docs)} DLC entries added")
     return docs
 
 
-def _supplement_talismans(erdb_docs: list[dict], location_map: dict[str, list[str]] | None = None, drop_map: dict[str, dict[str, list[str]]] | None = None, merchant_items: dict[str, list[str]] | None = None, discord_bot_map: dict[str, dict] | None = None) -> list[dict]:
+def _supplement_talismans(
+    erdb_docs: list[dict],
+    location_map: dict[str, list[str]] | None = None,
+    drop_map: dict[str, dict[str, list[str]]] | None = None,
+    merchant_items: dict[str, list[str]] | None = None,
+    discord_bot_map: dict[str, dict] | None = None,
+) -> list[dict]:
     """Return Discord bot talisman docs for DLC entries missing from erdb."""
     known_exact, known_folded = _known_set(erdb_docs)
 
@@ -1509,7 +1688,7 @@ def _supplement_talismans(erdb_docs: list[dict], location_map: dict[str, list[st
         effect_value = _extract_effect_value(effect) if effect else None
         weight = _float(row.get("weight"))
         locs = (location_map or {}).get(normalized_name)
-        loc_str = ", ".join(locs) if locs else None
+        loc_str = ", ".join(locs) if locs else None  # display only
 
         parts = [description] if description else []
         if effect and effect != description:
@@ -1517,22 +1696,24 @@ def _supplement_talismans(erdb_docs: list[dict], location_map: dict[str, list[st
         if loc_str:
             parts.append(f"Found in: {loc_str}")
 
-        docs.append({
-            "entity_type": "item",
-            "name": normalized_name,
-            "patch_version": DLC_PATCH_VERSION,
-            "source": "fextralife-discord-bot",
-            "description": description,
-            "text_content": "\n".join(parts),
-            "tags": ["Talisman"],
-            "location": loc_str,
-            "weight":       weight,
-            "effect":       effect,
-            "effect_value": effect_value,
-            "base_item":    _variant_base_name(normalized_name),
-            "depicts_weapon": _TALISMAN_DEPICTS_WEAPON.get(normalized_name),
-            **_acquisition_fields(normalized_name, drop_map, merchant_items),
-        })
+        docs.append(
+            {
+                "entity_type": "item",
+                "name": normalized_name,
+                "patch_version": DLC_PATCH_VERSION,
+                "source": "fextralife-discord-bot",
+                "description": description,
+                "text_content": "\n".join(parts),
+                "tags": ["Talisman"],
+                "location": locs if locs else None,
+                "weight": weight,
+                "effect": effect,
+                "effect_value": effect_value,
+                "base_item": _variant_base_name(normalized_name),
+                "depicts_weapon": _TALISMAN_DEPICTS_WEAPON.get(normalized_name),
+                **_acquisition_fields(normalized_name, drop_map, merchant_items),
+            }
+        )
 
     print(f"  Talisman supplement: {len(docs)} DLC entries added")
     return docs
@@ -1555,10 +1736,15 @@ def load_discord_bot_npcs() -> list[dict]:
         if not name:
             continue
 
-        location = row.get("location", "").strip() or None
+        loc_raw = row.get("location", "").strip() or None
+        location = [loc_raw] if loc_raw else None
         role = row.get("role", "").strip()
         voiced_by_raw = row.get("voiced by", "").strip()
-        voiced_by = voiced_by_raw if voiced_by_raw and "voice actor goes here" not in voiced_by_raw.lower() else ""
+        voiced_by = (
+            voiced_by_raw
+            if voiced_by_raw and "voice actor goes here" not in voiced_by_raw.lower()
+            else ""
+        )
         description = row.get("description", "").strip()
 
         # Derive searchable tags from role string
@@ -1578,22 +1764,24 @@ def load_discord_bot_npcs() -> list[dict]:
         parts = [description] if description else []
         if role:
             parts.append(f"Role: {role}")
-        if location:
-            parts.append(f"Location: {location}")
+        if loc_raw:
+            parts.append(f"Location: {loc_raw}")
         if voiced_by:
             parts.append(f"Voiced by: {voiced_by}")
         text_content = "\n".join(parts)
 
-        docs.append({
-            "entity_type": "npc",
-            "name": name,
-            "patch_version": DLC_PATCH_VERSION,
-            "source": "fextralife-discord-bot",
-            "description": description[:500] if description else text_content[:500],
-            "text_content": text_content,
-            "tags": tags,
-            "location": location,
-        })
+        docs.append(
+            {
+                "entity_type": "npc",
+                "name": name,
+                "patch_version": DLC_PATCH_VERSION,
+                "source": "fextralife-discord-bot",
+                "description": description[:500] if description else text_content[:500],
+                "text_content": text_content,
+                "tags": tags,
+                "location": location,
+            }
+        )
 
     merchant_count = sum(1 for d in docs if "merchant" in d["tags"])
     print(f"  Parsed: {{'npc': {len(docs)}}} ({merchant_count} merchants)")
@@ -1655,7 +1843,9 @@ def _lookup_merchant_location(merchant: str, name_to_loc: dict[str, str]) -> str
     return None
 
 
-def _parse_merchants(z: zipfile.ZipFile, patch_version: str, npc_loc_map: dict[str, str] | None = None) -> list[dict]:
+def _parse_merchants(
+    z: zipfile.ZipFile, patch_version: str, npc_loc_map: dict[str, str] | None = None
+) -> list[dict]:
     """Parse ShopLineupParam.csv into one merchant document per NPC vendor.
 
     Row Name format: "[Merchant Name] Item Name" or "[Merchant Name - Condition] Item Name"
@@ -1667,7 +1857,9 @@ def _parse_merchants(z: zipfile.ZipFile, patch_version: str, npc_loc_map: dict[s
     rows = _csv_rows(z, "ShopLineupParam.csv")
 
     # merchant_name → condition → [item entries]
-    merchant_data: dict[str, dict[str, list[dict]]] = defaultdict(lambda: defaultdict(list))
+    merchant_data: dict[str, dict[str, list[dict]]] = defaultdict(
+        lambda: defaultdict(list)
+    )
 
     for row in rows:
         row_name = row.get("Row Name", "").strip()
@@ -1688,11 +1880,13 @@ def _parse_merchants(z: zipfile.ZipFile, patch_version: str, npc_loc_map: dict[s
         price = int(float(row.get("value", 0) or 0))
         qty = int(float(row.get("sellQuantity", -1) or -1))
 
-        merchant_data[base_vendor][condition].append({
-            "item": item_name,
-            "price": price,
-            "qty": qty,
-        })
+        merchant_data[base_vendor][condition].append(
+            {
+                "item": item_name,
+                "price": price,
+                "qty": qty,
+            }
+        )
 
     # Correct known erdb attribution errors
     for (wrong_vendor, item_name), correct_vendor in _VENDOR_ITEM_OVERRIDES.items():
@@ -1730,14 +1924,19 @@ def _parse_merchants(z: zipfile.ZipFile, patch_version: str, npc_loc_map: dict[s
                 all_items.append(e["item"])
 
         total = len(all_items)
-        description = f"Sells {total} item{'s' if total != 1 else ''}: " + ", ".join(all_items[:6])
+        description = f"Sells {total} item{'s' if total != 1 else ''}: " + ", ".join(
+            all_items[:6]
+        )
         if total > 6:
             description += f" and {total - 6} more"
 
         # Tag by vendor type
         tags: list[str] = []
         vl = vendor_name.lower()
-        if any(k in vl for k in ("merchant", "kale", "patches", "boggart", "pidia", "rogier")):
+        if any(
+            k in vl
+            for k in ("merchant", "kale", "patches", "boggart", "pidia", "rogier")
+        ):
             tags.append("merchant")
         if "enia" in vl or "remembrance" in vl or "elden remembrance" in vl:
             tags.extend(["special_vendor", "remembrance_trade"])
@@ -1749,30 +1948,38 @@ def _parse_merchants(z: zipfile.ZipFile, patch_version: str, npc_loc_map: dict[s
             tags.append("vendor")
 
         # Resolve location
-        location: str | None = None
+        location: list[str] | None = None
         if npc_loc_map:
             if "remembrance" in vl or "elden remembrance" in vl:
-                location = _REMEMBRANCE_LOCATION
+                location = [_REMEMBRANCE_LOCATION]
             else:
                 # For generic "Merchant" (nomadic merchants grouped by location-as-condition),
                 # derive location from the condition names embedded in text_content.
                 if vendor_name == "Merchant" and conditions:
-                    loc_parts = [c for c in conditions if c and c not in ("", "Isolated Merchant", "Abandoned Merchant")]
+                    loc_parts = [
+                        c
+                        for c in conditions
+                        if c
+                        and c not in ("", "Isolated Merchant", "Abandoned Merchant")
+                    ]
                     if loc_parts:
-                        location = "; ".join(loc_parts[:4]) + (" …" if len(loc_parts) > 4 else "")
+                        location = loc_parts[:4] + (["…"] if len(loc_parts) > 4 else [])
                 else:
-                    location = _lookup_merchant_location(vendor_name, npc_loc_map)
+                    loc = _lookup_merchant_location(vendor_name, npc_loc_map)
+                    location = [loc] if loc else None
 
-        docs.append({
-            "entity_type": "merchant",
-            "name": vendor_name,
-            "patch_version": patch_version,
-            "source": "erdb",
-            "description": description,
-            "text_content": "\n".join(text_lines),
-            "tags": tags,
-            "location": location,
-        })
+        docs.append(
+            {
+                "entity_type": "merchant",
+                "name": vendor_name,
+                "patch_version": patch_version,
+                "source": "erdb",
+                "description": description,
+                "text_content": "\n".join(text_lines),
+                "tags": tags,
+                "location": location,
+            }
+        )
 
     return docs
 
@@ -1780,6 +1987,7 @@ def _parse_merchants(z: zipfile.ZipFile, patch_version: str, npc_loc_map: dict[s
 # ---------------------------------------------------------------------------
 # erdb top-level loader
 # ---------------------------------------------------------------------------
+
 
 def load_erdb(
     version: str = ERDB_DEFAULT_VERSION,
@@ -1807,34 +2015,69 @@ def load_erdb(
     with zipfile.ZipFile(zip_data) as z:
         merchant_items = _extract_merchant_items(z)
         sword_arts_map = _build_sword_arts_map(z)
-        weapons   = _parse_weapons(z, patch_version, lm, jp_fmgs, drop_map, merchant_items, sword_arts_map=sword_arts_map)
-        armor     = _parse_armor(z, patch_version, lm, jp_fmgs, drop_map, merchant_items)
-        spells    = _parse_spells(z, patch_version, lm, jp_fmgs, drop_map, merchant_items)
-        aow       = _parse_ashes_of_war(z, patch_version, lm, jp_fmgs, drop_map, merchant_items)
-        talismans = _parse_talismans(z, patch_version, lm, jp_fmgs, drop_map, merchant_items, discord_bot_map=bot_talisman_map)
+        weapons = _parse_weapons(
+            z,
+            patch_version,
+            lm,
+            jp_fmgs,
+            drop_map,
+            merchant_items,
+            sword_arts_map=sword_arts_map,
+        )
+        armor = _parse_armor(z, patch_version, lm, jp_fmgs, drop_map, merchant_items)
+        spells = _parse_spells(z, patch_version, lm, jp_fmgs, drop_map, merchant_items)
+        aow = _parse_ashes_of_war(
+            z, patch_version, lm, jp_fmgs, drop_map, merchant_items
+        )
+        talismans = _parse_talismans(
+            z,
+            patch_version,
+            lm,
+            jp_fmgs,
+            drop_map,
+            merchant_items,
+            discord_bot_map=bot_talisman_map,
+        )
         merchants = _parse_merchants(z, patch_version, npc_loc_map)
 
     if supplement_dlc_aow or supplement_dlc:
-        aow = aow + _supplement_aow(aow, location_map=lm, drop_map=drop_map, merchant_items=merchant_items)
+        aow = aow + _supplement_aow(
+            aow, location_map=lm, drop_map=drop_map, merchant_items=merchant_items
+        )
     if supplement_dlc:
-        weapons   = weapons   + _supplement_weapons(weapons, location_map=lm, drop_map=drop_map, merchant_items=merchant_items)
-        armor     = armor     + _supplement_armor(armor, drop_map=drop_map, merchant_items=merchant_items)
-        spells    = spells    + _supplement_spells(spells, drop_map=drop_map, merchant_items=merchant_items)
-        talismans = talismans + _supplement_talismans(talismans, location_map=lm, drop_map=drop_map, merchant_items=merchant_items, discord_bot_map=bot_talisman_map)
+        weapons = weapons + _supplement_weapons(
+            weapons, location_map=lm, drop_map=drop_map, merchant_items=merchant_items
+        )
+        armor = armor + _supplement_armor(
+            armor, drop_map=drop_map, merchant_items=merchant_items
+        )
+        spells = spells + _supplement_spells(
+            spells, drop_map=drop_map, merchant_items=merchant_items
+        )
+        talismans = talismans + _supplement_talismans(
+            talismans,
+            location_map=lm,
+            drop_map=drop_map,
+            merchant_items=merchant_items,
+            discord_bot_map=bot_talisman_map,
+        )
 
     counts = {
-        "weapons": len(weapons), "armor": len(armor), "spells": len(spells),
-        "ashes_of_war": len(aow), "talismans": len(talismans),
+        "weapons": len(weapons),
+        "armor": len(armor),
+        "spells": len(spells),
+        "ashes_of_war": len(aow),
+        "talismans": len(talismans),
         "merchants": len(merchants),
     }
     print(f"  Parsed: {counts}")
     if jp_fmgs:
         ja_counts = {
             "weapons": f"{_count_ja(weapons)}/{len(weapons)}",
-            "armor":   f"{_count_ja(armor)}/{len(armor)}",
-            "spells":  f"{_count_ja(spells)}/{len(spells)}",
+            "armor": f"{_count_ja(armor)}/{len(armor)}",
+            "spells": f"{_count_ja(spells)}/{len(spells)}",
             "ashes_of_war": f"{_count_ja(aow)}/{len(aow)}",
-            "talismans":    f"{_count_ja(talismans)}/{len(talismans)}",
+            "talismans": f"{_count_ja(talismans)}/{len(talismans)}",
         }
         print(f"  JP coverage: {ja_counts}")
     return weapons + armor + spells + aow + talismans + merchants
@@ -1843,6 +2086,7 @@ def load_erdb(
 # ---------------------------------------------------------------------------
 # Index / bulk load
 # ---------------------------------------------------------------------------
+
 
 def ensure_index(client: OpenSearch, recreate: bool = False) -> None:
     if recreate and client.indices.exists(index=INDEX):
@@ -1892,8 +2136,11 @@ def load_documents(client: OpenSearch | None, docs: list[dict], dry_run: bool) -
 # CLI
 # ---------------------------------------------------------------------------
 
+
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Load Elden Ring data into OpenSearch.")
+    parser = argparse.ArgumentParser(
+        description="Load Elden Ring data into OpenSearch."
+    )
     parser.add_argument(
         "--erdb-version",
         default=ERDB_DEFAULT_VERSION,
@@ -1987,7 +2234,11 @@ def main() -> None:
         print("Loading acquisition drop map …")
         drop_map = _build_drop_map()
         for i, version in enumerate(versions_to_load):
-            label = f"({i + 1}/{len(versions_to_load)})" if len(versions_to_load) > 1 else ""
+            label = (
+                f"({i + 1}/{len(versions_to_load)})"
+                if len(versions_to_load) > 1
+                else ""
+            )
             print(f"Loading erdb {version} {label}…")
             docs += load_erdb(
                 version,
