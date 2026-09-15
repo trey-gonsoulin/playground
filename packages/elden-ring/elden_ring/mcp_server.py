@@ -361,7 +361,9 @@ def text_changed_between(
     Args:
         entity_type: Entity category to scan (weapon, armor, spell, item, enemy, etc.).
         field: Field to compare, e.g. "description", "description_ja", "text_content",
-            "location", "effect". Any indexed field works; missing values compare as null.
+            "location", "effect", "display_name" (per-patch FMG name — use this to find
+            weapons renamed across patches). Any indexed field works; missing values compare
+            as null.
         v1: Older patch version, e.g. "1.02.1".
         v2: Newer patch version, e.g. "1.10.0".
         allow_cross_source: If True, allow comparing versions from different data sources

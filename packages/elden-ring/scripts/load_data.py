@@ -525,6 +525,7 @@ def _parse_weapons(
     drop_map: dict[str, dict[str, list[str]]] | None = None,
     merchant_items: dict[str, list[str]] | None = None,
     sword_arts_map: dict[str, str] | None = None,
+    canonical_name_map: dict[int, str] | None = None,
 ) -> list[dict]:
     names = _load_fmg(z, "WeaponName.fmg.xml")
     captions = _load_fmg(z, "WeaponCaption.fmg.xml")
@@ -567,10 +568,6 @@ def _parse_weapons(
             continue
 
         cat_name = WEAPON_TYPES.get(wep_type_id, f"weapon_type_{wep_type_id}")
-        locs = (location_map or {}).get(name)
-        loc_str = (
-            ", ".join(locs) if locs else None
-        )  # display only; location field stores the list
         name_ja, description_ja = _jp_name_desc(jp_fmgs, "WeaponName", row_id)
         sort_id = _int(row.get("sortId"))
         rarity = int(float(row.get("rarity", 0) or 0))
@@ -584,6 +581,14 @@ def _parse_weapons(
         # forms always have sort_id % 1000 == 0; affinity variants have % 1000 in 1..12.
         if not infusable and sort_id is not None and sort_id % 1000 != 0:
             continue
+        # canonical = stable 1.10.0 name; name = per-patch FMG name (display_name in doc).
+        canonical = (
+            canonical_name_map.get(sort_id, name)
+            if canonical_name_map and sort_id is not None
+            else name
+        )
+        locs = (location_map or {}).get(canonical)
+        loc_str = ", ".join(locs) if locs else None
         sa_id = row.get("swordArtsParamId", "").strip()
         default_ash = (sword_arts_map or {}).get(sa_id) if sa_id else None
 
@@ -595,7 +600,8 @@ def _parse_weapons(
         docs.append(
             {
                 "entity_type": "weapon",
-                "name": name,
+                "name": canonical,
+                "display_name": name,
                 "patch_version": patch_version,
                 "source": "erdb",
                 "description": description,
@@ -615,7 +621,7 @@ def _parse_weapons(
                 "menu_category": cat_name,
                 "is_legendary": True if is_legendary else None,
                 "achievement_set": "Legendary Armaments" if is_legendary else None,
-                **_acquisition_fields(name, drop_map, merchant_items),
+                **_acquisition_fields(canonical, drop_map, merchant_items),
                 "weight": _float(row.get("weight")),
                 "attack_physical": _int(row.get("attackBasePhysics")),
                 "attack_magic": _int(row.get("attackBaseMagic")),
@@ -636,7 +642,7 @@ def _parse_weapons(
                 "description_ja": description_ja,
                 "infusable": infusable,
                 "default_ash_of_war": default_ash,
-                "depicted_in_talisman": _WEAPON_DEPICTS_TALISMAN.get(name),
+                "depicted_in_talisman": _WEAPON_DEPICTS_TALISMAN.get(canonical),
             }
         )
 
@@ -652,6 +658,14 @@ def _parse_weapons(
             inherited = desc_to_name_ja.get(doc["description"])
             if inherited:
                 doc["name_ja"] = inherited
+
+    # Log rename bridges where display_name (per-patch FMG) differs from canonical.
+    for doc in docs:
+        if doc.get("display_name") and doc["display_name"] != doc["name"]:
+            print(
+                f"    Rename bridge: {doc['display_name']!r} → {doc['name']!r}"
+                f" (sort_id {doc.get('sort_id')})"
+            )
 
     # Guard: each non-infusable weapon must appear exactly once (no phantom variants).
     _groups: dict[int, list[str]] = {}
@@ -1530,6 +1544,7 @@ def _supplement_weapons(
             {
                 "entity_type": "weapon",
                 "name": name,
+                "display_name": name,
                 "patch_version": DLC_PATCH_VERSION,
                 "source": "fextralife-discord-bot",
                 "description": description,
@@ -2013,6 +2028,7 @@ def load_erdb(
     supplement_dlc_aow: bool = True,
     supplement_dlc: bool = True,
     drop_map: dict[str, dict[str, list[str]]] | None = None,
+    canonical_name_map: dict[int, str] | None = None,
 ) -> list[dict]:
     url = ERDB_ZIP_URL.format(version=version)
     print(f"  Downloading erdb {version} from GitHub …")
@@ -2039,6 +2055,7 @@ def load_erdb(
             drop_map,
             merchant_items,
             sword_arts_map=sword_arts_map,
+            canonical_name_map=canonical_name_map,
         )
         armor = _parse_armor(z, patch_version, lm, jp_fmgs, drop_map, merchant_items)
         spells = _parse_spells(z, patch_version, lm, jp_fmgs, drop_map, merchant_items)
@@ -2249,6 +2266,9 @@ def main() -> None:
         npc_loc_map = _build_merchant_location_map()
         print("Loading acquisition drop map …")
         drop_map = _build_drop_map()
+        # canonical_weapon_map: sort_id → name from the most-recent (1.10.0) pass.
+        # Empty on first iteration so 1.10.0 uses raw FMG names as canonical baseline.
+        canonical_weapon_map: dict[int, str] = {}
         for i, version in enumerate(versions_to_load):
             label = (
                 f"({i + 1}/{len(versions_to_load)})"
@@ -2256,7 +2276,7 @@ def main() -> None:
                 else ""
             )
             print(f"Loading erdb {version} {label}…")
-            docs += load_erdb(
+            batch = load_erdb(
                 version,
                 location_map=location_map,
                 jp_fmgs=jp_fmgs,
@@ -2266,7 +2286,19 @@ def main() -> None:
                 supplement_dlc=(version == ERDB_DEFAULT_VERSION),
                 supplement_dlc_aow=(version == ERDB_DEFAULT_VERSION),
                 drop_map=drop_map,
+                canonical_name_map=canonical_weapon_map
+                if canonical_weapon_map
+                else None,
             )
+            # After the most-recent version is loaded, build the canonical name map so
+            # subsequent (older) passes can bridge renamed weapons to their 1.10.0 name.
+            if version == ERDB_DEFAULT_VERSION:
+                canonical_weapon_map = {
+                    d["sort_id"]: d["name"]
+                    for d in batch
+                    if d.get("entity_type") == "weapon" and d.get("sort_id") is not None
+                }
+            docs += batch
 
     if args.dialogue or args.dialogue_only:
         print("Loading NPC dialogue …")

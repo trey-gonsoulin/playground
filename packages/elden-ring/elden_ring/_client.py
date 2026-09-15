@@ -191,6 +191,13 @@ INDEX_MAPPING = {
                     "folded": {"type": "keyword", "normalizer": "ascii_normalizer"},
                 },
             },
+            "display_name": {
+                "type": "text",
+                "fields": {
+                    "keyword": {"type": "keyword"},
+                    "folded": {"type": "keyword", "normalizer": "ascii_normalizer"},
+                },
+            },
             "patch_version": {"type": "keyword"},
             "source": {"type": "keyword"},
             "description": {"type": "text"},
@@ -321,6 +328,7 @@ def search(
                             "query": query,
                             "fields": [
                                 "name^3",
+                                "display_name^2",
                                 "name_ja^3",
                                 "name_ja.ja^3",
                                 "description",
@@ -407,6 +415,23 @@ def get_entity(
     if entity_type:
         folded_filters.append({"term": {"entity_type": entity_type}})
     hits = _search(folded_filters)
+    if hits:
+        return hits[0]["_source"]
+
+    # Fallback: search display_name for historical names (weapons renamed across patches).
+    display_filters: list[dict] = [{"term": {"display_name.keyword": name}}]
+    if entity_type:
+        display_filters.append({"term": {"entity_type": entity_type}})
+    hits = _search(display_filters)
+    if hits:
+        return hits[0]["_source"]
+
+    display_folded_filters: list[dict] = [
+        {"term": {"display_name.folded": _ascii_fold(name)}}
+    ]
+    if entity_type:
+        display_folded_filters.append({"term": {"entity_type": entity_type}})
+    hits = _search(display_folded_filters)
     return hits[0]["_source"] if hits else None
 
 
@@ -534,6 +559,7 @@ def diff_entities(
 
 _LITERAL_FIELDS = [
     "name",
+    "display_name",
     "description",
     "text_content",
     "name_ja",
@@ -544,6 +570,7 @@ _LITERAL_FIELDS = [
 # subfield so phrase queries respect kuromoji morpheme boundaries.
 _LITERAL_FIELDS_MORPH = [
     "name",
+    "display_name",
     "description",
     "text_content",
     "name_ja.morph",
@@ -554,6 +581,7 @@ _LITERAL_FIELDS_MORPH = [
 # subfield (kuromoji_baseform only) so a baseform query matches all inflections.
 _LITERAL_FIELDS_LEMMA = [
     "name",
+    "display_name",
     "description",
     "text_content",
     "name_ja.lemma",
