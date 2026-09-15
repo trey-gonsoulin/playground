@@ -43,6 +43,7 @@ def search_entities(
     limit: int = 20,
     include_fields: list[str] | None = None,
     count_only: bool = False,
+    source: str | None = None,
 ) -> list[dict] | dict:
     """Search Elden Ring entities by name, description, location, or tags.
 
@@ -86,6 +87,10 @@ def search_entities(
             query matches without fetching documents. For a type-level census
             (counting all entities of a given type without a search query), use
             search_entities_literal with count_only=True instead.
+        source: If provided, restrict to documents from this data source (e.g.
+            "erdb" or "fextralife-discord-bot"). Use list_patch_versions() to see
+            which sources are loaded. Useful for getting clean counts without
+            cross-source duplicates (e.g. source="erdb" for authoritative base-game data).
 
     Returns a list of entity documents when count_only is False, each with at minimum:
     entity_type, name, patch_version, source, description. Use get_entity() for the
@@ -104,6 +109,7 @@ def search_entities(
         min(limit, 100),
         include_fields,
         count_only,
+        source,
     )
 
 
@@ -124,7 +130,10 @@ def get_entity(name: str, entity_type: str | None = None) -> dict | None:
 
 
 @mcp.tool(annotations=_READ_ONLY)
-def list_menu_categories(entity_type: str | None = None) -> dict:
+def list_menu_categories(
+    entity_type: str | None = None,
+    source: str | None = None,
+) -> dict:
     """List the distinct menu_category values in the index with entity counts.
 
     menu_category reflects the in-game equipment menu grouping (e.g. "Straight Sword",
@@ -138,11 +147,15 @@ def list_menu_categories(entity_type: str | None = None) -> dict:
             (e.g. entity_type="weapon" → {"Straight Sword": 26, "Reaper": 4, ...}).
             If omitted, return {entity_type: {category: entity_count}} for every
             type that has menu_category set — all data in one call.
+        source: If provided, restrict counts to documents from this data source
+            (e.g. source="erdb"). Use this to scope to the authoritative base-game
+            layer and exclude cross-source duplicates. See list_patch_versions() for
+            available source values.
 
     Returns:
         dict[str, int] when entity_type is given; dict[str, dict[str, int]] otherwise.
     """
-    return _os.list_menu_categories(_os.get_client(), entity_type)
+    return _os.list_menu_categories(_os.get_client(), entity_type, source)
 
 
 @mcp.tool(annotations=_READ_ONLY)
@@ -175,6 +188,32 @@ def list_patch_versions() -> dict:
 
 
 @mcp.tool(annotations=_READ_ONLY)
+def analyze_text(text: str) -> dict:
+    """Return the token stream for a text string under both indexed analyzers.
+
+    Calls OpenSearch's _analyze API using the exact field paths that search_literal()
+    applies, so the output reflects precisely what a phrase query will match:
+    - standard: CJK unigram tokenization (default mode, use_kuromoji=False)
+    - kuromoji_segmenter: dictionary segmentation, no lemmatization (use_kuromoji=True)
+
+    Use this to diagnose unexpected zeros before concluding a morpheme is absent.
+    In particular, single-kanji suru-verbs that lack IPADIC entries (e.g. 模す, 象る)
+    may be split differently than expected — see the use_kuromoji docstring on
+    search_entities_literal for details.
+
+    If this tool returns a connection error, call start_search_service() first.
+
+    Args:
+        text: Any string to analyze, e.g. "模した", "象る", "Eternal Dragon".
+
+    Returns:
+        standard: list[str] — tokens under standard CJK-unigram tokenization
+        kuromoji_segmenter: list[str] — tokens under kuromoji segmentation-only mode
+    """
+    return _os.analyze_text(_os.get_client(), text)
+
+
+@mcp.tool(annotations=_READ_ONLY)
 def search_entities_literal(
     pattern: str | None = None,
     fields: list[str] | None = None,
@@ -188,6 +227,8 @@ def search_entities_literal(
     sort_id_mod: int | None = None,
     sort_id_remainder: int = 0,
     use_kuromoji: bool = False,
+    patterns: list[str] | None = None,
+    source: str | None = None,
 ) -> dict:
     """Search for entities containing an exact literal substring across text fields.
 
@@ -209,6 +250,13 @@ def search_entities_literal(
       象徴 (symbol) or 象牙 (ivory). Use this when counting a specific morpheme and
       false positives from compound words would inflate the count.
 
+    Important: kuromoji mode uses IPADIC, which lacks entries for many game-specific
+    verbs. Single-kanji suru-verbs (e.g. 模す, 象る, 擬す) are particularly affected:
+    IPADIC splits 模した as 模 (noun) + し (suru conjugation) + た, so the stem 模し is
+    never a token and a query for it returns zero. In these cases, use the bare kanji
+    instead (模, not 模し) — and use analyze_text() to verify tokenization before
+    trusting a zero result from kuromoji mode.
+
     Note: regex patterns are not supported.
 
     If this tool returns a connection error, call start_search_service() first.
@@ -216,6 +264,11 @@ def search_entities_literal(
     Args:
         pattern: Literal substring to find, e.g. "象った", "という", "Eternal Dragon".
             Omit to enumerate all entities matching other filters (match_all mode).
+        patterns: List of literal substrings to find (OR semantics). Use this for
+            inflected Japanese verbs that require multiple stem queries — e.g.
+            patterns=["象っ", "象ら", "象り", "象る"] returns all entities matching
+            any inflection as a single deduplicated total. Combines with pattern if
+            both are provided.
         fields: Which fields to search. Defaults to all six text fields:
             name, description, text_content, name_ja, description_ja, text_content_ja
             (or their .morph equivalents when use_kuromoji=True).
@@ -240,6 +293,10 @@ def search_entities_literal(
             so phrase queries respect dictionary word boundaries. Prevents single-kanji
             queries from matching compounds that contain that kanji as a sub-character.
             Has no effect on English fields. Default False (standard CJK-unigram mode).
+            See the suru-verb caveat above before trusting zero results from this mode.
+        source: If provided, restrict to documents from this data source (e.g. "erdb"
+            or "fextralife-discord-bot"). Useful for clean corpus counts that exclude
+            cross-source duplicates. See list_patch_versions() for source values.
 
     Returns a dict with:
         total: int — distinct entity count when no patch_version is given (deduplicated);
@@ -260,6 +317,8 @@ def search_entities_literal(
         sort_id_mod,
         sort_id_remainder,
         use_kuromoji,
+        patterns,
+        source,
     )
 
 
@@ -348,4 +407,6 @@ def diff_entities(
         'Name' not present in X         → version loaded but entity absent from it
         'Name' not found in any loaded version → entity not in the index at all
     """
-    return _os.diff_entities(_os.get_client(), name, v1, v2, entity_type, allow_cross_source)
+    return _os.diff_entities(
+        _os.get_client(), name, v1, v2, entity_type, allow_cross_source
+    )
