@@ -324,6 +324,127 @@ def test_search_literal_sort_id_range(client):
         client.indices.refresh(index=_os.INDEX)
 
 
+def test_search_literal_patterns_or_union_shared_token(client):
+    """patterns OR returns the union when patterns share a CJK token.
+
+    Regression for #64 — patterns=["呪具","護身具"] dropped 呪具 (Magma Whip Candlestick)
+    because both patterns tokenize to include 具. The shared token caused the nested
+    bool.must > bool.should query to silently under-count. Uses patch_version=None so
+    the cardinality-agg + collapse path is exercised (the failing code path).
+    """
+    docs = [
+        {
+            "entity_type": "weapon",
+            "name": "__test_or_shared_a__",
+            "patch_version": "test",
+            "source": "test",
+            "description": "",
+            "text_content": "",
+            "description_ja": "呪具テスト固有文字列",
+        },
+        {
+            "entity_type": "weapon",
+            "name": "__test_or_shared_b__",
+            "patch_version": "test",
+            "source": "test",
+            "description": "",
+            "text_content": "",
+            "description_ja": "護身具テスト固有文字列",
+        },
+    ]
+    ids = [
+        "weapon::__test_or_shared_a__::test",
+        "weapon::__test_or_shared_b__::test",
+    ]
+    try:
+        for doc, doc_id in zip(docs, ids):
+            client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
+
+        # Baseline: each pattern alone finds its document.
+        result_a = _os.search_literal(client, pattern="呪具テスト固有文字列", source="test")
+        names_a = [r["name"] for r in result_a["results"]]
+        assert "__test_or_shared_a__" in names_a, f"Single-pattern baseline failed: {names_a}"
+
+        result_b = _os.search_literal(client, pattern="護身具テスト固有文字列", source="test")
+        names_b = [r["name"] for r in result_b["results"]]
+        assert "__test_or_shared_b__" in names_b, f"Single-pattern baseline failed: {names_b}"
+
+        # OR across token-sharing patterns must return the union.
+        result_or = _os.search_literal(
+            client, patterns=["呪具テスト固有文字列", "護身具テスト固有文字列"], source="test"
+        )
+        names_or = [r["name"] for r in result_or["results"]]
+        assert "__test_or_shared_a__" in names_or, (
+            f"Token-sharing OR dropped 呪具 pattern; got names={names_or}, total={result_or['total']}"
+        )
+        assert "__test_or_shared_b__" in names_or, (
+            f"Token-sharing OR dropped 護身具 pattern; got names={names_or}, total={result_or['total']}"
+        )
+        assert result_or["total"] == 2, (
+            f"Expected total=2 for union of two disjoint singletons, got {result_or['total']}"
+        )
+
+    finally:
+        for doc_id in ids:
+            client.delete(index=_os.INDEX, id=doc_id, ignore=[404])
+        client.indices.refresh(index=_os.INDEX)
+
+
+def test_search_literal_patterns_or_union_disjoint_token(client):
+    """patterns OR returns the union for token-disjoint patterns (positive control).
+
+    Regression for #64 — verifies that the OR fix didn't break the working case.
+    描く and 擬す share no CJK tokens; this pair worked before the fix and must
+    continue to work after.
+    """
+    docs = [
+        {
+            "entity_type": "weapon",
+            "name": "__test_or_disjoint_a__",
+            "patch_version": "test",
+            "source": "test",
+            "description": "",
+            "text_content": "",
+            "description_ja": "描くテスト固有文字列",
+        },
+        {
+            "entity_type": "weapon",
+            "name": "__test_or_disjoint_b__",
+            "patch_version": "test",
+            "source": "test",
+            "description": "",
+            "text_content": "",
+            "description_ja": "擬すテスト固有文字列",
+        },
+    ]
+    ids = [
+        "weapon::__test_or_disjoint_a__::test",
+        "weapon::__test_or_disjoint_b__::test",
+    ]
+    try:
+        for doc, doc_id in zip(docs, ids):
+            client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
+
+        result = _os.search_literal(
+            client, patterns=["描くテスト固有文字列", "擬すテスト固有文字列"], source="test"
+        )
+        names = [r["name"] for r in result["results"]]
+        assert "__test_or_disjoint_a__" in names, (
+            f"Token-disjoint OR dropped 描く pattern; got names={names}, total={result['total']}"
+        )
+        assert "__test_or_disjoint_b__" in names, (
+            f"Token-disjoint OR dropped 擬す pattern; got names={names}, total={result['total']}"
+        )
+        assert result["total"] == 2, (
+            f"Expected total=2 for union of two disjoint singletons, got {result['total']}"
+        )
+
+    finally:
+        for doc_id in ids:
+            client.delete(index=_os.INDEX, id=doc_id, ignore=[404])
+        client.indices.refresh(index=_os.INDEX)
+
+
 def test_text_changed_between_count_only(client):
     """text_changed_between count_only=True returns {"total": N}, not a full list.
 
