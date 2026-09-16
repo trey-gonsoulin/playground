@@ -342,6 +342,7 @@ def text_changed_between(
     v1: str,
     v2: str,
     allow_cross_source: bool = False,
+    count_only: bool = False,
 ) -> list[dict] | dict:
     """Find all entities of a type where a specific field changed between two patch versions.
 
@@ -369,6 +370,8 @@ def text_changed_between(
         allow_cross_source: If True, allow comparing versions from different data sources
             (erdb vs fextralife). By default this is refused because cross-source diffs
             measure scrape differences, not game revisions.
+        count_only: If True, return {"total": N} instead of the full diff list. Useful
+            for census queries without paying the cost of returning all before/after values.
 
     Returns a list of dicts, one per changed entity, each with:
         name: entity name
@@ -376,10 +379,11 @@ def text_changed_between(
         text_after: field value at v2 (null if absent)
     Sorted alphabetically by name.
 
+    Returns {"total": N} when count_only is True.
     Returns {"error": "..."} if either version is not loaded or sources differ.
     """
     return _os.text_changed_between(
-        _os.get_client(), entity_type, field, v1, v2, allow_cross_source
+        _os.get_client(), entity_type, field, v1, v2, allow_cross_source, count_only
     )
 
 
