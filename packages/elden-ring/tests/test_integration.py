@@ -324,6 +324,402 @@ def test_search_literal_sort_id_range(client):
         client.indices.refresh(index=_os.INDEX)
 
 
+def test_text_changed_between_count_only(client):
+    """text_changed_between count_only=True returns {"total": N}, not a full list.
+
+    Regression for commit a0c6d9f — count_only was accepted by the MCP tool but not
+    forwarded to _client.text_changed_between, so the full diff list was always returned.
+    """
+    docs = [
+        {
+            "entity_type": "weapon",
+            "name": "__test_tcb__",
+            "patch_version": "test-v1",
+            "source": "test",
+            "description": "old description unique abc123",
+            "text_content": "",
+        },
+        {
+            "entity_type": "weapon",
+            "name": "__test_tcb__",
+            "patch_version": "test-v2",
+            "source": "test",
+            "description": "new description unique abc123",
+            "text_content": "",
+        },
+    ]
+    ids = [
+        "weapon::__test_tcb__::test-v1",
+        "weapon::__test_tcb__::test-v2",
+    ]
+    try:
+        for doc, doc_id in zip(docs, ids):
+            client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
+
+        result = _os.text_changed_between(
+            client,
+            entity_type="weapon",
+            field="description",
+            v1="test-v1",
+            v2="test-v2",
+            count_only=True,
+        )
+        assert isinstance(result, dict), f"Expected dict with count_only=True, got {type(result)}"
+        assert "total" in result, f"Expected 'total' key, got {result}"
+        assert "text_before" not in str(result), "Full diff list leaked through with count_only=True"
+        assert result["total"] >= 1
+
+    finally:
+        for doc_id in ids:
+            client.delete(index=_os.INDEX, id=doc_id, ignore=[404])
+        client.indices.refresh(index=_os.INDEX)
+
+
+def test_location_stored_as_list(client):
+    """location field is stored as list[str], not a comma-joined string.
+
+    Regression for #50 — location was joined as a single string before being indexed,
+    so callers could not filter or iterate individual location strings.
+    """
+    doc = {
+        "entity_type": "weapon",
+        "name": "__test_location_list__",
+        "patch_version": "test",
+        "source": "test",
+        "description": "",
+        "text_content": "",
+        "location": ["Stormveil Castle", "Liurnia of the Lakes"],
+    }
+    doc_id = "weapon::__test_location_list__::test"
+    try:
+        client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
+
+        retrieved = _os.get_entity(client, "__test_location_list__", entity_type="weapon")
+        assert retrieved is not None
+        loc = retrieved.get("location")
+        assert isinstance(loc, list), (
+            f"Expected location to be list[str], got {type(loc).__name__}: {loc!r}"
+        )
+        assert "Stormveil Castle" in loc
+        assert "Liurnia of the Lakes" in loc
+
+    finally:
+        client.delete(index=_os.INDEX, id=doc_id, ignore=[404])
+        client.indices.refresh(index=_os.INDEX)
+
+
+def test_mcp_list_entity_types_returns_dict(client):
+    """The MCP list_entity_types tool returns {"entity_types": [...]} not a bare list.
+
+    Regression for #52 — returning a bare list caused FastMCP to emit one TextContent
+    block per item (concatenated string) instead of a single JSON response. The fix
+    wraps the list in a dict; the underlying _client function still returns list[str].
+    """
+    import elden_ring.mcp_server as mcp_server  # noqa: PLC0415
+
+    # Ensure at least one entity type is present so the result is non-trivial.
+    doc = {
+        "entity_type": "weapon",
+        "name": "__test_mcp_types__",
+        "patch_version": "test",
+        "source": "test",
+        "description": "",
+        "text_content": "",
+    }
+    doc_id = "weapon::__test_mcp_types__::test"
+    try:
+        client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
+
+        result = mcp_server.list_entity_types()
+        assert isinstance(result, dict), (
+            f"MCP list_entity_types must return a dict, got {type(result).__name__}"
+        )
+        assert "entity_types" in result, f"Expected 'entity_types' key, got {result}"
+        assert isinstance(result["entity_types"], list)
+        assert "weapon" in result["entity_types"]
+
+    finally:
+        client.delete(index=_os.INDEX, id=doc_id, ignore=[404])
+        client.indices.refresh(index=_os.INDEX)
+
+
+def test_get_entity_returns_newest_patch(client):
+    """get_entity returns the newest patch version when multiple snapshots exist.
+
+    Regression for #28 — get_entity had no sort clause, so OpenSearch returned an
+    arbitrary document. In practice this meant an older snapshot lacking fields added
+    in later patches was returned instead of the current one.
+    """
+    docs = [
+        {
+            "entity_type": "weapon",
+            "name": "__test_newest__",
+            "patch_version": "test-old",
+            "source": "test",
+            "description": "old version",
+            "text_content": "",
+            "req_str": 1,
+        },
+        {
+            "entity_type": "weapon",
+            "name": "__test_newest__",
+            "patch_version": "test-new",
+            "source": "test",
+            "description": "new version",
+            "text_content": "",
+            "req_str": 99,
+        },
+    ]
+    ids = [
+        "weapon::__test_newest__::test-old",
+        "weapon::__test_newest__::test-new",
+    ]
+    try:
+        for doc, doc_id in zip(docs, ids):
+            client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
+
+        result = _os.get_entity(client, "__test_newest__", entity_type="weapon")
+        assert result is not None
+        assert result["patch_version"] == "test-new", (
+            f"Expected newest patch, got '{result['patch_version']}'; "
+            "get_entity may be missing the patch_version desc sort (#28)"
+        )
+        assert result["req_str"] == 99
+
+    finally:
+        for doc_id in ids:
+            client.delete(index=_os.INDEX, id=doc_id, ignore=[404])
+        client.indices.refresh(index=_os.INDEX)
+
+
+def test_get_entity_diacritic_insensitive(client):
+    """get_entity resolves diacritical names when queried without diacritics.
+
+    Regression for #36 — get_entity used an exact name.keyword match, so
+    "Misericorde" failed to find "Miséricorde". The fix adds a name.folded
+    subfield (ascii_normalizer) and a fallback query.
+    """
+    doc = {
+        "entity_type": "weapon",
+        "name": "Míséricorde__test__",  # "Míséricorde__test__" with diacritics
+        "patch_version": "test",
+        "source": "test",
+        "description": "diacritic test weapon",
+        "text_content": "",
+    }
+    doc_id = "weapon::Miseericorde__test__::test"
+    try:
+        client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
+
+        # Exact match should still work
+        exact = _os.get_entity(client, "Míséricorde__test__", entity_type="weapon")
+        assert exact is not None, "Exact diacritical name lookup failed"
+
+        # Folded (diacritic-stripped) match should also resolve
+        folded = _os.get_entity(client, "Miseericorde__test__", entity_type="weapon")
+        assert folded is not None, (
+            "Diacritic-insensitive fallback lookup failed; "
+            "name.folded subfield or ascii_normalizer may be missing (#36)"
+        )
+
+    finally:
+        client.delete(index=_os.INDEX, id=doc_id, ignore=[404])
+        client.indices.refresh(index=_os.INDEX)
+
+
+def test_list_patch_versions_client_returns_list(client):
+    """_client.list_patch_versions returns a sorted list[str], not a dict.
+
+    Regression for #46 — the underlying _version_info() helper returns a dict;
+    list_patch_versions() must unwrap it so callers get a plain list.
+    """
+    doc = {
+        "entity_type": "weapon",
+        "name": "__test_lpv__",
+        "patch_version": "test-lpv",
+        "source": "test",
+        "description": "",
+        "text_content": "",
+    }
+    doc_id = "weapon::__test_lpv__::test-lpv"
+    try:
+        client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
+
+        versions = _os.list_patch_versions(client)
+        assert isinstance(versions, list), (
+            f"_client.list_patch_versions must return list, got {type(versions).__name__} (#46)"
+        )
+        assert "test-lpv" in versions
+
+    finally:
+        client.delete(index=_os.INDEX, id=doc_id, ignore=[404])
+        client.indices.refresh(index=_os.INDEX)
+
+
+def test_mcp_list_patch_versions_returns_dict(client):
+    """MCP list_patch_versions tool returns {"versions": [...], "sources": {...}}.
+
+    Regression for #46 — the MCP tool previously returned a bare list[str], which
+    FastMCP serialized as one concatenated TextContent block per element. The fix
+    returns _version_info() directly as a dict.
+    """
+    import elden_ring.mcp_server as mcp_server  # noqa: PLC0415
+
+    doc = {
+        "entity_type": "weapon",
+        "name": "__test_mcp_lpv__",
+        "patch_version": "test-mcp-lpv",
+        "source": "test",
+        "description": "",
+        "text_content": "",
+    }
+    doc_id = "weapon::__test_mcp_lpv__::test-mcp-lpv"
+    try:
+        client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
+
+        result = mcp_server.list_patch_versions()
+        assert isinstance(result, dict), (
+            f"MCP list_patch_versions must return dict, got {type(result).__name__} (#46)"
+        )
+        assert "versions" in result, f"Expected 'versions' key, got {result}"
+        assert "sources" in result, f"Expected 'sources' key, got {result}"
+        assert isinstance(result["versions"], list)
+        assert isinstance(result["sources"], dict)
+        assert "test-mcp-lpv" in result["versions"]
+
+    finally:
+        client.delete(index=_os.INDEX, id=doc_id, ignore=[404])
+        client.indices.refresh(index=_os.INDEX)
+
+
+def test_diff_entities_missing_version_returns_error(client):
+    """diff_entities returns a descriptive error for unloaded patch versions.
+
+    Regression for #45 — before the fix, diff_entities queried OpenSearch for the
+    entity without first verifying both versions are loaded, producing a confusing
+    "not found" error when the real issue was a missing snapshot.
+    """
+    result = _os.diff_entities(
+        client,
+        name="Uchigatana",
+        v1="99.99.99-nonexistent",
+        v2="99.99.98-nonexistent",
+    )
+    assert isinstance(result, dict)
+    assert "error" in result, f"Expected error dict, got {result}"
+    assert "not loaded" in result["error"], (
+        f"Error message should name the missing version; got: {result['error']}"
+    )
+    assert "99.99.99-nonexistent" in result["error"] or "99.99.98-nonexistent" in result["error"]
+
+
+def test_diff_entities_cross_source_guard(client):
+    """diff_entities refuses cross-source diffs unless allow_cross_source=True.
+
+    Regression for #44 — before the guard was added, comparing an erdb snapshot
+    against a fextralife snapshot produced a meaningless diff of scrape differences
+    rather than game changes, with no warning.
+    """
+    docs = [
+        {
+            "entity_type": "weapon",
+            "name": "__test_xsrc__",
+            "patch_version": "test-xsrc-a",
+            "source": "source-alpha",
+            "description": "version a",
+            "text_content": "",
+        },
+        {
+            "entity_type": "weapon",
+            "name": "__test_xsrc__",
+            "patch_version": "test-xsrc-b",
+            "source": "source-beta",
+            "description": "version b",
+            "text_content": "",
+        },
+    ]
+    ids = [
+        "weapon::__test_xsrc__::test-xsrc-a",
+        "weapon::__test_xsrc__::test-xsrc-b",
+    ]
+    try:
+        for doc, doc_id in zip(docs, ids):
+            client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
+
+        # Default: cross-source diff should be refused
+        blocked = _os.diff_entities(
+            client, "__test_xsrc__", "test-xsrc-a", "test-xsrc-b"
+        )
+        assert "error" in blocked, (
+            f"Expected cross-source guard to block the diff, got {blocked}"
+        )
+        assert "source" in blocked["error"].lower(), blocked["error"]
+
+        # With allow_cross_source=True it should proceed
+        allowed = _os.diff_entities(
+            client, "__test_xsrc__", "test-xsrc-a", "test-xsrc-b", allow_cross_source=True
+        )
+        assert "error" not in allowed, f"Unexpected error with allow_cross_source: {allowed}"
+        assert "changed" in allowed
+
+    finally:
+        for doc_id in ids:
+            client.delete(index=_os.INDEX, id=doc_id, ignore=[404])
+        client.indices.refresh(index=_os.INDEX)
+
+
+def test_text_changed_between_cross_source_guard(client):
+    """text_changed_between refuses cross-source diffs unless allow_cross_source=True.
+
+    Regression for #44 — same guard added to text_changed_between as diff_entities.
+    """
+    docs = [
+        {
+            "entity_type": "weapon",
+            "name": "__test_tcb_xsrc__",
+            "patch_version": "test-tcb-src-a",
+            "source": "source-gamma",
+            "description": "gamma description",
+            "text_content": "",
+        },
+        {
+            "entity_type": "weapon",
+            "name": "__test_tcb_xsrc__",
+            "patch_version": "test-tcb-src-b",
+            "source": "source-delta",
+            "description": "delta description",
+            "text_content": "",
+        },
+    ]
+    ids = [
+        "weapon::__test_tcb_xsrc__::test-tcb-src-a",
+        "weapon::__test_tcb_xsrc__::test-tcb-src-b",
+    ]
+    try:
+        for doc, doc_id in zip(docs, ids):
+            client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
+
+        blocked = _os.text_changed_between(
+            client, "weapon", "description", "test-tcb-src-a", "test-tcb-src-b"
+        )
+        assert isinstance(blocked, dict) and "error" in blocked, (
+            f"Expected cross-source guard to block the comparison, got {blocked}"
+        )
+
+        allowed = _os.text_changed_between(
+            client, "weapon", "description", "test-tcb-src-a", "test-tcb-src-b",
+            allow_cross_source=True,
+        )
+        assert isinstance(allowed, list), (
+            f"Expected list with allow_cross_source=True, got {type(allowed)}"
+        )
+
+    finally:
+        for doc_id in ids:
+            client.delete(index=_os.INDEX, id=doc_id, ignore=[404])
+        client.indices.refresh(index=_os.INDEX)
+
+
 def test_no_phantom_affinity_rows(client):
     """Non-infusable weapons must contribute exactly one indexed document.
 
