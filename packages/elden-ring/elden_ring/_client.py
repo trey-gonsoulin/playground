@@ -741,6 +741,7 @@ def text_changed_between(
     v1: str,
     v2: str,
     allow_cross_source: bool = False,
+    count_only: bool = False,
 ) -> list[dict] | dict:
     """Return all entities of entity_type where field differs between v1 and v2.
 
@@ -801,6 +802,8 @@ def text_changed_between(
         if val1 != val2:
             results.append({"name": name, "text_before": val1, "text_after": val2})
 
+    if count_only:
+        return {"total": len(results)}
     return results
 
 
