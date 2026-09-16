@@ -663,48 +663,48 @@ def search_literal(
     if patterns:
         all_patterns.extend(patterns)
 
-    must_clause: list[dict]
     if not all_patterns:
-        must_clause = [{"match_all": {}}]
+        query_clause: dict = {"bool": {"must": [{"match_all": {}}], "filter": filters}}
     elif len(all_patterns) == 1:
-        must_clause = [
-            {
-                "multi_match": {
-                    "query": all_patterns[0],
-                    "fields": search_fields,
-                    "type": "phrase",
-                }
-            }
-        ]
-    else:
-        # OR across multiple patterns; dedup rides on cardinality agg + collapse.
-        must_clause = [
-            {
-                "bool": {
-                    "should": [
-                        {
-                            "multi_match": {
-                                "query": p,
-                                "fields": search_fields,
-                                "type": "phrase",
-                            }
+        query_clause = {
+            "bool": {
+                "must": [
+                    {
+                        "multi_match": {
+                            "query": all_patterns[0],
+                            "fields": search_fields,
+                            "type": "phrase",
                         }
-                        for p in all_patterns
-                    ],
-                    "minimum_should_match": 1,
-                }
+                    }
+                ],
+                "filter": filters,
             }
-        ]
+        }
+    else:
+        # OR across multiple patterns. Use should + filter at the same bool level —
+        # the nested must > bool.should structure caused shared-token patterns to drop
+        # results in OpenSearch (#64).
+        query_clause = {
+            "bool": {
+                "should": [
+                    {
+                        "multi_match": {
+                            "query": p,
+                            "fields": search_fields,
+                            "type": "phrase",
+                        }
+                    }
+                    for p in all_patterns
+                ],
+                "minimum_should_match": 1,
+                "filter": filters,
+            }
+        }
 
     body: dict = {
         "size": 0 if count_only else limit,
         "track_total_hits": True,
-        "query": {
-            "bool": {
-                "must": must_clause,
-                "filter": filters,
-            }
-        },
+        "query": query_clause,
     }
 
     if include_fields is not None:
