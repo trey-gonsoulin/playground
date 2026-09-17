@@ -422,17 +422,27 @@ def test_search_literal_patterns_or_union_shared_token(client):
             client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
 
         # Baseline: each pattern alone finds its document.
-        result_a = _os.search_literal(client, pattern="呪具テスト固有文字列", source="test")
+        result_a = _os.search_literal(
+            client, pattern="呪具テスト固有文字列", source="test"
+        )
         names_a = [r["name"] for r in result_a["results"]]
-        assert "__test_or_shared_a__" in names_a, f"Single-pattern baseline failed: {names_a}"
+        assert "__test_or_shared_a__" in names_a, (
+            f"Single-pattern baseline failed: {names_a}"
+        )
 
-        result_b = _os.search_literal(client, pattern="護身具テスト固有文字列", source="test")
+        result_b = _os.search_literal(
+            client, pattern="護身具テスト固有文字列", source="test"
+        )
         names_b = [r["name"] for r in result_b["results"]]
-        assert "__test_or_shared_b__" in names_b, f"Single-pattern baseline failed: {names_b}"
+        assert "__test_or_shared_b__" in names_b, (
+            f"Single-pattern baseline failed: {names_b}"
+        )
 
         # OR across token-sharing patterns must return the union.
         result_or = _os.search_literal(
-            client, patterns=["呪具テスト固有文字列", "護身具テスト固有文字列"], source="test"
+            client,
+            patterns=["呪具テスト固有文字列", "護身具テスト固有文字列"],
+            source="test",
         )
         names_or = [r["name"] for r in result_or["results"]]
         assert "__test_or_shared_a__" in names_or, (
@@ -487,7 +497,9 @@ def test_search_literal_patterns_or_union_disjoint_token(client):
             client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
 
         result = _os.search_literal(
-            client, patterns=["描くテスト固有文字列", "擬すテスト固有文字列"], source="test"
+            client,
+            patterns=["描くテスト固有文字列", "擬すテスト固有文字列"],
+            source="test",
         )
         names = [r["name"] for r in result["results"]]
         assert "__test_or_disjoint_a__" in names, (
@@ -546,9 +558,13 @@ def test_text_changed_between_count_only(client):
             v2="test-v2",
             count_only=True,
         )
-        assert isinstance(result, dict), f"Expected dict with count_only=True, got {type(result)}"
+        assert isinstance(result, dict), (
+            f"Expected dict with count_only=True, got {type(result)}"
+        )
         assert "total" in result, f"Expected 'total' key, got {result}"
-        assert "text_before" not in str(result), "Full diff list leaked through with count_only=True"
+        assert "text_before" not in str(result), (
+            "Full diff list leaked through with count_only=True"
+        )
         assert result["total"] >= 1
 
     finally:
@@ -576,7 +592,9 @@ def test_location_stored_as_list(client):
     try:
         client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
 
-        retrieved = _os.get_entity(client, "__test_location_list__", entity_type="weapon")
+        retrieved = _os.get_entity(
+            client, "__test_location_list__", entity_type="weapon"
+        )
         assert retrieved is not None
         loc = retrieved.get("location")
         assert isinstance(loc, list), (
@@ -792,7 +810,10 @@ def test_diff_entities_missing_version_returns_error(client):
     assert "not loaded" in result["error"], (
         f"Error message should name the missing version; got: {result['error']}"
     )
-    assert "99.99.99-nonexistent" in result["error"] or "99.99.98-nonexistent" in result["error"]
+    assert (
+        "99.99.99-nonexistent" in result["error"]
+        or "99.99.98-nonexistent" in result["error"]
+    )
 
 
 def test_diff_entities_cross_source_guard(client):
@@ -839,9 +860,15 @@ def test_diff_entities_cross_source_guard(client):
 
         # With allow_cross_source=True it should proceed
         allowed = _os.diff_entities(
-            client, "__test_xsrc__", "test-xsrc-a", "test-xsrc-b", allow_cross_source=True
+            client,
+            "__test_xsrc__",
+            "test-xsrc-a",
+            "test-xsrc-b",
+            allow_cross_source=True,
         )
-        assert "error" not in allowed, f"Unexpected error with allow_cross_source: {allowed}"
+        assert "error" not in allowed, (
+            f"Unexpected error with allow_cross_source: {allowed}"
+        )
         assert "changed" in allowed
 
     finally:
@@ -889,7 +916,11 @@ def test_text_changed_between_cross_source_guard(client):
         )
 
         allowed = _os.text_changed_between(
-            client, "weapon", "description", "test-tcb-src-a", "test-tcb-src-b",
+            client,
+            "weapon",
+            "description",
+            "test-tcb-src-a",
+            "test-tcb-src-b",
             allow_cross_source=True,
         )
         assert isinstance(allowed, list), (
@@ -920,3 +951,140 @@ def test_no_phantom_affinity_rows(client):
         f"Expected 1 document for Serpentbone Blade, got {result['total']}; "
         "phantom affinity variants may have slipped through the ingest filter (#56)"
     )
+
+
+def test_search_collapse_returns_newest_patch(client):
+    """search() collapse returns the newest-patch representative, preserving relevance.
+
+    Regression for the collapse-without-sort bug — search() collapsed by name.keyword
+    with no sort, so the representative was the highest-scoring version. Identical-content
+    patches tie on _score, letting an arbitrary (often older) doc win and dropping fields
+    stamped only on the newest patch (e.g. a talisman's effect). The fix sorts by
+    _score desc then patch_version desc, so ties resolve to the latest version while
+    between-entity relevance ordering is unchanged.
+    """
+    docs = [
+        {
+            "entity_type": "weapon",
+            "name": "__test_collapse_newest__",
+            "patch_version": "test-old",
+            "source": "test",
+            "description": "collapse newest regression unique qwerty",
+            "text_content": "",
+            "req_str": 1,
+        },
+        {
+            "entity_type": "weapon",
+            "name": "__test_collapse_newest__",
+            "patch_version": "test-new",
+            "source": "test",
+            "description": "collapse newest regression unique qwerty",
+            "text_content": "",
+            "req_str": 99,
+            "effect": "newest-only field",  # stamped only on the newer patch
+        },
+        {
+            "entity_type": "weapon",
+            "name": "__test_collapse_relevance__",
+            "patch_version": "test-new",
+            "source": "test",
+            "description": "collapse newest regression unique qwerty qwerty qwerty",
+            "text_content": "",
+        },
+    ]
+    ids = [
+        "weapon::__test_collapse_newest__::test-old",
+        "weapon::__test_collapse_newest__::test-new",
+        "weapon::__test_collapse_relevance__::test-new",
+    ]
+    try:
+        for doc, doc_id in zip(docs, ids):
+            client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
+
+        results = _os.search(client, "qwerty", entity_type="weapon")
+        by_name = {r["name"]: r for r in results}
+        assert "__test_collapse_newest__" in by_name, (
+            f"Expected collapsed entity in results, got: {list(by_name)}"
+        )
+        rep = by_name["__test_collapse_newest__"]
+        assert rep["patch_version"] == "test-new", (
+            f"Expected newest patch as collapse representative, got '{rep['patch_version']}'; "
+            "search() may be missing the patch_version desc tiebreak"
+        )
+        assert rep.get("effect") == "newest-only field", (
+            "Newest-patch-only field was dropped by the collapse representative"
+        )
+
+        # Relevance ordering between entities must be unchanged: the entity whose
+        # description matches "qwerty" more strongly ranks first.
+        names_in_order = [r["name"] for r in results]
+        assert names_in_order[0] == "__test_collapse_relevance__", (
+            f"Relevance ordering broken by the sort; got order: {names_in_order}"
+        )
+
+    finally:
+        for doc_id in ids:
+            client.delete(index=_os.INDEX, id=doc_id, ignore=[404])
+        client.indices.refresh(index=_os.INDEX)
+
+
+def test_search_literal_patterns_include_fields_without_name(client):
+    """patterns + include_fields that omits 'name' must not collapse results to one.
+
+    Regression for the patterns-union dedup bug — the union keyed on doc.get('name', ''),
+    so when include_fields excluded 'name' every doc collapsed under '' and the call
+    returned a single result with total=1. The fix forces 'name' into the sub-query
+    source (stripping it from the returned docs when the caller didn't ask for it).
+    """
+    docs = [
+        {
+            "entity_type": "weapon",
+            "name": "__test_incl_a__",
+            "patch_version": "test",
+            "source": "test",
+            "description": "",
+            "text_content": "",
+            "description_ja": "収録テスト固有文字列",
+            "sort_id": 1111,
+        },
+        {
+            "entity_type": "weapon",
+            "name": "__test_incl_b__",
+            "patch_version": "test",
+            "source": "test",
+            "description": "",
+            "text_content": "",
+            "description_ja": "護身具テスト固有文字列",
+            "sort_id": 2222,
+        },
+    ]
+    ids = [
+        "weapon::__test_incl_a__::test",
+        "weapon::__test_incl_b__::test",
+    ]
+    try:
+        for doc, doc_id in zip(docs, ids):
+            client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
+
+        result = _os.search_literal(
+            client,
+            patterns=["収録テスト固有文字列", "護身具テスト固有文字列"],
+            source="test",
+            include_fields=["sort_id"],
+        )
+        assert result["total"] == 2, (
+            f"Expected total=2 for two disjoint matches, got {result['total']}; "
+            "include_fields without 'name' may have collapsed the union to one entry"
+        )
+        assert len(result["results"]) == 2, (
+            f"Expected 2 result docs, got {len(result['results'])}"
+        )
+        # 'name' was not requested, so it must be stripped from the returned docs.
+        for doc in result["results"]:
+            assert "name" not in doc, f"'name' leaked into projected result: {doc}"
+            assert set(doc) <= {"sort_id"}, f"Unexpected projected keys: {set(doc)}"
+
+    finally:
+        for doc_id in ids:
+            client.delete(index=_os.INDEX, id=doc_id, ignore=[404])
+        client.indices.refresh(index=_os.INDEX)

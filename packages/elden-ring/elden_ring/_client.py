@@ -368,9 +368,13 @@ def search(
             }
     else:
         # Without a specific patch filter, collapse by entity name to deduplicate across
-        # the 16+ indexed patch versions. Relevance ordering is preserved; the representative
-        # doc per entity is the highest-scoring version (identical content → deterministic).
+        # the 16+ indexed patch versions. Sort by _score first so groups stay in relevance
+        # order (the primary contract of this tool), then patch_version desc as a tiebreak so
+        # the representative doc per entity is the latest version. Without the tiebreak,
+        # identical-content patches tie on _score and an arbitrary (often older) doc wins,
+        # dropping fields stamped only on the newest patch (e.g. a talisman's effect).
         if not patch_version:
+            body["sort"] = [{"_score": "desc"}, {"patch_version": "desc"}]
             body["collapse"] = {"field": "name.keyword"}
 
     resp = client.search(index=INDEX, body=body)
@@ -557,6 +561,11 @@ def diff_entities(
     }
 
 
+# Per-pattern page size for the patterns-OR union path. Large enough that the
+# deduped union count is exact (the corpus is a few thousand docs, well under the
+# 10k max_result_window) rather than silently capped at the caller's `limit`.
+_UNION_FETCH_SIZE = 10000
+
 _LITERAL_FIELDS = [
     "name",
     "display_name",
@@ -666,7 +675,20 @@ def search_literal(
         # OpenSearch absorbs phrase clauses that share CJK tokens in a bool.should,
         # silently returning fewer results than any individual pattern alone (#64).
         # The only safe OR is one query per pattern with a Python-side union.
-        sub_include = ["name"] if count_only else include_fields
+        #
+        # Dedup keys on doc["name"], so name must always be in the sub-query source —
+        # otherwise every doc collapses under "" and the union returns a single result.
+        # Fetch a large per-pattern page so the deduped union (and thus total) is exact
+        # rather than silently capped at `limit`; the returned list is trimmed to `limit`.
+        want_name = include_fields is None or "name" in include_fields
+        if count_only:
+            sub_include: list[str] | None = ["name"]
+        elif include_fields is None:
+            sub_include = None
+        elif want_name:
+            sub_include = include_fields
+        else:
+            sub_include = [*include_fields, "name"]
         seen: dict[str, dict] = {}
         for p in all_patterns:
             r = search_literal(
@@ -675,7 +697,7 @@ def search_literal(
                 fields=fields,
                 entity_type=entity_type,
                 patch_version=patch_version,
-                limit=limit,
+                limit=_UNION_FETCH_SIZE,
                 include_fields=sub_include,
                 count_only=False,
                 sort_id_gte=sort_id_gte,
@@ -691,7 +713,10 @@ def search_literal(
                 seen.setdefault(doc.get("name", ""), doc)
         if count_only:
             return {"total": len(seen)}
-        return {"total": len(seen), "results": list(seen.values())}
+        results = list(seen.values())[:limit]
+        if not want_name:
+            results = [{k: v for k, v in d.items() if k != "name"} for d in results]
+        return {"total": len(seen), "results": results}
 
     if not all_patterns:
         query_clause: dict = {"bool": {"must": [{"match_all": {}}], "filter": filters}}
