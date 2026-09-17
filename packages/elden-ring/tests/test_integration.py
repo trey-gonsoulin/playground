@@ -324,6 +324,67 @@ def test_search_literal_sort_id_range(client):
         client.indices.refresh(index=_os.INDEX)
 
 
+def test_search_literal_patterns_single_element_equals_pattern(client):
+    """patterns=[X] must return the same total as pattern=X for any X.
+
+    Regression for #64 — a single-element patterns array was silently returning 0
+    for strings that matched correctly via the singular pattern= parameter. The bug
+    was specific to strings that came through the patterns code path; the fix routes
+    patterns=[X] through the same recursive keyword-arg path as pattern=X.
+    """
+    docs = [
+        {
+            "entity_type": "weapon",
+            "name": "__test_parity_a__",
+            "patch_version": "test",
+            "source": "test",
+            "description": "",
+            "text_content": "",
+            "description_ja": "呪具テスト固有",
+        },
+        {
+            "entity_type": "weapon",
+            "name": "__test_parity_b__",
+            "patch_version": "test",
+            "source": "test",
+            "description": "",
+            "text_content": "",
+            "description_ja": "護身具テスト固有",
+        },
+        {
+            "entity_type": "weapon",
+            "name": "__test_parity_c__",
+            "patch_version": "test",
+            "source": "test",
+            "description": "",
+            "text_content": "",
+            "description_ja": "描くテスト固有",
+        },
+    ]
+    ids = [
+        "weapon::__test_parity_a__::test",
+        "weapon::__test_parity_b__::test",
+        "weapon::__test_parity_c__::test",
+    ]
+    try:
+        for doc, doc_id in zip(docs, ids):
+            client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
+
+        for pat in ["呪具テスト固有", "護身具テスト固有", "描くテスト固有"]:
+            r_singular = _os.search_literal(client, pattern=pat, source="test")
+            r_array = _os.search_literal(client, patterns=[pat], source="test")
+            assert r_array["total"] == r_singular["total"], (
+                f"patterns=['{pat}'] total {r_array['total']} != "
+                f"pattern='{pat}' total {r_singular['total']} — "
+                "single-element patterns array must equal singular pattern"
+            )
+
+    finally:
+        for doc_id in ids:
+            client.delete(index=_os.INDEX, id=doc_id, ignore=[404])
+        client.indices.refresh(index=_os.INDEX)
+
+
 def test_search_literal_patterns_or_union_shared_token(client):
     """patterns OR returns the union when patterns share a CJK token.
 

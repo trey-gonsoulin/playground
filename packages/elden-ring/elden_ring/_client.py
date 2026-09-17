@@ -662,7 +662,7 @@ def search_literal(
     if patterns:
         all_patterns.extend(patterns)
 
-    if len(all_patterns) > 1:
+    if len(all_patterns) > 1 or patterns:
         # OpenSearch absorbs phrase clauses that share CJK tokens in a bool.should,
         # silently returning fewer results than any individual pattern alone (#64).
         # The only safe OR is one query per pattern with a Python-side union.
