@@ -656,16 +656,46 @@ def search_literal(
             }
         )
 
-    # Collect all phrase patterns (singular + list). OR them via bool.should.
     all_patterns: list[str] = []
     if pattern:
         all_patterns.append(pattern)
     if patterns:
         all_patterns.extend(patterns)
 
+    if len(all_patterns) > 1:
+        # OpenSearch absorbs phrase clauses that share CJK tokens in a bool.should,
+        # silently returning fewer results than any individual pattern alone (#64).
+        # The only safe OR is one query per pattern with a Python-side union.
+        sub_include = ["name"] if count_only else include_fields
+        seen: dict[str, dict] = {}
+        for p in all_patterns:
+            r = search_literal(
+                client,
+                pattern=p,
+                fields=fields,
+                entity_type=entity_type,
+                patch_version=patch_version,
+                limit=limit,
+                include_fields=sub_include,
+                count_only=False,
+                sort_id_gte=sort_id_gte,
+                sort_id_lte=sort_id_lte,
+                sort_id_mod=sort_id_mod,
+                sort_id_remainder=sort_id_remainder,
+                use_kuromoji=use_kuromoji,
+                patterns=None,
+                source=source,
+                use_lemmatize=use_lemmatize,
+            )
+            for doc in r.get("results", []):
+                seen.setdefault(doc.get("name", ""), doc)
+        if count_only:
+            return {"total": len(seen)}
+        return {"total": len(seen), "results": list(seen.values())}
+
     if not all_patterns:
         query_clause: dict = {"bool": {"must": [{"match_all": {}}], "filter": filters}}
-    elif len(all_patterns) == 1:
+    else:
         query_clause = {
             "bool": {
                 "must": [
@@ -677,26 +707,6 @@ def search_literal(
                         }
                     }
                 ],
-                "filter": filters,
-            }
-        }
-    else:
-        # OR across multiple patterns. Use should + filter at the same bool level —
-        # the nested must > bool.should structure caused shared-token patterns to drop
-        # results in OpenSearch (#64).
-        query_clause = {
-            "bool": {
-                "should": [
-                    {
-                        "multi_match": {
-                            "query": p,
-                            "fields": search_fields,
-                            "type": "phrase",
-                        }
-                    }
-                    for p in all_patterns
-                ],
-                "minimum_should_match": 1,
                 "filter": filters,
             }
         }
