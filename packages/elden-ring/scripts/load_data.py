@@ -1253,7 +1253,7 @@ def load_discord_bot_enemies(jp_fmgs: dict | None = None) -> list[dict]:
                     continue
                 locations.append(loc_key.rstrip(":").strip())
                 for item in items_list:
-                    item = item.strip()
+                    item = item.strip() if isinstance(item, str) else str(item)
                     # Skip pure rune amounts (digits + commas only)
                     if item and not item.replace(",", "").replace(" ", "").isdigit():
                         drops.append(item)
@@ -2029,6 +2029,7 @@ def load_erdb(
     supplement_dlc: bool = True,
     drop_map: dict[str, dict[str, list[str]]] | None = None,
     canonical_name_map: dict[int, str] | None = None,
+    bot_talisman_map: dict[str, dict] | None = None,
 ) -> list[dict]:
     url = ERDB_ZIP_URL.format(version=version)
     print(f"  Downloading erdb {version} from GitHub …")
@@ -2043,7 +2044,8 @@ def load_erdb(
     if npc_loc_map is None:
         print("  Downloading NPC location data for merchant enrichment …")
         npc_loc_map = _build_merchant_location_map()
-    bot_talisman_map = _load_discord_bot_talismans()
+    if bot_talisman_map is None:
+        bot_talisman_map = _load_discord_bot_talismans()
     with zipfile.ZipFile(zip_data) as z:
         merchant_items = _extract_merchant_items(z)
         sword_arts_map = _build_sword_arts_map(z)
@@ -2266,6 +2268,9 @@ def main() -> None:
         npc_loc_map = _build_merchant_location_map()
         print("Loading acquisition drop map …")
         drop_map = _build_drop_map()
+        # Fetch the Discord bot talisman CSV once; load_erdb reuses it across every
+        # patch pass instead of re-downloading it per version.
+        bot_talisman_map = _load_discord_bot_talismans()
         # canonical_weapon_map: sort_id → name from the most-recent (1.10.0) pass.
         # Empty on first iteration so 1.10.0 uses raw FMG names as canonical baseline.
         canonical_weapon_map: dict[int, str] = {}
@@ -2289,6 +2294,7 @@ def main() -> None:
                 canonical_name_map=canonical_weapon_map
                 if canonical_weapon_map
                 else None,
+                bot_talisman_map=bot_talisman_map,
             )
             # After the most-recent version is loaded, build the canonical name map so
             # subsequent (older) passes can bridge renamed weapons to their 1.10.0 name.
