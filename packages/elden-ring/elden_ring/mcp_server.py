@@ -274,8 +274,10 @@ def search_entities_literal(
             any inflection as a single deduplicated total. Combines with pattern if
             both are provided.
         fields: Which fields to search. Defaults to all six text fields:
-            name, description, text_content, name_ja, description_ja, text_content_ja
-            (or their .morph equivalents when use_kuromoji=True).
+            name, description, text_content, name_ja, description_ja, text_content_ja.
+            Japanese fields named here are routed to the subfield for the active mode
+            (.morph when use_kuromoji=True, .lemma when use_lemmatize=True), so an
+            explicit fields list composes correctly with those modes.
         entity_type: Narrow to one entity category (weapon, armor, spell, enemy, etc.).
         patch_version: Filter to a specific patch snapshot (e.g. "1.10.0"). Omit to
             search across all patches and return one result per entity (latest version).
