@@ -518,6 +518,71 @@ def test_search_literal_patterns_or_union_disjoint_token(client):
         client.indices.refresh(index=_os.INDEX)
 
 
+def test_search_literal_fields_composes_with_lemmatize(client):
+    """An explicit fields arg must not silently defeat use_lemmatize (#65).
+
+    The lemmatizing analyzer lives only on the .lemma subfield, so a plain
+    fields=["description_ja"] used to search the surface field and return a hard zero
+    on a verb that appears only in inflected forms. The doc below carries 呼ばれる
+    (an inflection of 呼ぶ), reachable only via the lemma analyzer; querying the
+    baseform 呼ぶ with an explicit description_ja field must find it and return the
+    same total as the fields-omitted query.
+    """
+    doc = {
+        "entity_type": "weapon",
+        "name": "__test_lemma_fields__",
+        "patch_version": "test",
+        "source": "test",
+        "description": "",
+        "text_content": "",
+        "description_ja": "魔力を宿すと呼ばれるテスト固有文字列",
+    }
+    doc_id = "weapon::__test_lemma_fields__::test"
+    try:
+        client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
+
+        # Baseline: fields omitted, lemmatize on — baseform 呼ぶ finds the inflected doc.
+        result_omitted = _os.search_literal(
+            client, pattern="呼ぶ", use_lemmatize=True, source="test"
+        )
+        names_omitted = [r["name"] for r in result_omitted["results"]]
+        assert "__test_lemma_fields__" in names_omitted, (
+            f"Lemmatize baseline (no fields) failed to match inflected form: {names_omitted}"
+        )
+
+        # Bug case: explicit description_ja field must route to .lemma and match too.
+        result_fields = _os.search_literal(
+            client,
+            pattern="呼ぶ",
+            fields=["description_ja"],
+            use_lemmatize=True,
+            source="test",
+        )
+        names_fields = [r["name"] for r in result_fields["results"]]
+        assert "__test_lemma_fields__" in names_fields, (
+            f"fields=['description_ja'] with use_lemmatize dropped the inflected match; "
+            f"got names={names_fields}, total={result_fields['total']}"
+        )
+        assert result_fields["total"] == result_omitted["total"], (
+            f"fields arg changed the count: with={result_fields['total']} "
+            f"without={result_omitted['total']}"
+        )
+
+        # Isolation control: without lemmatize, the surface field does not match the
+        # baseform — proving the match above comes from lemma routing, not coincidence.
+        result_surface = _os.search_literal(
+            client, pattern="呼ぶ", fields=["description_ja"], source="test"
+        )
+        names_surface = [r["name"] for r in result_surface["results"]]
+        assert "__test_lemma_fields__" not in names_surface, (
+            f"Surface-form query unexpectedly matched the inflected doc: {names_surface}"
+        )
+
+    finally:
+        client.delete(index=_os.INDEX, id=doc_id, ignore=[404])
+        client.indices.refresh(index=_os.INDEX)
+
+
 def test_text_changed_between_count_only(client):
     """text_changed_between count_only=True returns {"total": N}, not a full list.
 

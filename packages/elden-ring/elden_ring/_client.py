@@ -597,6 +597,38 @@ _LITERAL_FIELDS_LEMMA = [
     "description_ja.lemma",
     "text_content_ja.lemma",
 ]
+# Japanese text fields whose analyzer lives on a subfield, not the base field.
+_JP_BASE_FIELDS = {"name_ja", "description_ja", "text_content_ja"}
+_JP_SUBFIELD_SUFFIXES = (".lemma", ".morph", ".ja")
+
+
+def _route_literal_fields(
+    fields: list[str], use_lemmatize: bool, use_kuromoji: bool
+) -> list[str]:
+    """Remap caller-supplied JP fields to the subfield carrying the active analyzer.
+
+    The kuromoji analyzers live only on the .lemma/.morph subfields, so a plain
+    fields=["description_ja"] would search the surface field and silently defeat
+    use_lemmatize/use_kuromoji. English fields pass through untouched; a JP field
+    given with or without an existing subfield suffix is normalized to its base and
+    re-suffixed for the current mode, so both "description_ja" and "description_ja.morph"
+    route correctly.
+    """
+    if use_lemmatize:
+        suffix = ".lemma"
+    elif use_kuromoji:
+        suffix = ".morph"
+    else:
+        return fields
+    routed: list[str] = []
+    for f in fields:
+        base = f
+        for suf in _JP_SUBFIELD_SUFFIXES:
+            if base.endswith(suf):
+                base = base[: -len(suf)]
+                break
+        routed.append(base + suffix if base in _JP_BASE_FIELDS else f)
+    return routed
 
 
 def search_literal(
@@ -632,13 +664,21 @@ def search_literal(
     query matches all inflected surface forms. Pass the dictionary form of the verb
     (e.g. 与える) to match 与えた, 与えられ, etc. Use analyze_text() to verify the
     expected baseform before querying. use_lemmatize takes precedence over use_kuromoji.
+
+    An explicit fields list composes with both modes: Japanese fields named there
+    (name_ja, description_ja, text_content_ja) are routed to the matching .lemma/.morph
+    subfield automatically, so fields=["description_ja"] with use_lemmatize=True searches
+    description_ja.lemma. Without this, an explicit field would search the surface form and
+    silently defeat the analyzer.
     """
-    if use_lemmatize:
-        search_fields = fields or _LITERAL_FIELDS_LEMMA
+    if fields is not None:
+        search_fields = _route_literal_fields(fields, use_lemmatize, use_kuromoji)
+    elif use_lemmatize:
+        search_fields = _LITERAL_FIELDS_LEMMA
+    elif use_kuromoji:
+        search_fields = _LITERAL_FIELDS_MORPH
     else:
-        search_fields = fields or (
-            _LITERAL_FIELDS_MORPH if use_kuromoji else _LITERAL_FIELDS
-        )
+        search_fields = _LITERAL_FIELDS
     filters: list[dict] = []
     if entity_type:
         filters.append({"term": {"entity_type": entity_type}})
