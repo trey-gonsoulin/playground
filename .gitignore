@@ -8,3 +8,9 @@ wheels/
 
 # Virtual environments
 .venv
+
+# SAM CLI build artifacts
+.aws-sam/
+
+# IDE local history
+.history/
