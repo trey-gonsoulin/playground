@@ -200,7 +200,15 @@ INDEX_MAPPING = {
             },
             "patch_version": {"type": "keyword"},
             "source": {"type": "keyword"},
-            "availability": {"type": "keyword"},
+            # text + keyword subfield (the standard dynamic-string shape). The
+            # availability vocabulary is single-token ("cut"), so the term filter in
+            # _availability_filter matches on the analyzed base field; the .keyword
+            # subfield is there for exact aggregation. Kept as text (not bare keyword)
+            # to match the already-live mapping so put_mapping stays idempotent.
+            "availability": {
+                "type": "text",
+                "fields": {"keyword": {"type": "keyword", "ignore_above": 256}},
+            },
             "description": {"type": "text"},
             "text_content": {"type": "text"},
             "tags": {"type": "keyword"},
