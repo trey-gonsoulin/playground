@@ -479,6 +479,82 @@ def list_patch_versions(client: OpenSearch) -> list[str]:
     return _version_info(client)["versions"]
 
 
+def _source_family(source: str | None) -> str | None:
+    """Collapse a doc's source label to its provenance *family*.
+
+    The native extractor stamps several sub-labels — ``native`` (params/text
+    items), ``native-shop`` (merchants), ``native-talkmsg`` (dialogue) — that are
+    all the same first-party extraction. The cross-source guard exists to stop
+    diffing *different scrapes* of the game (native vs erdb vs fextralife), not to
+    stop diffing a native items snapshot against a native dialogue snapshot, so
+    every ``native*`` label folds to one family. Non-native labels (``erdb``,
+    ``fextralife-discord-bot``, and arbitrary test sources) are left untouched.
+    """
+    if source and (source == "native" or source.startswith("native-")):
+        return "native"
+    return source
+
+
+def _ver_key(version: str) -> tuple:
+    """Semantic sort key for a patch version ("1.10.1" > "1.9.0", not lexical)."""
+    parts = []
+    for p in str(version).split("."):
+        try:
+            parts.append(int(p))
+        except ValueError:
+            parts.append(-1)  # non-numeric (e.g. test versions) sort low, stable
+    return tuple(parts)
+
+
+def _entity_version_info(client: OpenSearch, entity_type: str | None) -> dict:
+    """Loaded versions + dominant source *for one entity_type* (or all if None).
+
+    Mirrors _version_info but scoped to an entity_type, because different types
+    are loaded at different version sets — e.g. items exist at all 28 patches but
+    npc_dialogue only at the 18 Data0-group representatives. The dominant source
+    is family-normalized so a version whose top label is ``native-talkmsg`` reads
+    as the ``native`` family. Returns {"versions": [...semver-sorted...],
+    "sources": {version: family}}.
+    """
+    query = {"term": {"entity_type": entity_type}} if entity_type else {"match_all": {}}
+    resp = client.search(
+        index=INDEX,
+        body={
+            "size": 0,
+            "query": query,
+            "aggs": {
+                "versions": {
+                    "terms": {"field": "patch_version", "size": 40},
+                    "aggs": {"top_source": {"terms": {"field": "source", "size": 1}}},
+                }
+            },
+        },
+    )
+    buckets = resp["aggregations"]["versions"]["buckets"]
+    versions = sorted((b["key"] for b in buckets), key=_ver_key)
+    sources = {
+        b["key"]: _source_family(b["top_source"]["buckets"][0]["key"])
+        for b in buckets
+        if b["top_source"]["buckets"]
+    }
+    return {"versions": versions, "sources": sources}
+
+
+def _resolve_asof(version: str, versions: list[str]) -> str | None:
+    """Resolve a requested version to the latest loaded version <= it (as-of).
+
+    Sparse entity types (dialogue is indexed once per Data0 group, not per patch)
+    are still comparable at any patch pair: a requested version maps to the
+    representative in effect at that point in the timeline. Returns None if the
+    request predates everything loaded for the type.
+    """
+    if version in versions:  # exact snapshot — never surprise-resolve a real one
+        return version
+    key = _ver_key(version)
+    candidates = [v for v in versions if _ver_key(v) <= key]
+    return max(candidates, key=_ver_key) if candidates else None
+
+
 _DIFF_SKIP_FIELDS: frozenset[str] = frozenset(
     {"entity_type", "patch_version", "source", "npc_id"}
 )
@@ -492,19 +568,30 @@ def diff_entities(
     entity_type: str | None = None,
     allow_cross_source: bool = False,
 ) -> dict:
-    info = _version_info(client)
-    loaded = set(info["versions"])
-
+    global_info = _entity_version_info(client, None)
+    global_versions = set(global_info["versions"])
     for v in (v1, v2):
-        if v not in loaded:
+        if v not in global_versions:
             return {
                 "error": f"patch version '{v}' is not loaded; "
-                f"loaded versions: {sorted(loaded)}"
+                f"loaded versions: {sorted(global_versions, key=_ver_key)}"
+            }
+
+    # Resolve as-of the (possibly sparser) version set for this entity_type.
+    info = _entity_version_info(client, entity_type) if entity_type else global_info
+    ev = info["versions"]
+    r1 = _resolve_asof(v1, ev)
+    r2 = _resolve_asof(v2, ev)
+    for orig, res in ((v1, r1), (v2, r2)):
+        if res is None:
+            return {
+                "error": f"no data at or before '{orig}' for this entity type "
+                f"(earliest loaded: {ev[0] if ev else 'none'})"
             }
 
     if not allow_cross_source:
-        src1 = info["sources"].get(v1)
-        src2 = info["sources"].get(v2)
+        src1 = info["sources"].get(r1)
+        src2 = info["sources"].get(r2)
         if src1 and src2 and src1 != src2:
             return {
                 "error": (
@@ -528,12 +615,13 @@ def diff_entities(
         hits = resp["hits"]["hits"]
         return hits[0]["_source"] if hits else None
 
-    doc1 = _fetch(v1)
-    doc2 = _fetch(v2)
+    doc1 = _fetch(r1)
+    doc2 = _fetch(r2)
 
     if not doc1 or not doc2:
-        # Distinguish "not in these patches" from "not in the index at all"
-        missing = [v for v, d in ((v1, doc1), (v2, doc2)) if not d]
+        # Distinguish "not in these patches" from "not in the index at all".
+        # Report the resolved version so the message names where we actually looked.
+        missing = [v for v, d in ((r1, doc1), (r2, doc2)) if not d]
         any_filters: list[dict] = [{"term": {"name.keyword": name}}]
         if entity_type:
             any_filters.append({"term": {"entity_type": entity_type}})
@@ -833,19 +921,33 @@ def text_changed_between(
     Only entities present in both versions are included (added/removed entities
     are excluded — use diff_entities for per-entity existence checks).
     """
-    info = _version_info(client)
-    loaded = set(info["versions"])
-
+    # A requested version must be a real loaded patch somewhere in the index …
+    global_versions = set(_entity_version_info(client, None)["versions"])
     for v in (v1, v2):
-        if v not in loaded:
+        if v not in global_versions:
             return {
                 "error": f"patch version '{v}' is not loaded; "
-                f"loaded versions: {sorted(loaded)}"
+                f"loaded versions: {sorted(global_versions, key=_ver_key)}"
+            }
+
+    # … but this entity_type may be indexed at a sparser set of versions (dialogue
+    # is stored once per Data0 group), so resolve each request as-of that set.
+    info = _entity_version_info(client, entity_type)
+    ev = info["versions"]
+    if not ev:
+        return {"error": f"no '{entity_type}' documents are loaded"}
+    r1 = _resolve_asof(v1, ev)
+    r2 = _resolve_asof(v2, ev)
+    for orig, res in ((v1, r1), (v2, r2)):
+        if res is None:
+            return {
+                "error": f"'{entity_type}' has no data at or before '{orig}' "
+                f"(earliest loaded: {ev[0]})"
             }
 
     if not allow_cross_source:
-        src1 = info["sources"].get(v1)
-        src2 = info["sources"].get(v2)
+        src1 = info["sources"].get(r1)
+        src2 = info["sources"].get(r2)
         if src1 and src2 and src1 != src2:
             return {
                 "error": (
@@ -876,8 +978,8 @@ def text_changed_between(
             for hit in resp["hits"]["hits"]
         }
 
-    docs_v1 = _fetch_all(v1)
-    docs_v2 = _fetch_all(v2)
+    docs_v1 = _fetch_all(r1)
+    docs_v2 = _fetch_all(r2)
 
     results = []
     for name in sorted(set(docs_v1) & set(docs_v2)):
