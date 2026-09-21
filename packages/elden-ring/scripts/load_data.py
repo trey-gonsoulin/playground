@@ -103,7 +103,7 @@ ERDB_DEFAULT_VERSION = ERDB_VERSIONS[0]  # most recent base-game patch
 DLC_PATCH_VERSION = "1.16.0"
 
 ERDB_ZIP_URL = (
-    "https://github.com/EldenRingDatabase/erdb/raw/master"
+    "https://github.com/trey-gonsoulin/erdb/raw/master"
     "/src/erdb/data/gamedata/{version}.zip"
 )
 
