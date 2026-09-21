@@ -262,6 +262,15 @@ INDEX_MAPPING = {
             "default_ash_of_war": {"type": "keyword"},
             "depicted_in_talisman": {"type": "keyword"},
             "depicts_weapon": {"type": "keyword"},
+            # Armor damage negation (percent) by physical sub-type; the standard
+            # physical/magic/fire/lightning/holy negation lives in defense_*.
+            "negation_slash": {"type": "float"},
+            "negation_strike": {"type": "float"},
+            "negation_pierce": {"type": "float"},
+            # Armor-alteration links (Boc / Master Hewg service).
+            "alterable": {"type": "boolean"},
+            "altered_variant": {"type": "keyword"},
+            "altered_from": {"type": "keyword"},
         }
     },
 }
