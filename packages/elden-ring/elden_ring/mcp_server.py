@@ -44,6 +44,7 @@ def search_entities(
     include_fields: list[str] | None = None,
     count_only: bool = False,
     source: str | None = None,
+    include_unavailable: bool = False,
 ) -> list[dict] | dict:
     """Search Elden Ring entities by name, description, location, or tags.
 
@@ -96,6 +97,11 @@ def search_entities(
             entity_type (all data is native), so entity_type is usually the better
             filter; use source when you specifically want to think in terms of the
             underlying game structure. Call describe_fields() for the live list.
+        include_unavailable: By default, content that exists in the game data but was
+            cut / is unobtainable (availability="cut", e.g. Millicent's armor set — its
+            name row is [ERROR]-marked in-game) is excluded from results. Pass True to
+            include cut entities; they are returned with availability="cut" so you can
+            tell them apart from live content.
 
     Returns a list of entity documents when count_only is False, each with at minimum:
     entity_type, name, patch_version, source, description. Use get_entity() for the
@@ -115,6 +121,7 @@ def search_entities(
         include_fields,
         count_only,
         source,
+        include_unavailable,
     )
 
 
@@ -261,6 +268,7 @@ def search_entities_literal(
     patterns: list[str] | None = None,
     source: str | None = None,
     use_lemmatize: bool = False,
+    include_unavailable: bool = False,
 ) -> dict:
     """Search for entities containing an exact literal substring across text fields.
 
@@ -340,6 +348,10 @@ def search_entities_literal(
             use_kuromoji when both are True. Use analyze_text() to verify the expected
             baseform before querying — IPADIC-unknown verbs (e.g. 模す, 象る) may not
             reduce to the expected baseform.
+        include_unavailable: By default, cut/unobtainable content (availability="cut",
+            e.g. Millicent's set) is excluded. Pass True to include it — useful for
+            census/corpus queries that should count everything present in the game data.
+            This also affects count_only totals.
 
     Returns a dict with:
         total: int — distinct entity count when no patch_version is given (deduplicated);
@@ -363,6 +375,7 @@ def search_entities_literal(
         patterns,
         source,
         use_lemmatize,
+        include_unavailable,
     )
 
 
