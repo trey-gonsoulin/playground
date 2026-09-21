@@ -200,6 +200,7 @@ INDEX_MAPPING = {
             },
             "patch_version": {"type": "keyword"},
             "source": {"type": "keyword"},
+            "availability": {"type": "keyword"},
             "description": {"type": "text"},
             "text_content": {"type": "text"},
             "tags": {"type": "keyword"},
@@ -309,6 +310,17 @@ def analyze_text(client: OpenSearch, text: str) -> dict:
     }
 
 
+def _availability_filter(include_unavailable: bool) -> list[dict]:
+    """Filter clause excluding cut/unavailable content unless explicitly included.
+
+    Cut content carries availability="cut"; obtainable content has no availability
+    field, so a must_not term keeps unmarked docs and drops only the cut ones.
+    """
+    if include_unavailable:
+        return []
+    return [{"bool": {"must_not": [{"term": {"availability": "cut"}}]}}]
+
+
 def search(
     client: OpenSearch,
     query: str,
@@ -318,6 +330,7 @@ def search(
     include_fields: list[str] | None = None,
     count_only: bool = False,
     source: str | None = None,
+    include_unavailable: bool = False,
 ) -> list[dict] | dict:
     filters = []
     if entity_type:
@@ -326,6 +339,7 @@ def search(
         filters.append({"term": {"patch_version": patch_version}})
     if source:
         filters.append({"term": {"source": source}})
+    filters += _availability_filter(include_unavailable)
 
     body: dict = {
         "size": 0 if count_only else limit,
@@ -679,6 +693,7 @@ def search_literal(
     patterns: list[str] | None = None,
     source: str | None = None,
     use_lemmatize: bool = False,
+    include_unavailable: bool = False,
 ) -> dict:
     """Exact-phrase search across text fields, with optional structural filters.
 
@@ -717,6 +732,7 @@ def search_literal(
         filters.append({"term": {"patch_version": patch_version}})
     if source:
         filters.append({"term": {"source": source}})
+    filters += _availability_filter(include_unavailable)
     if sort_id_gte is not None or sort_id_lte is not None:
         sort_id_range: dict = {}
         if sort_id_gte is not None:
@@ -779,6 +795,7 @@ def search_literal(
                 patterns=None,
                 source=source,
                 use_lemmatize=use_lemmatize,
+                include_unavailable=include_unavailable,
             )
             for doc in r.get("results", []):
                 seen.setdefault(doc.get("name", ""), doc)
@@ -1008,6 +1025,9 @@ _FIELD_NOTES: dict[str, str] = {
     "source": "internal game-data origin — the param table or FMG the doc was built from "
     "(EquipParamWeapon, EquipParamProtector, Magic, EquipParamAccessory, EquipParamGem, "
     "ShopLineupParam, TalkMsg). All data is first-party native extraction.",
+    "availability": "'cut' for content present in the game data but cut/unavailable (its "
+    "name row is [ERROR]-marked in-game, e.g. Millicent's set); absent for normal obtainable "
+    "content. Cut entities are excluded from search by default — pass include_unavailable=True to include them.",
     "display_name": "per-patch in-game FMG name; differs from name when an item was renamed across patches",
     "menu_category": "in-game equipment menu grouping (e.g. 'Straight Sword', 'Reaper', 'Head')",
     "sort_id": "in-game sort index; multiples of ~1000 per named armament, +N for upgrade/affinity variants",

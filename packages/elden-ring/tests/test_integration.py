@@ -1130,3 +1130,58 @@ def test_search_literal_patterns_include_fields_without_name(client):
         for doc_id in ids:
             client.delete(index=_os.INDEX, id=doc_id, ignore=[404])
         client.indices.refresh(index=_os.INDEX)
+
+
+def test_search_excludes_cut_content_by_default(client):
+    """Cut content (availability='cut') is hidden by default, shown with include_unavailable.
+
+    Regression for #70: cut/unobtainable items (e.g. Millicent's set, whose in-game
+    name row is [ERROR]-marked) are kept in the index but flagged availability='cut'
+    and filtered out of search results unless include_unavailable=True is passed.
+    Covers both search() and search_literal().
+    """
+    live = {
+        "entity_type": "armor", "name": "__test_live_helm__", "patch_version": "test",
+        "source": "test", "description": "availability regression test helm zqx.",
+        "text_content": "availability regression zqx",
+    }
+    cut = {
+        "entity_type": "armor", "name": "__test_cut_helm__", "patch_version": "test",
+        "source": "test", "availability": "cut",
+        "description": "availability regression test helm zqx.",
+        "text_content": "availability regression zqx",
+    }
+    ids = ["armor::__test_live_helm__::test", "armor::__test_cut_helm__::test"]
+    try:
+        for doc, doc_id in zip((live, cut), ids):
+            client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
+
+        # search(): default hides cut, include_unavailable surfaces it
+        default_names = {r["name"] for r in _os.search(
+            client, "availability regression zqx", entity_type="armor")}
+        assert "__test_live_helm__" in default_names
+        assert "__test_cut_helm__" not in default_names, (
+            "cut content must be excluded from search() by default (#70)")
+        incl_names = {r["name"] for r in _os.search(
+            client, "availability regression zqx", entity_type="armor",
+            include_unavailable=True)}
+        assert {"__test_live_helm__", "__test_cut_helm__"} <= incl_names, (
+            "include_unavailable=True must surface cut content")
+
+        # search_literal(): same contract, and count_only reflects the filter
+        lit_default = _os.search_literal(
+            client, "availability regression zqx", entity_type="armor", source="test")
+        lit_names = {r["name"] for r in lit_default["results"]}
+        assert "__test_cut_helm__" not in lit_names
+        assert lit_default["total"] == 1, (
+            f"literal count must exclude cut by default, got {lit_default['total']}")
+        lit_incl = _os.search_literal(
+            client, "availability regression zqx", entity_type="armor", source="test",
+            include_unavailable=True, count_only=True)
+        assert lit_incl["total"] == 2, (
+            f"literal count with include_unavailable must count cut, got {lit_incl['total']}")
+
+    finally:
+        for doc_id in ids:
+            client.delete(index=_os.INDEX, id=doc_id, ignore=[404])
+        client.indices.refresh(index=_os.INDEX)
