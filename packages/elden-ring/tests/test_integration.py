@@ -822,11 +822,12 @@ def test_list_patch_versions_client_returns_list(client):
 
 
 def test_mcp_list_patch_versions_returns_dict(client):
-    """MCP list_patch_versions tool returns {"versions": [...], "sources": {...}}.
+    """MCP list_patch_versions tool returns {"versions": [...]}.
 
     Regression for #46 — the MCP tool previously returned a bare list[str], which
-    FastMCP serialized as one concatenated TextContent block per element. The fix
-    returns _version_info() directly as a dict.
+    FastMCP serialized as one concatenated TextContent block per element. It must
+    return a dict wrapping the versions list. (The per-version 'sources' map was
+    dropped when the erdb/fextralife layer was retired — all data is now native.)
     """
     import elden_ring.mcp_server as mcp_server  # noqa: PLC0415
 
@@ -847,9 +848,7 @@ def test_mcp_list_patch_versions_returns_dict(client):
             f"MCP list_patch_versions must return dict, got {type(result).__name__} (#46)"
         )
         assert "versions" in result, f"Expected 'versions' key, got {result}"
-        assert "sources" in result, f"Expected 'sources' key, got {result}"
         assert isinstance(result["versions"], list)
-        assert isinstance(result["sources"], dict)
         assert "test-mcp-lpv" in result["versions"]
 
     finally:
@@ -881,19 +880,21 @@ def test_diff_entities_missing_version_returns_error(client):
     )
 
 
-def test_diff_entities_cross_source_guard(client):
-    """diff_entities refuses cross-source diffs unless allow_cross_source=True.
+def test_diff_entities_no_source_guard(client):
+    """diff_entities proceeds regardless of a doc's source label.
 
-    Regression for #44 — before the guard was added, comparing an erdb snapshot
-    against a fextralife snapshot produced a meaningless diff of scrape differences
-    rather than game changes, with no warning.
+    The cross-source guard (old #44) was removed when the erdb/fextralife layer was
+    retired: every doc is now native first-party extraction, and `source` was
+    repurposed to name the internal param/FMG origin, so it no longer gates diffing.
+    Two snapshots of the same entity must diff cleanly even if their source labels
+    differ.
     """
     docs = [
         {
             "entity_type": "weapon",
             "name": "__test_xsrc__",
             "patch_version": "test-xsrc-a",
-            "source": "source-alpha",
+            "source": "EquipParamWeapon",
             "description": "version a",
             "text_content": "",
         },
@@ -901,7 +902,7 @@ def test_diff_entities_cross_source_guard(client):
             "entity_type": "weapon",
             "name": "__test_xsrc__",
             "patch_version": "test-xsrc-b",
-            "source": "source-beta",
+            "source": "SomeOtherParam",
             "description": "version b",
             "text_content": "",
         },
@@ -914,27 +915,12 @@ def test_diff_entities_cross_source_guard(client):
         for doc, doc_id in zip(docs, ids):
             client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
 
-        # Default: cross-source diff should be refused
-        blocked = _os.diff_entities(
+        result = _os.diff_entities(
             client, "__test_xsrc__", "test-xsrc-a", "test-xsrc-b"
         )
-        assert "error" in blocked, (
-            f"Expected cross-source guard to block the diff, got {blocked}"
-        )
-        assert "source" in blocked["error"].lower(), blocked["error"]
-
-        # With allow_cross_source=True it should proceed
-        allowed = _os.diff_entities(
-            client,
-            "__test_xsrc__",
-            "test-xsrc-a",
-            "test-xsrc-b",
-            allow_cross_source=True,
-        )
-        assert "error" not in allowed, (
-            f"Unexpected error with allow_cross_source: {allowed}"
-        )
-        assert "changed" in allowed
+        assert "error" not in result, f"Unexpected error: {result}"
+        assert result["changed"] is True
+        assert "description" in result["changed_fields"], result
 
     finally:
         for doc_id in ids:
@@ -942,60 +928,51 @@ def test_diff_entities_cross_source_guard(client):
         client.indices.refresh(index=_os.INDEX)
 
 
-def test_text_changed_between_cross_source_guard(client):
-    """text_changed_between refuses cross-source diffs unless allow_cross_source=True.
+def test_list_patch_versions_semver_order(client):
+    """list_patch_versions returns versions in semantic (not lexical) order.
 
-    Regression for #44 — same guard added to text_changed_between as diff_entities.
+    Regression for the migration: the old _version_info() sorted version strings
+    lexically, so "1.10.0" sorted before "1.2.1". With the full native timeline the
+    list must be true semver order.
     """
-    docs = [
-        {
-            "entity_type": "weapon",
-            "name": "__test_tcb_xsrc__",
-            "patch_version": "test-tcb-src-a",
-            "source": "source-gamma",
-            "description": "gamma description",
-            "text_content": "",
-        },
-        {
-            "entity_type": "weapon",
-            "name": "__test_tcb_xsrc__",
-            "patch_version": "test-tcb-src-b",
-            "source": "source-delta",
-            "description": "delta description",
-            "text_content": "",
-        },
-    ]
-    ids = [
-        "weapon::__test_tcb_xsrc__::test-tcb-src-a",
-        "weapon::__test_tcb_xsrc__::test-tcb-src-b",
-    ]
+    labels = ["9.2.0", "9.10.0", "9.9.0"]
+    ids = [f"weapon::__test_semver__::{v}" for v in labels]
     try:
-        for doc, doc_id in zip(docs, ids):
-            client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
-
-        blocked = _os.text_changed_between(
-            client, "weapon", "description", "test-tcb-src-a", "test-tcb-src-b"
+        for v, doc_id in zip(labels, ids):
+            client.index(
+                index=_os.INDEX,
+                id=doc_id,
+                body={
+                    "entity_type": "weapon",
+                    "name": "__test_semver__",
+                    "patch_version": v,
+                    "source": "EquipParamWeapon",
+                    "description": "",
+                    "text_content": "",
+                },
+                refresh="wait_for",
+            )
+        versions = _os.list_patch_versions(client)
+        idx = {v: versions.index(v) for v in labels}
+        assert idx["9.2.0"] < idx["9.9.0"] < idx["9.10.0"], (
+            f"versions not in semver order: {versions}"
         )
-        assert isinstance(blocked, dict) and "error" in blocked, (
-            f"Expected cross-source guard to block the comparison, got {blocked}"
-        )
-
-        allowed = _os.text_changed_between(
-            client,
-            "weapon",
-            "description",
-            "test-tcb-src-a",
-            "test-tcb-src-b",
-            allow_cross_source=True,
-        )
-        assert isinstance(allowed, list), (
-            f"Expected list with allow_cross_source=True, got {type(allowed)}"
-        )
-
     finally:
         for doc_id in ids:
             client.delete(index=_os.INDEX, id=doc_id, ignore=[404])
         client.indices.refresh(index=_os.INDEX)
+
+
+def test_describe_fields_reports_schema(client):
+    """describe_index reports entity_types, sources, and the mapped field catalog."""
+    result = _os.describe_index(client)
+    assert set(result) >= {"entity_types", "sources", "fields"}, result
+    assert isinstance(result["entity_types"], dict)
+    assert isinstance(result["sources"], dict)
+    # A mapped field carries at least its type; annotated ones carry a note.
+    assert result["fields"]["source"]["type"] == "keyword"
+    assert "note" in result["fields"]["source"]
+    assert "subfields" in result["fields"]["name_ja"]
 
 
 def test_no_phantom_affinity_rows(client):

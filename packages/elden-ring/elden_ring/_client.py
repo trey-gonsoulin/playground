@@ -448,53 +448,6 @@ def get_entity(
     return hits[0]["_source"] if hits else None
 
 
-def _version_info(client: OpenSearch) -> dict:
-    """Return loaded versions and dominant source per version in one query.
-
-    Returns {"versions": [...sorted...], "sources": {"1.10.0": "erdb", ...}}
-    """
-    resp = client.search(
-        index=INDEX,
-        body={
-            "size": 0,
-            "aggs": {
-                "versions": {
-                    "terms": {"field": "patch_version", "size": 30},
-                    "aggs": {"top_source": {"terms": {"field": "source", "size": 1}}},
-                }
-            },
-        },
-    )
-    buckets = resp["aggregations"]["versions"]["buckets"]
-    versions = sorted(b["key"] for b in buckets)
-    sources = {
-        b["key"]: b["top_source"]["buckets"][0]["key"]
-        for b in buckets
-        if b["top_source"]["buckets"]
-    }
-    return {"versions": versions, "sources": sources}
-
-
-def list_patch_versions(client: OpenSearch) -> list[str]:
-    return _version_info(client)["versions"]
-
-
-def _source_family(source: str | None) -> str | None:
-    """Collapse a doc's source label to its provenance *family*.
-
-    The native extractor stamps several sub-labels — ``native`` (params/text
-    items), ``native-shop`` (merchants), ``native-talkmsg`` (dialogue) — that are
-    all the same first-party extraction. The cross-source guard exists to stop
-    diffing *different scrapes* of the game (native vs erdb vs fextralife), not to
-    stop diffing a native items snapshot against a native dialogue snapshot, so
-    every ``native*`` label folds to one family. Non-native labels (``erdb``,
-    ``fextralife-discord-bot``, and arbitrary test sources) are left untouched.
-    """
-    if source and (source == "native" or source.startswith("native-")):
-        return "native"
-    return source
-
-
 def _ver_key(version: str) -> tuple:
     """Semantic sort key for a patch version ("1.10.1" > "1.9.0", not lexical)."""
     parts = []
@@ -506,15 +459,14 @@ def _ver_key(version: str) -> tuple:
     return tuple(parts)
 
 
-def _entity_version_info(client: OpenSearch, entity_type: str | None) -> dict:
-    """Loaded versions + dominant source *for one entity_type* (or all if None).
+def _entity_versions(client: OpenSearch, entity_type: str | None) -> list[str]:
+    """Semver-sorted list of patch versions loaded for one entity_type (or all).
 
-    Mirrors _version_info but scoped to an entity_type, because different types
-    are loaded at different version sets — e.g. items exist at all 28 patches but
-    npc_dialogue only at the 18 Data0-group representatives. The dominant source
-    is family-normalized so a version whose top label is ``native-talkmsg`` reads
-    as the ``native`` family. Returns {"versions": [...semver-sorted...],
-    "sources": {version: family}}.
+    Scoped to an entity_type because different types are loaded at different
+    version sets — e.g. items exist at all 29 patches but npc_dialogue only at the
+    18 Data0-group representatives. Pass None for the global set across all types.
+    The agg size comfortably exceeds the loaded version count so no version is
+    silently dropped as the timeline grows.
     """
     query = {"term": {"entity_type": entity_type}} if entity_type else {"match_all": {}}
     resp = client.search(
@@ -522,22 +474,15 @@ def _entity_version_info(client: OpenSearch, entity_type: str | None) -> dict:
         body={
             "size": 0,
             "query": query,
-            "aggs": {
-                "versions": {
-                    "terms": {"field": "patch_version", "size": 40},
-                    "aggs": {"top_source": {"terms": {"field": "source", "size": 1}}},
-                }
-            },
+            "aggs": {"versions": {"terms": {"field": "patch_version", "size": 100}}},
         },
     )
     buckets = resp["aggregations"]["versions"]["buckets"]
-    versions = sorted((b["key"] for b in buckets), key=_ver_key)
-    sources = {
-        b["key"]: _source_family(b["top_source"]["buckets"][0]["key"])
-        for b in buckets
-        if b["top_source"]["buckets"]
-    }
-    return {"versions": versions, "sources": sources}
+    return sorted((b["key"] for b in buckets), key=_ver_key)
+
+
+def list_patch_versions(client: OpenSearch) -> list[str]:
+    return _entity_versions(client, None)
 
 
 def _resolve_asof(version: str, versions: list[str]) -> str | None:
@@ -566,10 +511,8 @@ def diff_entities(
     v1: str,
     v2: str,
     entity_type: str | None = None,
-    allow_cross_source: bool = False,
 ) -> dict:
-    global_info = _entity_version_info(client, None)
-    global_versions = set(global_info["versions"])
+    global_versions = set(_entity_versions(client, None))
     for v in (v1, v2):
         if v not in global_versions:
             return {
@@ -578,8 +521,11 @@ def diff_entities(
             }
 
     # Resolve as-of the (possibly sparser) version set for this entity_type.
-    info = _entity_version_info(client, entity_type) if entity_type else global_info
-    ev = info["versions"]
+    ev = (
+        _entity_versions(client, entity_type)
+        if entity_type
+        else sorted(global_versions, key=_ver_key)
+    )
     r1 = _resolve_asof(v1, ev)
     r2 = _resolve_asof(v2, ev)
     for orig, res in ((v1, r1), (v2, r2)):
@@ -587,18 +533,6 @@ def diff_entities(
             return {
                 "error": f"no data at or before '{orig}' for this entity type "
                 f"(earliest loaded: {ev[0] if ev else 'none'})"
-            }
-
-    if not allow_cross_source:
-        src1 = info["sources"].get(r1)
-        src2 = info["sources"].get(r2)
-        if src1 and src2 and src1 != src2:
-            return {
-                "error": (
-                    f"'{v1}' (source: {src1}) and '{v2}' (source: {src2}) are from "
-                    f"different data sources — a diff measures scrape differences, not "
-                    f"game revisions. Pass allow_cross_source=True to proceed anyway."
-                )
             }
 
     def _fetch(version: str) -> dict | None:
@@ -912,7 +846,6 @@ def text_changed_between(
     field: str,
     v1: str,
     v2: str,
-    allow_cross_source: bool = False,
     count_only: bool = False,
 ) -> list[dict] | dict:
     """Return all entities of entity_type where field differs between v1 and v2.
@@ -922,7 +855,7 @@ def text_changed_between(
     are excluded — use diff_entities for per-entity existence checks).
     """
     # A requested version must be a real loaded patch somewhere in the index …
-    global_versions = set(_entity_version_info(client, None)["versions"])
+    global_versions = set(_entity_versions(client, None))
     for v in (v1, v2):
         if v not in global_versions:
             return {
@@ -932,8 +865,7 @@ def text_changed_between(
 
     # … but this entity_type may be indexed at a sparser set of versions (dialogue
     # is stored once per Data0 group), so resolve each request as-of that set.
-    info = _entity_version_info(client, entity_type)
-    ev = info["versions"]
+    ev = _entity_versions(client, entity_type)
     if not ev:
         return {"error": f"no '{entity_type}' documents are loaded"}
     r1 = _resolve_asof(v1, ev)
@@ -943,18 +875,6 @@ def text_changed_between(
             return {
                 "error": f"'{entity_type}' has no data at or before '{orig}' "
                 f"(earliest loaded: {ev[0]})"
-            }
-
-    if not allow_cross_source:
-        src1 = info["sources"].get(r1)
-        src2 = info["sources"].get(r2)
-        if src1 and src2 and src1 != src2:
-            return {
-                "error": (
-                    f"'{v1}' (source: {src1}) and '{v2}' (source: {src2}) are from "
-                    f"different data sources — a comparison measures scrape differences, "
-                    f"not game revisions. Pass allow_cross_source=True to proceed anyway."
-                )
             }
 
     def _fetch_all(version: str) -> dict[str, object]:
@@ -1076,3 +996,79 @@ def list_entity_types(client: OpenSearch) -> list[str]:
         },
     )
     return [b["key"] for b in resp["aggregations"]["types"]["buckets"]]
+
+
+# Human-oriented notes for non-obvious queryable fields. Every mapped field is
+# reported by describe_index with its type; these annotations add meaning for the
+# ones a caller can't guess. Base-game stats (attack_*, req_*, scaling_*, weight,
+# fp_cost) are self-describing and intentionally omitted.
+_FIELD_NOTES: dict[str, str] = {
+    "entity_type": "category filter: weapon, armor, spell, item, ash_of_war, merchant, npc_dialogue",
+    "patch_version": "real game patch the doc was extracted from (native is per-patch); use with diff_entities",
+    "source": "internal game-data origin — the param table or FMG the doc was built from "
+    "(EquipParamWeapon, EquipParamProtector, Magic, EquipParamAccessory, EquipParamGem, "
+    "ShopLineupParam, TalkMsg). All data is first-party native extraction.",
+    "display_name": "per-patch in-game FMG name; differs from name when an item was renamed across patches",
+    "menu_category": "in-game equipment menu grouping (e.g. 'Straight Sword', 'Reaper', 'Head')",
+    "sort_id": "in-game sort index; multiples of ~1000 per named armament, +N for upgrade/affinity variants",
+    "tags": "free-form keyword tags (spell school/role, weapon category, 'Talisman', etc.)",
+    "location": "where the entity is found / sold (text + .keyword)",
+    "dropped_by": "enemy/boss names that drop this item",
+    "sold_by": "merchant names that sell this item",
+    "acquisition_types": "how the item is obtained (drop, shop, chest, …)",
+    "acquisition_sources": "named sources the item comes from",
+    "effect": "talisman/item effect text derived from SpEffectParam (native)",
+    "effect_value": "primary numeric magnitude of the effect",
+    "is_legendary": "part of a legendary set (achievement-tracked)",
+    "achievement_set": "which legendary achievement set the item belongs to",
+    "infusable": "weapon can take an affinity/ash-of-war infusion",
+    "default_ash_of_war": "the skill a weapon ships with (from SwordArtsParam)",
+    "depicts_weapon": "talisman depicts this weapon (lore cross-reference)",
+    "depicted_in_talisman": "weapon depicted in this talisman (lore cross-reference)",
+    "negation_slash": "armor slash (physical sub-type) damage negation %",
+    "negation_strike": "armor strike (physical sub-type) damage negation %",
+    "negation_pierce": "armor pierce (physical sub-type) damage negation %",
+    "alterable": "armor piece can be altered (Boc / Master Hewg service)",
+    "altered_variant": "name of the altered version of this armor",
+    "altered_from": "name of the base armor this piece is altered from",
+    "name_ja": "Japanese name; .ja/.morph/.lemma subfields drive JP search modes",
+    "description_ja": "Japanese description; .ja/.morph/.lemma subfields drive JP search modes",
+    "text_content_ja": "Japanese long text; .ja/.morph/.lemma subfields drive JP search modes",
+}
+
+
+def describe_index(client: OpenSearch) -> dict:
+    """Introspect the index: entity types, internal sources, and the field catalog.
+
+    Lets a caller discover what is queryable without guessing. Field types come
+    from the index mapping; entity_types and sources are counted live.
+    """
+    resp = client.search(
+        index=INDEX,
+        body={
+            "size": 0,
+            "aggs": {
+                "types": {"terms": {"field": "entity_type", "size": 50}},
+                "sources": {"terms": {"field": "source", "size": 30}},
+            },
+        },
+    )
+    entity_types = {
+        b["key"]: b["doc_count"] for b in resp["aggregations"]["types"]["buckets"]
+    }
+    sources = {
+        b["key"]: b["doc_count"] for b in resp["aggregations"]["sources"]["buckets"]
+    }
+
+    props = INDEX_MAPPING["mappings"]["properties"]
+    fields: dict[str, dict] = {}
+    for fname, spec in props.items():
+        entry: dict = {"type": spec.get("type", "object")}
+        subs = [s for s in spec.get("fields", {})]
+        if subs:
+            entry["subfields"] = subs
+        if fname in _FIELD_NOTES:
+            entry["note"] = _FIELD_NOTES[fname]
+        fields[fname] = entry
+
+    return {"entity_types": entity_types, "sources": sources, "fields": fields}
