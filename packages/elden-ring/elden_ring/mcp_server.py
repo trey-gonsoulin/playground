@@ -61,21 +61,23 @@ def search_entities(
             - Merchant queries: "who sells Stonesword Key", "Patches inventory"
             - NPC location: "where is Ranni", "Millicent questline"
             - Lore: "Ranni lore", "Marika dialogue", "Elden Ring story"
-        entity_type: Narrow to one category:
+        entity_type: Narrow to one category. Loaded types (all first-party native
+            extraction from the game's own params/FMGs):
             weapon       — all weapons with stats, scaling, and requirements
-            armor        — all armor pieces with weight and defense values
+            armor        — all armor pieces with weight, defense, and negation values
             spell        — sorceries and incantations with FP cost and requirements
             ash_of_war   — weapon skills / ashes of war with effect descriptions
-            item         — talismans and other equippable items
+            item         — talismans (with SpEffect-derived effect text) and equippables
             merchant     — NPC vendor inventories with item names and rune prices;
                            search by item name to find who sells it, or by merchant
                            name / location to get their full stock
-            npc          — NPC character profiles with location and role
-            npc_dialogue — full NPC conversation transcripts (searchable by quote)
-            enemy        — enemies and bosses with HP, locations, and drop tables
-        patch_version: Filter to a specific erdb source version (e.g. "1.07.0").
-            This is the erdb snapshot version, not necessarily the patch when
-            content was introduced. Use list_patch_versions() to see what's loaded.
+            npc_dialogue — individual spoken lines from the TalkMsg text (searchable by quote)
+            Call list_entity_types() for the authoritative live list. (Enemy drop
+            tables and NPC profiles are not yet loaded — tracked for a future pass.)
+        patch_version: Filter to a specific game patch (e.g. "1.07.0"). Native data
+            is extracted per-patch from that patch's regulation.bin, so this is the
+            real in-game version, not a scrape snapshot — trustworthy for tracking
+            when stats/text changed. Use list_patch_versions() to see what's loaded.
             Omit to return one result per entity (latest indexed version); pass
             a specific version to scope results to that snapshot only.
         limit: Maximum results to return (default 20, max 100).
@@ -87,15 +89,18 @@ def search_entities(
             query matches without fetching documents. For a type-level census
             (counting all entities of a given type without a search query), use
             search_entities_literal with count_only=True instead.
-        source: If provided, restrict to documents from this data source (e.g.
-            "erdb" or "fextralife-discord-bot"). Use list_patch_versions() to see
-            which sources are loaded. Useful for getting clean counts without
-            cross-source duplicates (e.g. source="erdb" for authoritative base-game data).
+        source: If provided, restrict to documents from one internal game-data
+            origin — the param table or FMG the docs were extracted from:
+            EquipParamWeapon, EquipParamProtector, Magic, EquipParamAccessory,
+            EquipParamGem, ShopLineupParam, TalkMsg. This currently maps 1:1 to
+            entity_type (all data is native), so entity_type is usually the better
+            filter; use source when you specifically want to think in terms of the
+            underlying game structure. Call describe_fields() for the live list.
 
     Returns a list of entity documents when count_only is False, each with at minimum:
     entity_type, name, patch_version, source, description. Use get_entity() for the
-    full document of a specific named entity. Item documents may include cross-reference
-    edge fields:
+    full document of a specific named entity, or describe_fields() to see all
+    queryable fields. Item documents may include cross-reference edge fields:
       dropped_by — enemy/boss names that drop this item
       sold_by    — merchant names that sell this item
 
@@ -171,20 +176,43 @@ def list_entity_types() -> dict:
 
 
 @mcp.tool(annotations=_READ_ONLY)
-def list_patch_versions() -> dict:
-    """List the patch versions currently loaded in the index with their data sources.
+def describe_fields() -> dict:
+    """Describe what is queryable in the index: entity types, sources, and fields.
 
-    Use the version strings as v1/v2 arguments to diff_entities(), or as the
-    patch_version filter in search_entities().
+    Use this to discover the schema instead of guessing field names. Every field
+    that can be searched (search_entities_literal fields=), filtered (source=), or
+    diffed (text_changed_between field=) is listed with its type and a note where
+    the meaning isn't obvious — including the native-rich fields like effect,
+    negation_slash/strike/pierce, infusable, default_ash_of_war, is_legendary,
+    depicts_weapon, and the .ja/.morph/.lemma Japanese subfields.
 
     If this tool returns a connection error, call start_search_service() first.
 
-    Returns a dict with:
-        versions: list[str] — version strings sorted oldest-first
-        sources:  dict[str, str] — maps each version to its dominant source
-                  (e.g. {"1.10.0": "erdb", "1.16.0": "fextralife-discord-bot"})
+    Returns:
+        entity_types: {type: doc_count} — loaded categories with document counts
+        sources:      {source: doc_count} — internal game-data origins (param/FMG
+                      names the docs were extracted from)
+        fields:       {field: {type, subfields?, note?}} — the queryable field catalog
     """
-    return _os._version_info(_os.get_client())
+    return _os.describe_index(_os.get_client())
+
+
+@mcp.tool(annotations=_READ_ONLY)
+def list_patch_versions() -> dict:
+    """List the game patch versions currently loaded in the index.
+
+    All data is first-party native extraction, one snapshot per game patch, so
+    each version string is a real in-game patch. Use them as v1/v2 arguments to
+    diff_entities()/text_changed_between(), or as the patch_version filter in
+    search_entities(). For the internal data-origin values (params/FMGs) and the
+    full field catalog, call describe_fields().
+
+    If this tool returns a connection error, call start_search_service() first.
+
+    Returns:
+        versions: list[str] — patch versions sorted oldest-first (semantic order)
+    """
+    return {"versions": _os.list_patch_versions(_os.get_client())}
 
 
 @mcp.tool(annotations=_READ_ONLY)
@@ -300,9 +328,10 @@ def search_entities_literal(
             queries from matching compounds that contain that kanji as a sub-character.
             Has no effect on English fields. Default False (standard CJK-unigram mode).
             See the suru-verb caveat above before trusting zero results from this mode.
-        source: If provided, restrict to documents from this data source (e.g. "erdb"
-            or "fextralife-discord-bot"). Useful for clean corpus counts that exclude
-            cross-source duplicates. See list_patch_versions() for source values.
+        source: If provided, restrict to documents from one internal game-data origin
+            (the param/FMG the docs were extracted from, e.g. "EquipParamWeapon",
+            "Magic", "TalkMsg"). Maps 1:1 to entity_type today; call describe_fields()
+            for the live list. Prefer entity_type unless you want the game-structure view.
         use_lemmatize: If True, route Japanese fields through kuromoji baseform reduction
             so a single query in dictionary form matches all inflected surface forms.
             Example: pattern="与える" matches docs containing 与えた, 与えられ, 与えて, etc.
@@ -343,7 +372,6 @@ def text_changed_between(
     field: str,
     v1: str,
     v2: str,
-    allow_cross_source: bool = False,
     count_only: bool = False,
 ) -> list[dict] | dict:
     """Find all entities of a type where a specific field changed between two patch versions.
@@ -352,9 +380,15 @@ def text_changed_between(
     Suited for corpus-wide analysis — e.g. "which talismans had their description
     rewritten between 1.02.1 and 1.10.0?". Two calls (one for description, one for
     description_ja) reveal whether changes are lore rewrites or localisation-only.
+    Because all data is native per-patch extraction, differences reflect real game
+    revisions rather than scrape artifacts.
 
     Only entities present in both versions are included. To check whether an entity
     was added or removed between patches, use diff_entities().
+
+    Sparse entity types are handled by as-of resolution: npc_dialogue is indexed
+    once per Data0 text group, so a requested version resolves to the latest group
+    representative at or before it, making any patch pair comparable.
 
     Call list_patch_versions() first to see what's loaded.
     Call list_entity_types() to see valid entity_type values.
@@ -362,16 +396,14 @@ def text_changed_between(
     If this tool returns a connection error, call start_search_service() first.
 
     Args:
-        entity_type: Entity category to scan (weapon, armor, spell, item, enemy, etc.).
+        entity_type: Entity category to scan (weapon, armor, spell, item, ash_of_war,
+            merchant, npc_dialogue).
         field: Field to compare, e.g. "description", "description_ja", "text_content",
             "location", "effect", "display_name" (per-patch FMG name — use this to find
             weapons renamed across patches). Any indexed field works; missing values compare
-            as null.
+            as null. Call describe_fields() for the full list.
         v1: Older patch version, e.g. "1.02.1".
         v2: Newer patch version, e.g. "1.10.0".
-        allow_cross_source: If True, allow comparing versions from different data sources
-            (erdb vs fextralife). By default this is refused because cross-source diffs
-            measure scrape differences, not game revisions.
         count_only: If True, return {"total": N} instead of the full diff list. Useful
             for census queries without paying the cost of returning all before/after values.
 
@@ -382,10 +414,10 @@ def text_changed_between(
     Sorted alphabetically by name.
 
     Returns {"total": N} when count_only is True.
-    Returns {"error": "..."} if either version is not loaded or sources differ.
+    Returns {"error": "..."} if either version is not loaded.
     """
     return _os.text_changed_between(
-        _os.get_client(), entity_type, field, v1, v2, allow_cross_source, count_only
+        _os.get_client(), entity_type, field, v1, v2, count_only
     )
 
 
@@ -395,13 +427,13 @@ def diff_entities(
     v1: str,
     v2: str,
     entity_type: str | None = None,
-    allow_cross_source: bool = False,
 ) -> dict:
     """Compare an entity's fields between two patch versions.
 
     Returns which fields changed (with before/after values) and which were
     unchanged. Useful for tracking description rewrites, stat adjustments, or
-    location changes between patches.
+    location changes between patches. All data is native per-patch extraction, so
+    differences reflect real game revisions.
 
     Call list_patch_versions() first to see what's loaded.
 
@@ -412,22 +444,17 @@ def diff_entities(
         v1: Older patch version, e.g. "1.06.0".
         v2: Newer patch version, e.g. "1.07.0".
         entity_type: Optional type hint to disambiguate if two entities share a name.
-        allow_cross_source: If True, allow comparing versions from different data sources
-            (erdb vs fextralife). By default this is refused because cross-source diffs
-            measure scrape differences, not game revisions.
 
     Returns a dict with:
         changed: bool — whether any fields differ
         changed_fields: {field: {v1: old_value, v2: new_value}} for each changed field
         unchanged_fields: [field, ...] for fields present in both with identical values
 
-    Returns {"error": "..."} if either version is not loaded, sources differ, or
-    the entity is not present in the requested versions.
+    Returns {"error": "..."} if either version is not loaded or the entity is not
+    present in the requested versions.
     Error cases:
         patch version 'X' is not loaded → version not in the index
         'Name' not present in X         → version loaded but entity absent from it
         'Name' not found in any loaded version → entity not in the index at all
     """
-    return _os.diff_entities(
-        _os.get_client(), name, v1, v2, entity_type, allow_cross_source
-    )
+    return _os.diff_entities(_os.get_client(), name, v1, v2, entity_type)
