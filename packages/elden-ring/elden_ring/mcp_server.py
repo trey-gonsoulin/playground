@@ -69,12 +69,24 @@ def search_entities(
             spell        — sorceries and incantations with FP cost and requirements
             ash_of_war   — weapon skills / ashes of war with effect descriptions
             item         — talismans (with SpEffect-derived effect text) and equippables
+            ammo         — arrows, greatarrows, bolts, and ballista bolts
+            consumable   — usable items (throwables, buffs, online/multiplayer tools)
+            key_item     — quest / story items (bell bearings, letters, whetblades, …)
+            crafting_material — crafting ingredients (meat, fluids, plants, …)
+            upgrade_material  — smithing stones, somber stones, golden seeds, sacred tears
+            crystal_tear — Wondrous Physick crystal tears
+            spirit_ash   — summonable spirit ashes (base row per summon)
+            remembrance  — boss remembrances traded at the Roundtable Hold
+            great_rune   — shardbearer Great Runes
+            tool         — reusable crafting tools (cracked/ritual pots, perfume bottles)
+            info         — informational items (letters, notes, memos)
             merchant     — NPC vendor inventories with item names and rune prices;
                            search by item name to find who sells it, or by merchant
                            name / location to get their full stock
             npc_dialogue — individual spoken lines from the TalkMsg text (searchable by quote)
             Call list_entity_types() for the authoritative live list. (Enemy drop
-            tables and NPC profiles are not yet loaded — tracked for a future pass.)
+            tables, NPC profiles, and enemy-only gear are not yet loaded — tracked
+            for future passes.)
         patch_version: Filter to a specific game patch (e.g. "1.07.0"). Native data
             is extracted per-patch from that patch's regulation.bin, so this is the
             real in-game version, not a scrape snapshot — trustworthy for tracking
@@ -93,8 +105,9 @@ def search_entities(
         source: If provided, restrict to documents from one internal game-data
             origin — the param table or FMG the docs were extracted from:
             EquipParamWeapon, EquipParamProtector, Magic, EquipParamAccessory,
-            EquipParamGem, ShopLineupParam, TalkMsg. This currently maps 1:1 to
-            entity_type (all data is native), so entity_type is usually the better
+            EquipParamGem, EquipParamGoods, ShopLineupParam, TalkMsg. One source can
+            back several entity_types (EquipParamGoods → consumable/key_item/…;
+            EquipParamWeapon → weapon/ammo), so entity_type is usually the better
             filter; use source when you specifically want to think in terms of the
             underlying game structure. Call describe_fields() for the live list.
         include_unavailable: By default, content that exists in the game data but was
@@ -314,7 +327,9 @@ def search_entities_literal(
             Japanese fields named here are routed to the subfield for the active mode
             (.morph when use_kuromoji=True, .lemma when use_lemmatize=True), so an
             explicit fields list composes correctly with those modes.
-        entity_type: Narrow to one entity category (weapon, armor, spell, enemy, etc.).
+        entity_type: Narrow to one entity category (weapon, armor, spell, consumable,
+            key_item, spirit_ash, ammo, etc.). See search_entities() for the full list
+            or call list_entity_types() for the authoritative live set.
         patch_version: Filter to a specific patch snapshot (e.g. "1.10.0"). Omit to
             search across all patches and return one result per entity (latest version).
             Use list_patch_versions() to see available versions.

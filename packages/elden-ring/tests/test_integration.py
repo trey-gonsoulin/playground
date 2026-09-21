@@ -1185,3 +1185,45 @@ def test_search_excludes_cut_content_by_default(client):
         for doc_id in ids:
             client.delete(index=_os.INDEX, id=doc_id, ignore=[404])
         client.indices.refresh(index=_os.INDEX)
+
+
+def test_new_goods_entity_types_are_searchable(client):
+    """New goods/ammo entity_types index and filter by entity_type (#72).
+
+    Coverage expansion added consumable/key_item/ammo/spirit_ash/… as first-class
+    entity_types (dynamic — no mapping change). Verify a doc of a new type is both
+    full-text searchable and narrowable via the entity_type filter.
+    """
+    docs = {
+        "consumable::__test_grease__::test": {
+            "entity_type": "consumable", "name": "__test_grease__",
+            "patch_version": "test", "source": "EquipParamGoods",
+            "menu_category": "Consumable",
+            "description": "coverage expansion consumable wqz.",
+        },
+        "key_item::__test_bell__::test": {
+            "entity_type": "key_item", "name": "__test_bell__",
+            "patch_version": "test", "source": "EquipParamGoods",
+            "menu_category": "Key Item",
+            "description": "coverage expansion keyitem wqz.",
+        },
+    }
+    try:
+        for doc_id, doc in docs.items():
+            client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
+
+        # entity_type filter narrows to just the consumable
+        cons = {r["name"] for r in _os.search(
+            client, "coverage expansion wqz", entity_type="consumable")}
+        assert "__test_grease__" in cons
+        assert "__test_bell__" not in cons, "entity_type filter must exclude key_item"
+
+        # the key_item is reachable under its own type
+        keys = {r["name"] for r in _os.search(
+            client, "coverage expansion wqz", entity_type="key_item")}
+        assert "__test_bell__" in keys
+
+    finally:
+        for doc_id in docs:
+            client.delete(index=_os.INDEX, id=doc_id, ignore=[404])
+        client.indices.refresh(index=_os.INDEX)
