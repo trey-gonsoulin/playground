@@ -110,11 +110,12 @@ def search_entities(
             EquipParamWeapon → weapon/ammo), so entity_type is usually the better
             filter; use source when you specifically want to think in terms of the
             underlying game structure. Call describe_fields() for the live list.
-        include_unavailable: By default, content that exists in the game data but was
-            cut / is unobtainable (availability="cut", e.g. Millicent's armor set — its
-            name row is [ERROR]-marked in-game) is excluded from results. Pass True to
-            include cut entities; they are returned with availability="cut" so you can
-            tell them apart from live content.
+        include_unavailable: By default, content that exists in the game data but is not
+            obtainable is excluded from results — availability="cut" (name row [ERROR]-marked,
+            e.g. Millicent's armor set) or availability="unobtainable" (real-named armor with
+            no acquisition path, e.g. the Ragged set / enemy-only gear; #71). Pass True to
+            include them; they carry the availability field so you can tell them apart from
+            live content.
 
     Returns a list of entity documents when count_only is False, each with at minimum:
     entity_type, name, patch_version, source, description. Use get_entity() for the
@@ -363,10 +364,10 @@ def search_entities_literal(
             use_kuromoji when both are True. Use analyze_text() to verify the expected
             baseform before querying — IPADIC-unknown verbs (e.g. 模す, 象る) may not
             reduce to the expected baseform.
-        include_unavailable: By default, cut/unobtainable content (availability="cut",
-            e.g. Millicent's set) is excluded. Pass True to include it — useful for
-            census/corpus queries that should count everything present in the game data.
-            This also affects count_only totals.
+        include_unavailable: By default, unavailable content (availability="cut" or
+            "unobtainable", e.g. Millicent's set / the Ragged set) is excluded. Pass True to
+            include it — useful for census/corpus queries that should count everything present
+            in the game data. This also affects count_only totals.
 
     Returns a dict with:
         total: int — distinct entity count when no patch_version is given (deduplicated);

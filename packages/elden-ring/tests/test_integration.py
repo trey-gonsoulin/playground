@@ -1227,3 +1227,55 @@ def test_new_goods_entity_types_are_searchable(client):
         for doc_id in docs:
             client.delete(index=_os.INDEX, id=doc_id, ignore=[404])
         client.indices.refresh(index=_os.INDEX)
+
+
+def test_search_excludes_unobtainable_content_by_default(client):
+    """Unobtainable content (availability='unobtainable') is hidden like cut (#71).
+
+    Real-named armor with no acquisition path (enemy-only gear / reused assets, e.g.
+    the Ragged set) is kept in the index but flagged availability='unobtainable' and
+    filtered out of search results unless include_unavailable=True — the same contract
+    as availability='cut', now covering both flagged states.
+    """
+    live = {
+        "entity_type": "armor", "name": "__test_live_rag__", "patch_version": "test",
+        "source": "test", "description": "unobtainable regression armor jvx.",
+        "text_content": "unobtainable regression jvx",
+    }
+    unob = {
+        "entity_type": "armor", "name": "__test_unob_rag__", "patch_version": "test",
+        "source": "test", "availability": "unobtainable",
+        "description": "unobtainable regression armor jvx.",
+        "text_content": "unobtainable regression jvx",
+    }
+    ids = ["armor::__test_live_rag__::test", "armor::__test_unob_rag__::test"]
+    try:
+        for doc, doc_id in zip((live, unob), ids):
+            client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
+
+        default_names = {r["name"] for r in _os.search(
+            client, "unobtainable regression jvx", entity_type="armor")}
+        assert "__test_live_rag__" in default_names
+        assert "__test_unob_rag__" not in default_names, (
+            "unobtainable content must be excluded from search() by default (#71)")
+        incl_names = {r["name"] for r in _os.search(
+            client, "unobtainable regression jvx", entity_type="armor",
+            include_unavailable=True)}
+        assert {"__test_live_rag__", "__test_unob_rag__"} <= incl_names, (
+            "include_unavailable=True must surface unobtainable content")
+
+        lit_default = _os.search_literal(
+            client, "unobtainable regression jvx", entity_type="armor", source="test")
+        assert lit_default["total"] == 1, (
+            f"literal count must exclude unobtainable by default, got {lit_default['total']}")
+        lit_incl = _os.search_literal(
+            client, "unobtainable regression jvx", entity_type="armor", source="test",
+            include_unavailable=True, count_only=True)
+        assert lit_incl["total"] == 2, (
+            f"literal count with include_unavailable must count unobtainable, got "
+            f"{lit_incl['total']}")
+
+    finally:
+        for doc_id in ids:
+            client.delete(index=_os.INDEX, id=doc_id, ignore=[404])
+        client.indices.refresh(index=_os.INDEX)
