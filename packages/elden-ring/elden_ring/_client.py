@@ -321,12 +321,14 @@ def analyze_text(client: OpenSearch, text: str) -> dict:
 def _availability_filter(include_unavailable: bool) -> list[dict]:
     """Filter clause excluding cut/unavailable content unless explicitly included.
 
-    Cut content carries availability="cut"; obtainable content has no availability
-    field, so a must_not term keeps unmarked docs and drops only the cut ones.
+    Unavailable content carries availability="cut" ([ERROR]-marked, scrapped) or
+    availability="unobtainable" (real-named but with no acquisition path — enemy-only
+    gear, reused assets; #71). Obtainable content has no availability field, so a
+    must_not terms clause keeps unmarked docs and drops only the flagged ones.
     """
     if include_unavailable:
         return []
-    return [{"bool": {"must_not": [{"term": {"availability": "cut"}}]}}]
+    return [{"bool": {"must_not": [{"terms": {"availability": ["cut", "unobtainable"]}}]}}]
 
 
 def search(
@@ -1033,9 +1035,11 @@ _FIELD_NOTES: dict[str, str] = {
     "source": "internal game-data origin — the param table or FMG the doc was built from "
     "(EquipParamWeapon, EquipParamProtector, Magic, EquipParamAccessory, EquipParamGem, "
     "ShopLineupParam, TalkMsg). All data is first-party native extraction.",
-    "availability": "'cut' for content present in the game data but cut/unavailable (its "
-    "name row is [ERROR]-marked in-game, e.g. Millicent's set); absent for normal obtainable "
-    "content. Cut entities are excluded from search by default — pass include_unavailable=True to include them.",
+    "availability": "'cut' for content whose in-game name row is [ERROR]-marked (scrapped, "
+    "e.g. Millicent's set); 'unobtainable' for real-named armor with no acquisition path — "
+    "enemy-only gear / reused assets like the Ragged set (#71); absent for normal obtainable "
+    "content. Both flagged states are excluded from search by default — pass "
+    "include_unavailable=True to include them.",
     "display_name": "per-patch in-game FMG name; differs from name when an item was renamed across patches",
     "menu_category": "in-game equipment menu grouping (e.g. 'Straight Sword', 'Reaper', 'Head')",
     "sort_id": "in-game sort index; multiples of ~1000 per named armament, +N for upgrade/affinity variants",
