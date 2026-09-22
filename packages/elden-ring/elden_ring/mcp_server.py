@@ -87,8 +87,9 @@ def search_entities(
             enemy        — bosses, creatures, and named enemies (from the NpcName roster)
                            with EN + JP names (name_ja); the humanoid subset also carries
                            HP/stamina/poise/elemental-defense stats from NpcParam. Enemies
-                           have no in-game description; find what one drops via the dropped
-                           item's own doc. (Boss combat stats and drop tables: #68.)
+                           have no in-game description. Bosses / named enemies carry a
+                           drops list (items they drop, from map EMEVD scripts, #68); the
+                           dropped item's own doc carries the reciprocal dropped_by.
             Call list_entity_types() for the authoritative live list.
         patch_version: Filter to a specific game patch (e.g. "1.07.0"). Native data
             is extracted per-patch from that patch's regulation.bin, so this is the
@@ -125,6 +126,7 @@ def search_entities(
     full document of a specific named entity, or describe_fields() to see all
     queryable fields. Item documents may include cross-reference edge fields:
       sold_by            — merchant names that sell this item (per-patch)
+      dropped_by         — boss / named enemies that drop this item (EMEVD-derived, #68)
       acquisition_types  — how it's obtained: merchant / enemy_drop / found_in_world
 
     Returns {"total": N} when count_only is True.
