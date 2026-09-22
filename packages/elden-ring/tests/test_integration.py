@@ -54,20 +54,33 @@ def test_index_exists(client):
 
 
 def test_search_empty_returns_list(client):
-    """Search on an empty index returns an empty list (not an error)."""
-    results = _os.search(client, "bleed katana")
+    """Search with no matching documents returns an empty list (not an error).
+
+    Uses a nonsense token so the invariant holds against the populated production
+    index too (the original 'bleed katana' matched real weapons).
+    """
+    results = _os.search(client, "zzq_no_such_search_token_qzz")
     assert isinstance(results, list)
     assert results == []
 
 
 def test_get_entity_missing_returns_none(client):
-    """get_entity on an empty index returns None (not an error)."""
-    result = _os.get_entity(client, "Rivers of Blood")
+    """get_entity returns None (not an error) when no entity matches.
+
+    Uses a name guaranteed absent so it holds against the populated index too.
+    """
+    result = _os.get_entity(client, "__no_such_entity_zzq__")
     assert result is None
 
 
 def test_list_entity_types_empty(client):
-    """list_entity_types on an empty index returns an empty list."""
+    """list_entity_types returns an empty list on an index with no documents.
+
+    This invariant only holds on a fresh index; against the populated production
+    index it returns the live type list, so the empty case is skipped there.
+    """
+    if client.count(index=_os.INDEX)["count"] > 0:
+        pytest.skip("index is populated; empty-index invariant only holds on a fresh index")
     types = _os.list_entity_types(client)
     assert isinstance(types, list)
     assert types == []
@@ -719,7 +732,7 @@ def test_get_entity_returns_newest_patch(client):
         {
             "entity_type": "weapon",
             "name": "__test_newest__",
-            "patch_version": "test-old",
+            "patch_version": "0.0.1-test",
             "source": "test",
             "description": "old version",
             "text_content": "",
@@ -728,7 +741,7 @@ def test_get_entity_returns_newest_patch(client):
         {
             "entity_type": "weapon",
             "name": "__test_newest__",
-            "patch_version": "test-new",
+            "patch_version": "0.0.2-test",
             "source": "test",
             "description": "new version",
             "text_content": "",
@@ -736,8 +749,8 @@ def test_get_entity_returns_newest_patch(client):
         },
     ]
     ids = [
-        "weapon::__test_newest__::test-old",
-        "weapon::__test_newest__::test-new",
+        "weapon::__test_newest__::0.0.1-test",
+        "weapon::__test_newest__::0.0.2-test",
     ]
     try:
         for doc, doc_id in zip(docs, ids):
@@ -745,7 +758,7 @@ def test_get_entity_returns_newest_patch(client):
 
         result = _os.get_entity(client, "__test_newest__", entity_type="weapon")
         assert result is not None
-        assert result["patch_version"] == "test-new", (
+        assert result["patch_version"] == "0.0.2-test", (
             f"Expected newest patch, got '{result['patch_version']}'; "
             "get_entity may be missing the patch_version desc sort (#28)"
         )
@@ -780,8 +793,9 @@ def test_get_entity_diacritic_insensitive(client):
         exact = _os.get_entity(client, "Míséricorde__test__", entity_type="weapon")
         assert exact is not None, "Exact diacritical name lookup failed"
 
-        # Folded (diacritic-stripped) match should also resolve
-        folded = _os.get_entity(client, "Miseericorde__test__", entity_type="weapon")
+        # Folded (diacritic-stripped) match should also resolve: "Míséricorde"
+        # folds to "misericorde" (single e), so the ascii query drops the accents.
+        folded = _os.get_entity(client, "Misericorde__test__", entity_type="weapon")
         assert folded is not None, (
             "Diacritic-insensitive fallback lookup failed; "
             "name.folded subfield or ascii_normalizer may be missing (#36)"
@@ -1009,7 +1023,7 @@ def test_search_collapse_returns_newest_patch(client):
         {
             "entity_type": "weapon",
             "name": "__test_collapse_newest__",
-            "patch_version": "test-old",
+            "patch_version": "0.0.1-test",
             "source": "test",
             "description": "collapse newest regression unique qwerty",
             "text_content": "",
@@ -1018,7 +1032,7 @@ def test_search_collapse_returns_newest_patch(client):
         {
             "entity_type": "weapon",
             "name": "__test_collapse_newest__",
-            "patch_version": "test-new",
+            "patch_version": "0.0.2-test",
             "source": "test",
             "description": "collapse newest regression unique qwerty",
             "text_content": "",
@@ -1028,16 +1042,16 @@ def test_search_collapse_returns_newest_patch(client):
         {
             "entity_type": "weapon",
             "name": "__test_collapse_relevance__",
-            "patch_version": "test-new",
+            "patch_version": "0.0.2-test",
             "source": "test",
             "description": "collapse newest regression unique qwerty qwerty qwerty",
             "text_content": "",
         },
     ]
     ids = [
-        "weapon::__test_collapse_newest__::test-old",
-        "weapon::__test_collapse_newest__::test-new",
-        "weapon::__test_collapse_relevance__::test-new",
+        "weapon::__test_collapse_newest__::0.0.1-test",
+        "weapon::__test_collapse_newest__::0.0.2-test",
+        "weapon::__test_collapse_relevance__::0.0.2-test",
     ]
     try:
         for doc, doc_id in zip(docs, ids):
@@ -1049,7 +1063,7 @@ def test_search_collapse_returns_newest_patch(client):
             f"Expected collapsed entity in results, got: {list(by_name)}"
         )
         rep = by_name["__test_collapse_newest__"]
-        assert rep["patch_version"] == "test-new", (
+        assert rep["patch_version"] == "0.0.2-test", (
             f"Expected newest patch as collapse representative, got '{rep['patch_version']}'; "
             "search() may be missing the patch_version desc tiebreak"
         )
