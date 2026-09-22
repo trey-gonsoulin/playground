@@ -1293,3 +1293,96 @@ def test_search_excludes_unobtainable_content_by_default(client):
         for doc_id in ids:
             client.delete(index=_os.INDEX, id=doc_id, ignore=[404])
         client.indices.refresh(index=_os.INDEX)
+
+
+def test_diff_reports_acquisition_change_across_patches(client):
+    """Acquisition fields are per-patch and diff cleanly (#60).
+
+    Filed against the old pipeline, where `dropped_by`/`acquisition_*` came from a
+    single Discord-bot scrape backfilled onto every snapshot, so diff_entities
+    reported them permanently "unchanged". That source was retired in the native
+    migration: `dropped_by` is no longer produced, and `sold_by`/`acquisition_*` are
+    now derived per-patch from ShopLineupParam/ItemLotParam. So a genuine change in
+    `sold_by` between two snapshots must surface under changed_fields — the fields
+    must NOT be in the diff skip set.
+    """
+    assert not (
+        {"sold_by", "acquisition_sources", "acquisition_types", "dropped_by"}
+        & _os._DIFF_SKIP_FIELDS
+    ), "acquisition fields are per-patch now; they must remain diffable"
+
+    docs = [
+        {
+            "entity_type": "weapon", "name": "__test_acq_diff__",
+            "patch_version": "test-acq-a", "source": "ShopLineupParam",
+            "description": "acq diff test", "text_content": "",
+            "sold_by": ["Merchant Kale"], "acquisition_sources": ["Merchant Kale"],
+            "acquisition_types": ["merchant"],
+        },
+        {
+            "entity_type": "weapon", "name": "__test_acq_diff__",
+            "patch_version": "test-acq-b", "source": "ShopLineupParam",
+            "description": "acq diff test", "text_content": "",
+            "sold_by": ["Twin Maiden Husks"],
+            "acquisition_sources": ["Twin Maiden Husks"],
+            "acquisition_types": ["merchant"],
+        },
+    ]
+    ids = [
+        "weapon::__test_acq_diff__::test-acq-a",
+        "weapon::__test_acq_diff__::test-acq-b",
+    ]
+    try:
+        for doc, doc_id in zip(docs, ids):
+            client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
+
+        result = _os.diff_entities(
+            client, "__test_acq_diff__", "test-acq-a", "test-acq-b"
+        )
+        assert "error" not in result, f"Unexpected error: {result}"
+        assert result["changed"] is True
+        assert "sold_by" in result["changed_fields"], result
+        assert "sold_by" not in result["unchanged_fields"], result
+
+    finally:
+        for doc_id in ids:
+            client.delete(index=_os.INDEX, id=doc_id, ignore=[404])
+        client.indices.refresh(index=_os.INDEX)
+
+
+def test_search_literal_acquisition_fields_require_naming(client):
+    """Acquisition keyword fields are opt-in, not in the default field set (#61).
+
+    The default search field set is text-only by design; the structured keyword
+    fields (sold_by, acquisition_sources, acquisition_types) are reachable only when
+    named explicitly via fields=[...]. This locks the behavior the fields docstring
+    now documents.
+    """
+    doc = {
+        "entity_type": "weapon", "name": "__test_acq_named__",
+        "patch_version": "test", "source": "test",
+        "description": "acq naming test", "text_content": "",
+        "sold_by": ["__Test Merchant ZZQ__"],
+        "acquisition_sources": ["__Test Merchant ZZQ__"],
+        "acquisition_types": ["merchant"],
+    }
+    doc_id = "weapon::__test_acq_named__::test"
+    try:
+        client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
+
+        default = _os.search_literal(
+            client, "__Test Merchant ZZQ__", entity_type="weapon", source="test")
+        default_names = {r["name"] for r in default["results"]}
+        assert "__test_acq_named__" not in default_names, (
+            "acquisition fields must NOT be searched by default (#61)")
+
+        named = _os.search_literal(
+            client, "__Test Merchant ZZQ__", entity_type="weapon", source="test",
+            fields=["sold_by"])
+        named_names = {r["name"] for r in named["results"]}
+        assert "__test_acq_named__" in named_names, (
+            "naming fields=['sold_by'] must reach the structured field (#61)")
+
+    finally:
+        client.delete(index=_os.INDEX, id=doc_id, ignore=[404])
+        client.indices.refresh(index=_os.INDEX)
