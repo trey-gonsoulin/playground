@@ -1386,3 +1386,41 @@ def test_search_literal_acquisition_fields_require_naming(client):
     finally:
         client.delete(index=_os.INDEX, id=doc_id, ignore=[404])
         client.indices.refresh(index=_os.INDEX)
+
+
+def test_enemy_entity_searchable(client):
+    """Native enemy entity type is indexed, searchable, and carries name_ja (#25).
+
+    Enemies come from the NpcName roster (bosses + named enemies) with EN + JP names;
+    the humanoid subset also carries NpcParam combat stats. Verify a synthetic enemy
+    doc is full-text and literal searchable, narrows by entity_type, resolves via
+    get_entity with its name_ja and hp, and that 'enemy' shows in list_entity_types.
+    """
+    doc = {
+        "entity_type": "enemy", "name": "__test_boss_zqx__",
+        "name_ja": "テスト・ボスzqx", "npc_id": "905999000",
+        "patch_version": "test", "source": "NpcName",
+        "text_content": "__test_boss_zqx__", "tags": ["enemy"], "hp": 12345,
+    }
+    doc_id = "enemy::__test_boss_zqx__::test"
+    try:
+        client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
+
+        names = {r["name"] for r in _os.search(
+            client, "__test_boss_zqx__", entity_type="enemy")}
+        assert "__test_boss_zqx__" in names, "enemy must be full-text searchable"
+
+        lit = _os.search_literal(
+            client, "__test_boss_zqx__", entity_type="enemy", patch_version="test")
+        assert any(r["name"] == "__test_boss_zqx__" for r in lit["results"])
+
+        got = _os.get_entity(client, "__test_boss_zqx__", entity_type="enemy")
+        assert got is not None
+        assert got["name_ja"] == "テスト・ボスzqx"
+        assert got["hp"] == 12345
+
+        assert "enemy" in _os.list_entity_types(client)
+
+    finally:
+        client.delete(index=_os.INDEX, id=doc_id, ignore=[404])
+        client.indices.refresh(index=_os.INDEX)
