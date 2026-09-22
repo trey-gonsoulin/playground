@@ -1424,3 +1424,49 @@ def test_enemy_entity_searchable(client):
     finally:
         client.delete(index=_os.INDEX, id=doc_id, ignore=[404])
         client.indices.refresh(index=_os.INDEX)
+
+
+def test_enemy_drops_and_dropped_by_searchable(client):
+    """Boss/named-enemy drops round-trip on both sides of the edge (#68).
+
+    The EMEVD drop parse adds a ``drops`` list to enemy docs and the reciprocal
+    ``dropped_by`` to the dropped item's doc. Verify both fields persist through
+    get_entity and that the item is findable by naming ``dropped_by`` in a literal
+    search (it's an opt-in keyword field, like the other acquisition fields, #61).
+    """
+    enemy = {
+        "entity_type": "enemy", "name": "__test_drop_boss__",
+        "patch_version": "test", "source": "NpcName",
+        "text_content": "__test_drop_boss__", "tags": ["enemy"],
+        "drops": ["__test_drop_item__"],
+    }
+    item = {
+        "entity_type": "weapon", "name": "__test_drop_item__",
+        "patch_version": "test", "source": "EquipParamWeapon",
+        "text_content": "__test_drop_item__",
+        "acquisition_types": ["enemy_drop"],
+        "acquisition_sources": ["__test_drop_boss__"],
+        "dropped_by": ["__test_drop_boss__"],
+    }
+    enemy_id = "enemy::__test_drop_boss__::test"
+    item_id = "weapon::__test_drop_item__::test"
+    try:
+        client.index(index=_os.INDEX, id=enemy_id, body=enemy, refresh="wait_for")
+        client.index(index=_os.INDEX, id=item_id, body=item, refresh="wait_for")
+
+        got_enemy = _os.get_entity(client, "__test_drop_boss__", entity_type="enemy")
+        assert got_enemy["drops"] == ["__test_drop_item__"]
+
+        got_item = _os.get_entity(client, "__test_drop_item__", entity_type="weapon")
+        assert got_item["dropped_by"] == ["__test_drop_boss__"]
+
+        # dropped_by is opt-in: naming it in a literal search finds the item by boss.
+        lit = _os.search_literal(
+            client, "__test_drop_boss__", fields=["dropped_by"],
+            patch_version="test")
+        assert any(r["name"] == "__test_drop_item__" for r in lit["results"])
+
+    finally:
+        client.delete(index=_os.INDEX, id=enemy_id, ignore=[404])
+        client.delete(index=_os.INDEX, id=item_id, ignore=[404])
+        client.indices.refresh(index=_os.INDEX)
