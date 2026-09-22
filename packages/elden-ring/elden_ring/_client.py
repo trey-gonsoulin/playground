@@ -235,8 +235,9 @@ INDEX_MAPPING = {
             "menu_category": {"type": "keyword"},
             "npc_id": {"type": "keyword"},
             # Enemy (NpcParam) combat stats — present on the humanoid subset; bosses
-            # are name-only until the chr-id bridge lands (#68).
-            "hp": {"type": "integer"},
+            # are name-only until the chr-id bridge lands (#68). hp is `long` to match
+            # the pre-existing live mapping (put_mapping can't narrow long->integer).
+            "hp": {"type": "long"},
             "stamina": {"type": "integer"},
             "poise": {"type": "float"},
             "magic_defense": {"type": "float"},
