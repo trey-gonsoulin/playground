@@ -84,9 +84,12 @@ def search_entities(
                            search by item name to find who sells it, or by merchant
                            name / location to get their full stock
             npc_dialogue — individual spoken lines from the TalkMsg text (searchable by quote)
-            Call list_entity_types() for the authoritative live list. (Enemy drop
-            tables, NPC profiles, and enemy-only gear are not yet loaded — tracked
-            for future passes.)
+            enemy        — bosses, creatures, and named enemies (from the NpcName roster)
+                           with EN + JP names (name_ja); the humanoid subset also carries
+                           HP/stamina/poise/elemental-defense stats from NpcParam. Enemies
+                           have no in-game description; find what one drops via the dropped
+                           item's own doc. (Boss combat stats and drop tables: #68.)
+            Call list_entity_types() for the authoritative live list.
         patch_version: Filter to a specific game patch (e.g. "1.07.0"). Native data
             is extracted per-patch from that patch's regulation.bin, so this is the
             real in-game version, not a scrape snapshot — trustworthy for tracking
@@ -333,8 +336,8 @@ def search_entities_literal(
             everything a merchant sells) you must name them explicitly, e.g.
             fields=["sold_by"]. See describe_fields() for the full field catalog.
         entity_type: Narrow to one entity category (weapon, armor, spell, consumable,
-            key_item, spirit_ash, ammo, etc.). See search_entities() for the full list
-            or call list_entity_types() for the authoritative live set.
+            key_item, spirit_ash, ammo, enemy, etc.). See search_entities() for the full
+            list or call list_entity_types() for the authoritative live set.
         patch_version: Filter to a specific patch snapshot (e.g. "1.10.0"). Omit to
             search across all patches and return one result per entity (latest version).
             Use list_patch_versions() to see available versions.

@@ -234,6 +234,15 @@ INDEX_MAPPING = {
             "sort_id": {"type": "integer"},
             "menu_category": {"type": "keyword"},
             "npc_id": {"type": "keyword"},
+            # Enemy (NpcParam) combat stats — present on the humanoid subset; bosses
+            # are name-only until the chr-id bridge lands (#68).
+            "hp": {"type": "integer"},
+            "stamina": {"type": "integer"},
+            "poise": {"type": "float"},
+            "magic_defense": {"type": "float"},
+            "fire_defense": {"type": "float"},
+            "lightning_defense": {"type": "float"},
+            "holy_defense": {"type": "float"},
             "name_ja": {
                 "type": "text",
                 "fields": {
@@ -1069,6 +1078,14 @@ _FIELD_NOTES: dict[str, str] = {
     "name_ja": "Japanese name; .ja/.morph/.lemma subfields drive JP search modes",
     "description_ja": "Japanese description; .ja/.morph/.lemma subfields drive JP search modes",
     "text_content_ja": "Japanese long text; .ja/.morph/.lemma subfields drive JP search modes",
+    "npc_id": "enemy's NpcName FMG id (6-digit humanoid / 9-digit boss & creature)",
+    "hp": "enemy max HP (NpcParam; humanoid subset — bosses name-only, see #68)",
+    "stamina": "enemy max stamina (NpcParam; humanoid subset)",
+    "poise": "enemy max poise (NpcParam; humanoid subset)",
+    "magic_defense": "enemy magic defense (NpcParam; humanoid subset)",
+    "fire_defense": "enemy fire defense (NpcParam; humanoid subset)",
+    "lightning_defense": "enemy lightning defense (NpcParam; humanoid subset)",
+    "holy_defense": "enemy holy defense (NpcParam; humanoid subset)",
 }
 
 
