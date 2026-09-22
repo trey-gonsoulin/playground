@@ -271,7 +271,11 @@ INDEX_MAPPING = {
             "acquisition_types": {"type": "keyword"},
             "acquisition_sources": {"type": "keyword"},
             "dropped_by": {"type": "keyword"},
-            "drops": {"type": "keyword"},
+            # text + keyword multifield: matches the dynamic default already live,
+            # so ensure_index's put_mapping is a no-op (avoids a text->keyword
+            # conflict); exact-match / aggregate on drops.keyword, free-text on drops.
+            "drops": {"type": "text", "fields": {
+                "keyword": {"type": "keyword", "ignore_above": 256}}},
             "sold_by": {"type": "keyword"},
             "base_item": {"type": "keyword"},
             "is_legendary": {"type": "boolean"},
