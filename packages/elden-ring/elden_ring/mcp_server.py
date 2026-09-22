@@ -121,8 +121,8 @@ def search_entities(
     entity_type, name, patch_version, source, description. Use get_entity() for the
     full document of a specific named entity, or describe_fields() to see all
     queryable fields. Item documents may include cross-reference edge fields:
-      dropped_by — enemy/boss names that drop this item
-      sold_by    — merchant names that sell this item
+      sold_by            — merchant names that sell this item (per-patch)
+      acquisition_types  — how it's obtained: merchant / enemy_drop / found_in_world
 
     Returns {"total": N} when count_only is True.
     """
@@ -323,11 +323,15 @@ def search_entities_literal(
             patterns=["象っ", "象ら", "象り", "象る"] returns all entities matching
             any inflection as a single deduplicated total. Combines with pattern if
             both are provided.
-        fields: Which fields to search. Defaults to all six text fields:
-            name, description, text_content, name_ja, description_ja, text_content_ja.
-            Japanese fields named here are routed to the subfield for the active mode
-            (.morph when use_kuromoji=True, .lemma when use_lemmatize=True), so an
-            explicit fields list composes correctly with those modes.
+        fields: Which fields to search. Defaults to the seven text fields: name,
+            display_name, description, text_content, name_ja, description_ja,
+            text_content_ja. Japanese fields named here are routed to the subfield for
+            the active mode (.morph when use_kuromoji=True, .lemma when
+            use_lemmatize=True), so an explicit fields list composes correctly with
+            those modes. The acquisition keyword fields (sold_by, acquisition_sources,
+            acquisition_types) are NOT in the default set — to search them (e.g. find
+            everything a merchant sells) you must name them explicitly, e.g.
+            fields=["sold_by"]. See describe_fields() for the full field catalog.
         entity_type: Narrow to one entity category (weapon, armor, spell, consumable,
             key_item, spirit_ash, ammo, etc.). See search_entities() for the full list
             or call list_entity_types() for the authoritative live set.

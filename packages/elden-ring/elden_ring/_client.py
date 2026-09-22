@@ -621,6 +621,10 @@ def diff_entities(
 # 10k max_result_window) rather than silently capped at the caller's `limit`.
 _UNION_FETCH_SIZE = 10000
 
+# Default literal-search fields: text only, by design. The acquisition keyword
+# fields (sold_by/acquisition_sources/acquisition_types) are opt-in — a caller must
+# name them via fields=[...] to search them (#61); an enum like acquisition_types in
+# the default set would make a plain text search for "merchant" match every vendor item.
 _LITERAL_FIELDS = [
     "name",
     "display_name",
@@ -1045,10 +1049,9 @@ _FIELD_NOTES: dict[str, str] = {
     "sort_id": "in-game sort index; multiples of ~1000 per named armament, +N for upgrade/affinity variants",
     "tags": "free-form keyword tags (spell school/role, weapon category, 'Talisman', etc.)",
     "location": "where the entity is found / sold (text + .keyword)",
-    "dropped_by": "enemy/boss names that drop this item",
-    "sold_by": "merchant names that sell this item",
-    "acquisition_types": "how the item is obtained (drop, shop, chest, …)",
-    "acquisition_sources": "named sources the item comes from",
+    "sold_by": "merchant names that sell this item, derived per-patch from ShopLineupParam",
+    "acquisition_types": "how the item is obtained, per-patch: merchant / enemy_drop / found_in_world",
+    "acquisition_sources": "named sources (currently merchant names; enemy-drop names await #68)",
     "effect": "talisman/item effect text derived from SpEffectParam (native)",
     "effect_value": "primary numeric magnitude of the effect",
     "is_legendary": "part of a legendary set (achievement-tracked)",
