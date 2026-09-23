@@ -155,6 +155,12 @@ def get_entity(name: str, entity_type: str | None = None) -> dict | None:
         entity_type: Optional type hint to disambiguate if two entities share
             a name across categories (e.g. a boss and a lore entry).
 
+    Historical names resolve too: an item renamed across patches is indexed under
+    its current name, with the per-patch name kept in display_name. Looking one up
+    by an old name (e.g. "Celebrant's Flame Art Cleaver Blades") returns the
+    newest document for the current name, with name_is_historical=true and
+    queried_name set to your input. Use diff_entities to see the old patch's values.
+
     Returns the full document dict, or null if the entity is not in the index.
     """
     return _os.get_entity(_os.get_client(), name, entity_type)
@@ -479,11 +485,15 @@ def diff_entities(
 
     Args:
         name: Exact entity name (case-sensitive), e.g. "Longtail Cat Talisman".
+            A historical (pre-rename) name also works; it's resolved to the
+            item's current name, so the diff spans the rename.
         v1: Older patch version, e.g. "1.06.0".
         v2: Newer patch version, e.g. "1.07.0".
         entity_type: Optional type hint to disambiguate if two entities share a name.
 
     Returns a dict with:
+        name: the entity's current (canonical) name
+        queried_name: your input, only when it differed from name
         changed: bool — whether any fields differ
         changed_fields: {field: {v1: old_value, v2: new_value}} for each changed field
         unchanged_fields: [field, ...] for fields present in both with identical values

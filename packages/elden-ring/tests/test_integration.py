@@ -1520,3 +1520,83 @@ def test_enemy_drops_and_dropped_by_searchable(client):
         client.delete(index=_os.INDEX, id=enemy_id, ignore=[404])
         client.delete(index=_os.INDEX, id=item_id, ignore=[404])
         client.indices.refresh(index=_os.INDEX)
+
+
+_RENAME_DOCS = [
+    # Old patch: canonical name, historical display_name, stale stats.
+    (
+        "weapon::__test_canon__::test-ren-a",
+        {
+            "entity_type": "weapon",
+            "name": "__test_canon__",
+            "display_name": "__test_canon_old__",
+            "patch_version": "test-ren-a",
+            "source": "EquipParamWeapon",
+            "description": "rename test",
+            "text_content": "",
+            "attack_physical": 114,
+        },
+    ),
+    # New patch: display_name == canonical name.
+    (
+        "weapon::__test_canon__::test-ren-b",
+        {
+            "entity_type": "weapon",
+            "name": "__test_canon__",
+            "display_name": "__test_canon__",
+            "patch_version": "test-ren-b",
+            "source": "EquipParamWeapon",
+            "description": "rename test",
+            "text_content": "",
+            "attack_physical": 120,
+        },
+    ),
+]
+
+
+@pytest.fixture
+def renamed_weapon(client):
+    try:
+        for doc_id, doc in _RENAME_DOCS:
+            client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
+        yield
+    finally:
+        for doc_id, _ in _RENAME_DOCS:
+            client.delete(index=_os.INDEX, id=doc_id, ignore=[404])
+        client.indices.refresh(index=_os.INDEX)
+
+
+def test_get_entity_flags_historical_name(client, renamed_weapon):
+    """A pre-rename name resolves to the NEWEST canonical doc, flagged (#63).
+
+    Before the fix the display_name fallback returned the old-patch doc (stale
+    stats) with nothing telling the caller the name was historical.
+    """
+    got = _os.get_entity(client, "__test_canon_old__", entity_type="weapon")
+    assert got is not None
+    assert got["patch_version"] == "test-ren-b", got
+    assert got["attack_physical"] == 120
+    assert got["name_is_historical"] is True
+    assert got["queried_name"] == "__test_canon_old__"
+
+    current = _os.get_entity(client, "__test_canon__", entity_type="weapon")
+    assert "name_is_historical" not in current
+    assert "queried_name" not in current
+
+
+def test_diff_entities_accepts_historical_name(client, renamed_weapon):
+    """diff_entities resolves a pre-rename name to its canonical entity (#59)."""
+    result = _os.diff_entities(client, "__test_canon_old__", "test-ren-a", "test-ren-b")
+    assert "error" not in result, result
+    assert result["name"] == "__test_canon__"
+    assert result["queried_name"] == "__test_canon_old__"
+    assert result["changed_fields"]["attack_physical"] == {
+        "test-ren-a": 114,
+        "test-ren-b": 120,
+    }
+
+    canonical = _os.diff_entities(client, "__test_canon__", "test-ren-a", "test-ren-b")
+    assert "queried_name" not in canonical
+
+    missing = _os.diff_entities(client, "__no_such_zzq__", "test-ren-a", "test-ren-b")
+    assert missing == {"error": "'__no_such_zzq__' not found in any loaded version"}

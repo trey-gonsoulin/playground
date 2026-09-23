@@ -440,51 +440,66 @@ def _ascii_fold(s: str) -> str:
     return "".join(c for c in nfkd if not unicodedata.combining(c)).lower()
 
 
+def _newest_doc(client: OpenSearch, term: dict, entity_type: str | None) -> dict | None:
+    filters: list[dict] = [{"term": term}]
+    if entity_type:
+        filters.append({"term": {"entity_type": entity_type}})
+    resp = client.search(
+        index=INDEX,
+        body={
+            "size": 1,
+            "query": {"bool": {"filter": filters}},
+            "sort": [{"patch_version": "desc"}],
+        },
+    )
+    hits = resp["hits"]["hits"]
+    return hits[0]["_source"] if hits else None
+
+
+def _resolve_entity_doc(
+    client: OpenSearch, name: str, entity_type: str | None = None
+) -> tuple[dict, bool] | None:
+    """Newest doc matching an input name, plus whether the match was historical.
+
+    Tries exact name, then diacritic-folded name (e.g. "Misericorde" finds
+    "Miséricorde"), then display_name exact/folded for historical names of items
+    renamed across patches (#59, #63). A display_name hit is the newest patch that
+    still used the old name, so it's flagged historical.
+    """
+    folded = _ascii_fold(name)
+    for term, historical in (
+        ({"name.keyword": name}, False),
+        ({"name.folded": folded}, False),
+        ({"display_name.keyword": name}, True),
+        ({"display_name.folded": folded}, True),
+    ):
+        doc = _newest_doc(client, term, entity_type)
+        if doc:
+            return doc, historical
+    return None
+
+
+def _resolve_entity_name(
+    client: OpenSearch, name: str, entity_type: str | None = None
+) -> str | None:
+    """Canonical `name` for an input name (current, diacritic-folded, or historical)."""
+    resolved = _resolve_entity_doc(client, name, entity_type)
+    return resolved[0]["name"] if resolved else None
+
+
 def get_entity(
     client: OpenSearch, name: str, entity_type: str | None = None
 ) -> dict | None:
-    def _search(filters: list[dict]) -> list[dict]:
-        resp = client.search(
-            index=INDEX,
-            body={
-                "size": 1,
-                "query": {"bool": {"filter": filters}},
-                "sort": [{"patch_version": "desc"}],
-            },
-        )
-        return resp["hits"]["hits"]
-
-    filters: list[dict] = [{"term": {"name.keyword": name}}]
-    if entity_type:
-        filters.append({"term": {"entity_type": entity_type}})
-    hits = _search(filters)
-    if hits:
-        return hits[0]["_source"]
-
-    # Fallback: ASCII-fold + lowercase for diacritic-insensitive lookup
-    # (e.g. "Misericorde" finds "Miséricorde")
-    folded_filters: list[dict] = [{"term": {"name.folded": _ascii_fold(name)}}]
-    if entity_type:
-        folded_filters.append({"term": {"entity_type": entity_type}})
-    hits = _search(folded_filters)
-    if hits:
-        return hits[0]["_source"]
-
-    # Fallback: search display_name for historical names (weapons renamed across patches).
-    display_filters: list[dict] = [{"term": {"display_name.keyword": name}}]
-    if entity_type:
-        display_filters.append({"term": {"entity_type": entity_type}})
-    hits = _search(display_filters)
-    if hits:
-        return hits[0]["_source"]
-
-    display_folded_filters: list[dict] = [
-        {"term": {"display_name.folded": _ascii_fold(name)}}
-    ]
-    if entity_type:
-        display_folded_filters.append({"term": {"entity_type": entity_type}})
-    hits = _search(display_folded_filters)
-    return hits[0]["_source"] if hits else None
+    resolved = _resolve_entity_doc(client, name, entity_type)
+    if resolved is None:
+        return None
+    doc, historical = resolved
+    if not historical:
+        return doc
+    # A historical name matched an old patch; return the current doc instead of
+    # stale stats, and say so (#63).
+    newest = _newest_doc(client, {"name.keyword": doc["name"]}, doc["entity_type"])
+    return {**(newest or doc), "name_is_historical": True, "queried_name": name}
 
 
 def _ver_key(version: str) -> tuple:
@@ -574,6 +589,10 @@ def diff_entities(
                 f"(earliest loaded: {ev[0] if ev else 'none'})"
             }
 
+    # Accept historical/diacritic-folded names; diff the canonical entity (#59).
+    queried_name = name
+    name = _resolve_entity_name(client, name, entity_type) or name
+
     def _fetch(version: str) -> dict | None:
         filters: list[dict] = [
             {"term": {"name.keyword": name}},
@@ -607,7 +626,7 @@ def diff_entities(
             },
         )
         if exists_resp["hits"]["total"]["value"] == 0:
-            return {"error": f"'{name}' not found in any loaded version"}
+            return {"error": f"'{queried_name}' not found in any loaded version"}
         missing_str = " and ".join(missing)
         return {"error": f"'{name}' not present in {missing_str}"}
 
@@ -622,13 +641,16 @@ def diff_entities(
         elif val1 is not None:
             unchanged.append(field)
 
-    return {
+    result = {
         "name": name,
         "entity_type": (doc1 or doc2).get("entity_type"),
         "changed": bool(changed),
         "changed_fields": changed,
         "unchanged_fields": unchanged,
     }
+    if queried_name != name:
+        result["queried_name"] = queried_name
+    return result
 
 
 # Per-pattern page size for the patterns-OR union path. Large enough that the
