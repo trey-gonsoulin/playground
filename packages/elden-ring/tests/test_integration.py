@@ -651,6 +651,56 @@ def test_text_changed_between_count_only(client):
         client.indices.refresh(index=_os.INDEX)
 
 
+def test_reload_prunes_stale_docs_in_scope(client):
+    """Reloading a version with --prune retracts docs the new build no longer produces.
+
+    Regression for #67 — the additive loader never deleted, so enemies stamped onto
+    historical patches from 1.17 NpcName (e.g. Messmer at 1.02) survived every
+    correct per-version rebuild. Pruning is scoped to the reloaded patch_version and
+    to entity_types present in the dataset.
+    """
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+    from load_data import load_documents, prune_stale
+
+    def _d(entity_type, name, version="test-prune"):
+        return {"entity_type": entity_type, "name": f"__prune_{name}__",
+                "patch_version": version, "source": "test"}
+
+    seeded = [
+        _d("enemy", "A"), _d("enemy", "B"), _d("weapon", "W"),
+        _d("npc_dialogue", "D"), _d("enemy", "B", "test-prune-other"),
+    ]
+    ids = {
+        (d["name"], d["patch_version"]): f"{d['entity_type']}::{d['name']}::{d['patch_version']}"
+        for d in seeded
+    }
+    try:
+        load_documents(client, seeded, dry_run=False)
+        client.indices.refresh(index=_os.INDEX)
+
+        rebuilt = [_d("enemy", "A"), _d("weapon", "W")]
+        load_documents(client, rebuilt, dry_run=False)
+        client.indices.refresh(index=_os.INDEX)
+        pruned = prune_stale(client, rebuilt, dry_run=False)
+        client.indices.refresh(index=_os.INDEX)
+
+        def exists(name, version="test-prune"):
+            return client.exists(index=_os.INDEX, id=ids[(f"__prune_{name}__", version)])
+
+        assert pruned == 1
+        assert not exists("B"), "stale enemy at the reloaded patch was not pruned"
+        assert exists("A") and exists("W"), "rebuilt docs must survive"
+        assert exists("D"), "entity_type absent from the dataset must be untouched"
+        assert exists("B", "test-prune-other"), "other patch versions must be untouched"
+    finally:
+        for doc_id in ids.values():
+            client.delete(index=_os.INDEX, id=doc_id, ignore=[404])
+        client.indices.refresh(index=_os.INDEX)
+
+
 def test_location_stored_as_list(client):
     """location field is stored as list[str], not a comma-joined string.
 
