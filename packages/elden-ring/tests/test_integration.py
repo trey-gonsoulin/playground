@@ -1423,6 +1423,55 @@ def test_search_excludes_unobtainable_content_by_default(client):
         client.indices.refresh(index=_os.INDEX)
 
 
+def test_search_excludes_cut_enemies_by_default(client):
+    """Cut enemies (availability='cut', derived from game evidence) are hidden (#102).
+
+    Enemies have no [ERROR] marker; erdb-tools derives cut status (no health bar, no
+    MSB placement — e.g. Asimi, Silver Tear) and the same availability filter hides
+    them from search unless include_unavailable=True.
+    """
+    live = {
+        "entity_type": "enemy",
+        "name": "__test_live_foe__",
+        "patch_version": "test",
+        "source": "test",
+        "text_content": "cut enemy regression qvw",
+    }
+    cut = {**live, "name": "__test_cut_foe__", "availability": "cut"}
+    ids = ["enemy::__test_live_foe__::test", "enemy::__test_cut_foe__::test"]
+    try:
+        for doc, doc_id in zip((live, cut), ids):
+            client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
+
+        default_names = {
+            r["name"]
+            for r in _os.search(client, "cut enemy regression qvw", entity_type="enemy")
+        }
+        assert "__test_live_foe__" in default_names
+        assert "__test_cut_foe__" not in default_names, (
+            "cut enemies must be excluded from search() by default (#102)"
+        )
+        incl_names = {
+            r["name"]
+            for r in _os.search(
+                client,
+                "cut enemy regression qvw",
+                entity_type="enemy",
+                include_unavailable=True,
+            )
+        }
+        assert {"__test_live_foe__", "__test_cut_foe__"} <= incl_names
+
+        lit_default = _os.search_literal(
+            client, "cut enemy regression qvw", entity_type="enemy", source="test"
+        )
+        assert lit_default["total"] == 1, lit_default["total"]
+    finally:
+        for doc_id in ids:
+            client.delete(index=_os.INDEX, id=doc_id, ignore=[404])
+        client.indices.refresh(index=_os.INDEX)
+
+
 def test_diff_reports_acquisition_change_across_patches(client):
     """Acquisition fields are per-patch and diff cleanly (#60).
 
