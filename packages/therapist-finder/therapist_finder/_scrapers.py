@@ -19,19 +19,57 @@ _HEADERS = {
 
 # US state abbreviation → full-name slug used in IT URLs
 _IT_STATE_SLUGS: dict[str, str] = {
-    "AL": "alabama", "AK": "alaska", "AZ": "arizona", "AR": "arkansas",
-    "CA": "california", "CO": "colorado", "CT": "connecticut", "DE": "delaware",
-    "FL": "florida", "GA": "georgia", "HI": "hawaii", "ID": "idaho",
-    "IL": "illinois", "IN": "indiana", "IA": "iowa", "KS": "kansas",
-    "KY": "kentucky", "LA": "louisiana", "ME": "maine", "MD": "maryland",
-    "MA": "massachusetts", "MI": "michigan", "MN": "minnesota", "MS": "mississippi",
-    "MO": "missouri", "MT": "montana", "NE": "nebraska", "NV": "nevada",
-    "NH": "new-hampshire", "NJ": "new-jersey", "NM": "new-mexico", "NY": "new-york",
-    "NC": "north-carolina", "ND": "north-dakota", "OH": "ohio", "OK": "oklahoma",
-    "OR": "oregon", "PA": "pennsylvania", "RI": "rhode-island", "SC": "south-carolina",
-    "SD": "south-dakota", "TN": "tennessee", "TX": "texas", "UT": "utah",
-    "VT": "vermont", "VA": "virginia", "WA": "washington", "WV": "west-virginia",
-    "WI": "wisconsin", "WY": "wyoming", "DC": "district-of-columbia",
+    "AL": "alabama",
+    "AK": "alaska",
+    "AZ": "arizona",
+    "AR": "arkansas",
+    "CA": "california",
+    "CO": "colorado",
+    "CT": "connecticut",
+    "DE": "delaware",
+    "FL": "florida",
+    "GA": "georgia",
+    "HI": "hawaii",
+    "ID": "idaho",
+    "IL": "illinois",
+    "IN": "indiana",
+    "IA": "iowa",
+    "KS": "kansas",
+    "KY": "kentucky",
+    "LA": "louisiana",
+    "ME": "maine",
+    "MD": "maryland",
+    "MA": "massachusetts",
+    "MI": "michigan",
+    "MN": "minnesota",
+    "MS": "mississippi",
+    "MO": "missouri",
+    "MT": "montana",
+    "NE": "nebraska",
+    "NV": "nevada",
+    "NH": "new-hampshire",
+    "NJ": "new-jersey",
+    "NM": "new-mexico",
+    "NY": "new-york",
+    "NC": "north-carolina",
+    "ND": "north-dakota",
+    "OH": "ohio",
+    "OK": "oklahoma",
+    "OR": "oregon",
+    "PA": "pennsylvania",
+    "RI": "rhode-island",
+    "SC": "south-carolina",
+    "SD": "south-dakota",
+    "TN": "tennessee",
+    "TX": "texas",
+    "UT": "utah",
+    "VT": "vermont",
+    "VA": "virginia",
+    "WA": "washington",
+    "WV": "west-virginia",
+    "WI": "wisconsin",
+    "WY": "wyoming",
+    "DC": "district-of-columbia",
 }
 
 # Common human-readable specialty terms → IT filter slug
@@ -110,16 +148,27 @@ def _pt_location_path(location: str) -> str:
 def _it_resolve_filter_slug(term: str) -> str:
     """Map a human-readable term to an IT filter slug, or return as-is if already a slug."""
     normalized = term.lower().strip()
-    return _IT_SPECIALTY_SLUGS.get(normalized) or _IT_INSURANCE_SLUGS.get(normalized) or _slugify(term)
+    return (
+        _IT_SPECIALTY_SLUGS.get(normalized)
+        or _IT_INSURANCE_SLUGS.get(normalized)
+        or _slugify(term)
+    )
 
 
 # ── Inclusive Therapists ──────────────────────────────────────────────────────
 
+
 def _parse_it_card(card_html: str) -> TherapistResult | None:
-    name_m = re.search(r'member-search-full-name">\s*(.*?)\s*</span>', card_html, re.DOTALL)
-    desc_m = re.search(r'member-search-description">\s*(.*?)\s*</p>', card_html, re.DOTALL)
-    loc_m = re.search(r'member-search-location[^>]*>(.*?)</span>', card_html, re.DOTALL)
-    href_m = re.search(r'href="(/[^"]+)"[^>]*>\s*View Profile', card_html, re.IGNORECASE)
+    name_m = re.search(
+        r'member-search-full-name">\s*(.*?)\s*</span>', card_html, re.DOTALL
+    )
+    desc_m = re.search(
+        r'member-search-description">\s*(.*?)\s*</p>', card_html, re.DOTALL
+    )
+    loc_m = re.search(r"member-search-location[^>]*>(.*?)</span>", card_html, re.DOTALL)
+    href_m = re.search(
+        r'href="(/[^"]+)"[^>]*>\s*View Profile', card_html, re.IGNORECASE
+    )
     avail_m = re.search(r"class='(available_\w+)'", card_html)
 
     if not name_m or not href_m:
@@ -187,15 +236,19 @@ def search_inclusive_therapists(
 
         # Extract the queryString JS object the page embedded for pagination
         qs_m = re.search(r"queryString\s*=\s*({[^;]+})", resp.text)
-        query_string_obj: dict[str, Any] = json.loads(qs_m.group(1)) if qs_m else {
-            "sized": 0,
-            "mysql_real_escape_string_runned": "1",
-            "form": "myform",
-            "formname": "member_login",
-            "dowiz": 1,
-            "save": 1,
-            "url_origin_pars": f"/{loc_path}",
-        }
+        query_string_obj: dict[str, Any] = (
+            json.loads(qs_m.group(1))
+            if qs_m
+            else {
+                "sized": 0,
+                "mysql_real_escape_string_runned": "1",
+                "form": "myform",
+                "formname": "member_login",
+                "dowiz": 1,
+                "save": 1,
+                "url_origin_pars": f"/{loc_path}",
+            }
+        )
         # Merge any filters into the query string object for correct pagination
         query_string_obj.update(filters)
 
@@ -233,7 +286,8 @@ def search_inclusive_therapists(
             # The widget ignores url_origin_pars for filtering — it returns global
             # results. Keep only profiles that belong to the requested city URL path.
             local_results = [
-                r for r in page_results
+                r
+                for r in page_results
                 if f"inclusivetherapists.com/{loc_path}/" in r.profile_url
             ]
             if not local_results:
@@ -247,6 +301,7 @@ def search_inclusive_therapists(
 
 
 # ── Psychology Today ──────────────────────────────────────────────────────────
+
 
 def _deref(data: list, val: Any) -> Any:
     """Dereference a Nuxt flat-array index."""
@@ -300,7 +355,9 @@ def _parse_pt_html(html: str) -> list[TherapistResult]:
         # Profile URL — replace Nuxt template placeholders
         url_path = _deref(data, item.get("urlPath"))
         if isinstance(url_path, str):
-            url_path = url_path.replace("[COUNTRY_CODE]", "us").replace("[PROFILE_CLASS]", "therapists")
+            url_path = url_path.replace("[COUNTRY_CODE]", "us").replace(
+                "[PROFILE_CLASS]", "therapists"
+            )
             profile_url = f"https://www.psychologytoday.com/{url_path}"
         else:
             continue
@@ -326,16 +383,18 @@ def _parse_pt_html(html: str) -> list[TherapistResult]:
             if isinstance(online_val, bool):
                 tele = online_val
 
-        results.append(TherapistResult(
-            name=f"{first} {last}",
-            credentials=", ".join(suffix_labels) if suffix_labels else None,
-            location=location,
-            profile_url=profile_url,
-            description=description,
-            accepting_new_clients=accepting,
-            telehealth=tele,
-            source="psychology_today",
-        ))
+        results.append(
+            TherapistResult(
+                name=f"{first} {last}",
+                credentials=", ".join(suffix_labels) if suffix_labels else None,
+                location=location,
+                profile_url=profile_url,
+                description=description,
+                accepting_new_clients=accepting,
+                telehealth=tele,
+                source="psychology_today",
+            )
+        )
 
     return results
 

@@ -274,8 +274,10 @@ INDEX_MAPPING = {
             # text + keyword multifield: matches the dynamic default already live,
             # so ensure_index's put_mapping is a no-op (avoids a text->keyword
             # conflict); exact-match / aggregate on drops.keyword, free-text on drops.
-            "drops": {"type": "text", "fields": {
-                "keyword": {"type": "keyword", "ignore_above": 256}}},
+            "drops": {
+                "type": "text",
+                "fields": {"keyword": {"type": "keyword", "ignore_above": 256}},
+            },
             "sold_by": {"type": "keyword"},
             "base_item": {"type": "keyword"},
             "is_legendary": {"type": "boolean"},
@@ -343,7 +345,9 @@ def _availability_filter(include_unavailable: bool) -> list[dict]:
     """
     if include_unavailable:
         return []
-    return [{"bool": {"must_not": [{"terms": {"availability": ["cut", "unobtainable"]}}]}}]
+    return [
+        {"bool": {"must_not": [{"terms": {"availability": ["cut", "unobtainable"]}}]}}
+    ]
 
 
 def search(

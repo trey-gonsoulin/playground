@@ -12,6 +12,7 @@ doc written by an earlier wrong build survives every correct reload.
     OPENSEARCH_ENDPOINT=... OPENSEARCH_PASSWORD=... \
         python load_dataset.py path/to/dataset.json [--prune]
 """
+
 from __future__ import annotations
 
 import argparse
@@ -22,12 +23,21 @@ from load_data import _get_client, ensure_index, load_documents, prune_stale
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description="Index a native dataset.json into OpenSearch.")
+    ap = argparse.ArgumentParser(
+        description="Index a native dataset.json into OpenSearch."
+    )
     ap.add_argument("dataset", help="Path to dataset.json from build_dataset.py")
-    ap.add_argument("--dry-run", action="store_true", help="Show what would be indexed, don't write.")
-    ap.add_argument("--prune", action="store_true",
-                    help="After a clean load, delete docs at these patch versions (and "
-                         "entity types) that the dataset no longer produces.")
+    ap.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show what would be indexed, don't write.",
+    )
+    ap.add_argument(
+        "--prune",
+        action="store_true",
+        help="After a clean load, delete docs at these patch versions (and "
+        "entity types) that the dataset no longer produces.",
+    )
     args = ap.parse_args()
 
     with open(args.dataset, encoding="utf-8") as f:

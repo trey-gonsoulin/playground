@@ -80,7 +80,9 @@ def test_list_entity_types_empty(client):
     index it returns the live type list, so the empty case is skipped there.
     """
     if client.count(index=_os.INDEX)["count"] > 0:
-        pytest.skip("index is populated; empty-index invariant only holds on a fresh index")
+        pytest.skip(
+            "index is populated; empty-index invariant only holds on a fresh index"
+        )
     types = _os.list_entity_types(client)
     assert isinstance(types, list)
     assert types == []
@@ -666,15 +668,25 @@ def test_reload_prunes_stale_docs_in_scope(client):
     from load_data import load_documents, prune_stale
 
     def _d(entity_type, name, version="test-prune"):
-        return {"entity_type": entity_type, "name": f"__prune_{name}__",
-                "patch_version": version, "source": "test"}
+        return {
+            "entity_type": entity_type,
+            "name": f"__prune_{name}__",
+            "patch_version": version,
+            "source": "test",
+        }
 
     seeded = [
-        _d("enemy", "A"), _d("enemy", "B"), _d("weapon", "W"),
-        _d("npc_dialogue", "D"), _d("enemy", "B", "test-prune-other"),
+        _d("enemy", "A"),
+        _d("enemy", "B"),
+        _d("weapon", "W"),
+        _d("npc_dialogue", "D"),
+        _d("enemy", "B", "test-prune-other"),
     ]
     ids = {
-        (d["name"], d["patch_version"]): f"{d['entity_type']}::{d['name']}::{d['patch_version']}"
+        (
+            d["name"],
+            d["patch_version"],
+        ): f"{d['entity_type']}::{d['name']}::{d['patch_version']}"
         for d in seeded
     }
     try:
@@ -688,7 +700,9 @@ def test_reload_prunes_stale_docs_in_scope(client):
         client.indices.refresh(index=_os.INDEX)
 
         def exists(name, version="test-prune"):
-            return client.exists(index=_os.INDEX, id=ids[(f"__prune_{name}__", version)])
+            return client.exists(
+                index=_os.INDEX, id=ids[(f"__prune_{name}__", version)]
+            )
 
         assert pruned == 1
         assert not exists("B"), "stale enemy at the reloaded patch was not pruned"
@@ -1205,13 +1219,19 @@ def test_search_excludes_cut_content_by_default(client):
     Covers both search() and search_literal().
     """
     live = {
-        "entity_type": "armor", "name": "__test_live_helm__", "patch_version": "test",
-        "source": "test", "description": "availability regression test helm zqx.",
+        "entity_type": "armor",
+        "name": "__test_live_helm__",
+        "patch_version": "test",
+        "source": "test",
+        "description": "availability regression test helm zqx.",
         "text_content": "availability regression zqx",
     }
     cut = {
-        "entity_type": "armor", "name": "__test_cut_helm__", "patch_version": "test",
-        "source": "test", "availability": "cut",
+        "entity_type": "armor",
+        "name": "__test_cut_helm__",
+        "patch_version": "test",
+        "source": "test",
+        "availability": "cut",
         "description": "availability regression test helm zqx.",
         "text_content": "availability regression zqx",
     }
@@ -1221,29 +1241,49 @@ def test_search_excludes_cut_content_by_default(client):
             client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
 
         # search(): default hides cut, include_unavailable surfaces it
-        default_names = {r["name"] for r in _os.search(
-            client, "availability regression zqx", entity_type="armor")}
+        default_names = {
+            r["name"]
+            for r in _os.search(
+                client, "availability regression zqx", entity_type="armor"
+            )
+        }
         assert "__test_live_helm__" in default_names
         assert "__test_cut_helm__" not in default_names, (
-            "cut content must be excluded from search() by default (#70)")
-        incl_names = {r["name"] for r in _os.search(
-            client, "availability regression zqx", entity_type="armor",
-            include_unavailable=True)}
+            "cut content must be excluded from search() by default (#70)"
+        )
+        incl_names = {
+            r["name"]
+            for r in _os.search(
+                client,
+                "availability regression zqx",
+                entity_type="armor",
+                include_unavailable=True,
+            )
+        }
         assert {"__test_live_helm__", "__test_cut_helm__"} <= incl_names, (
-            "include_unavailable=True must surface cut content")
+            "include_unavailable=True must surface cut content"
+        )
 
         # search_literal(): same contract, and count_only reflects the filter
         lit_default = _os.search_literal(
-            client, "availability regression zqx", entity_type="armor", source="test")
+            client, "availability regression zqx", entity_type="armor", source="test"
+        )
         lit_names = {r["name"] for r in lit_default["results"]}
         assert "__test_cut_helm__" not in lit_names
         assert lit_default["total"] == 1, (
-            f"literal count must exclude cut by default, got {lit_default['total']}")
+            f"literal count must exclude cut by default, got {lit_default['total']}"
+        )
         lit_incl = _os.search_literal(
-            client, "availability regression zqx", entity_type="armor", source="test",
-            include_unavailable=True, count_only=True)
+            client,
+            "availability regression zqx",
+            entity_type="armor",
+            source="test",
+            include_unavailable=True,
+            count_only=True,
+        )
         assert lit_incl["total"] == 2, (
-            f"literal count with include_unavailable must count cut, got {lit_incl['total']}")
+            f"literal count with include_unavailable must count cut, got {lit_incl['total']}"
+        )
 
     finally:
         for doc_id in ids:
@@ -1260,14 +1300,18 @@ def test_new_goods_entity_types_are_searchable(client):
     """
     docs = {
         "consumable::__test_grease__::test": {
-            "entity_type": "consumable", "name": "__test_grease__",
-            "patch_version": "test", "source": "EquipParamGoods",
+            "entity_type": "consumable",
+            "name": "__test_grease__",
+            "patch_version": "test",
+            "source": "EquipParamGoods",
             "menu_category": "Consumable",
             "description": "coverage expansion consumable wqz.",
         },
         "key_item::__test_bell__::test": {
-            "entity_type": "key_item", "name": "__test_bell__",
-            "patch_version": "test", "source": "EquipParamGoods",
+            "entity_type": "key_item",
+            "name": "__test_bell__",
+            "patch_version": "test",
+            "source": "EquipParamGoods",
             "menu_category": "Key Item",
             "description": "coverage expansion keyitem wqz.",
         },
@@ -1277,14 +1321,22 @@ def test_new_goods_entity_types_are_searchable(client):
             client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
 
         # entity_type filter narrows to just the consumable
-        cons = {r["name"] for r in _os.search(
-            client, "coverage expansion wqz", entity_type="consumable")}
+        cons = {
+            r["name"]
+            for r in _os.search(
+                client, "coverage expansion wqz", entity_type="consumable"
+            )
+        }
         assert "__test_grease__" in cons
         assert "__test_bell__" not in cons, "entity_type filter must exclude key_item"
 
         # the key_item is reachable under its own type
-        keys = {r["name"] for r in _os.search(
-            client, "coverage expansion wqz", entity_type="key_item")}
+        keys = {
+            r["name"]
+            for r in _os.search(
+                client, "coverage expansion wqz", entity_type="key_item"
+            )
+        }
         assert "__test_bell__" in keys
 
     finally:
@@ -1302,13 +1354,19 @@ def test_search_excludes_unobtainable_content_by_default(client):
     as availability='cut', now covering both flagged states.
     """
     live = {
-        "entity_type": "armor", "name": "__test_live_rag__", "patch_version": "test",
-        "source": "test", "description": "unobtainable regression armor jvx.",
+        "entity_type": "armor",
+        "name": "__test_live_rag__",
+        "patch_version": "test",
+        "source": "test",
+        "description": "unobtainable regression armor jvx.",
         "text_content": "unobtainable regression jvx",
     }
     unob = {
-        "entity_type": "armor", "name": "__test_unob_rag__", "patch_version": "test",
-        "source": "test", "availability": "unobtainable",
+        "entity_type": "armor",
+        "name": "__test_unob_rag__",
+        "patch_version": "test",
+        "source": "test",
+        "availability": "unobtainable",
         "description": "unobtainable regression armor jvx.",
         "text_content": "unobtainable regression jvx",
     }
@@ -1317,27 +1375,47 @@ def test_search_excludes_unobtainable_content_by_default(client):
         for doc, doc_id in zip((live, unob), ids):
             client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
 
-        default_names = {r["name"] for r in _os.search(
-            client, "unobtainable regression jvx", entity_type="armor")}
+        default_names = {
+            r["name"]
+            for r in _os.search(
+                client, "unobtainable regression jvx", entity_type="armor"
+            )
+        }
         assert "__test_live_rag__" in default_names
         assert "__test_unob_rag__" not in default_names, (
-            "unobtainable content must be excluded from search() by default (#71)")
-        incl_names = {r["name"] for r in _os.search(
-            client, "unobtainable regression jvx", entity_type="armor",
-            include_unavailable=True)}
+            "unobtainable content must be excluded from search() by default (#71)"
+        )
+        incl_names = {
+            r["name"]
+            for r in _os.search(
+                client,
+                "unobtainable regression jvx",
+                entity_type="armor",
+                include_unavailable=True,
+            )
+        }
         assert {"__test_live_rag__", "__test_unob_rag__"} <= incl_names, (
-            "include_unavailable=True must surface unobtainable content")
+            "include_unavailable=True must surface unobtainable content"
+        )
 
         lit_default = _os.search_literal(
-            client, "unobtainable regression jvx", entity_type="armor", source="test")
+            client, "unobtainable regression jvx", entity_type="armor", source="test"
+        )
         assert lit_default["total"] == 1, (
-            f"literal count must exclude unobtainable by default, got {lit_default['total']}")
+            f"literal count must exclude unobtainable by default, got {lit_default['total']}"
+        )
         lit_incl = _os.search_literal(
-            client, "unobtainable regression jvx", entity_type="armor", source="test",
-            include_unavailable=True, count_only=True)
+            client,
+            "unobtainable regression jvx",
+            entity_type="armor",
+            source="test",
+            include_unavailable=True,
+            count_only=True,
+        )
         assert lit_incl["total"] == 2, (
             f"literal count with include_unavailable must count unobtainable, got "
-            f"{lit_incl['total']}")
+            f"{lit_incl['total']}"
+        )
 
     finally:
         for doc_id in ids:
@@ -1363,16 +1441,23 @@ def test_diff_reports_acquisition_change_across_patches(client):
 
     docs = [
         {
-            "entity_type": "weapon", "name": "__test_acq_diff__",
-            "patch_version": "test-acq-a", "source": "ShopLineupParam",
-            "description": "acq diff test", "text_content": "",
-            "sold_by": ["Merchant Kale"], "acquisition_sources": ["Merchant Kale"],
+            "entity_type": "weapon",
+            "name": "__test_acq_diff__",
+            "patch_version": "test-acq-a",
+            "source": "ShopLineupParam",
+            "description": "acq diff test",
+            "text_content": "",
+            "sold_by": ["Merchant Kale"],
+            "acquisition_sources": ["Merchant Kale"],
             "acquisition_types": ["merchant"],
         },
         {
-            "entity_type": "weapon", "name": "__test_acq_diff__",
-            "patch_version": "test-acq-b", "source": "ShopLineupParam",
-            "description": "acq diff test", "text_content": "",
+            "entity_type": "weapon",
+            "name": "__test_acq_diff__",
+            "patch_version": "test-acq-b",
+            "source": "ShopLineupParam",
+            "description": "acq diff test",
+            "text_content": "",
             "sold_by": ["Twin Maiden Husks"],
             "acquisition_sources": ["Twin Maiden Husks"],
             "acquisition_types": ["merchant"],
@@ -1409,9 +1494,12 @@ def test_search_literal_acquisition_fields_require_naming(client):
     now documents.
     """
     doc = {
-        "entity_type": "weapon", "name": "__test_acq_named__",
-        "patch_version": "test", "source": "test",
-        "description": "acq naming test", "text_content": "",
+        "entity_type": "weapon",
+        "name": "__test_acq_named__",
+        "patch_version": "test",
+        "source": "test",
+        "description": "acq naming test",
+        "text_content": "",
         "sold_by": ["__Test Merchant ZZQ__"],
         "acquisition_sources": ["__Test Merchant ZZQ__"],
         "acquisition_types": ["merchant"],
@@ -1421,17 +1509,24 @@ def test_search_literal_acquisition_fields_require_naming(client):
         client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
 
         default = _os.search_literal(
-            client, "__Test Merchant ZZQ__", entity_type="weapon", source="test")
+            client, "__Test Merchant ZZQ__", entity_type="weapon", source="test"
+        )
         default_names = {r["name"] for r in default["results"]}
         assert "__test_acq_named__" not in default_names, (
-            "acquisition fields must NOT be searched by default (#61)")
+            "acquisition fields must NOT be searched by default (#61)"
+        )
 
         named = _os.search_literal(
-            client, "__Test Merchant ZZQ__", entity_type="weapon", source="test",
-            fields=["sold_by"])
+            client,
+            "__Test Merchant ZZQ__",
+            entity_type="weapon",
+            source="test",
+            fields=["sold_by"],
+        )
         named_names = {r["name"] for r in named["results"]}
         assert "__test_acq_named__" in named_names, (
-            "naming fields=['sold_by'] must reach the structured field (#61)")
+            "naming fields=['sold_by'] must reach the structured field (#61)"
+        )
 
     finally:
         client.delete(index=_os.INDEX, id=doc_id, ignore=[404])
@@ -1447,21 +1542,29 @@ def test_enemy_entity_searchable(client):
     get_entity with its name_ja and hp, and that 'enemy' shows in list_entity_types.
     """
     doc = {
-        "entity_type": "enemy", "name": "__test_boss_zqx__",
-        "name_ja": "テスト・ボスzqx", "npc_id": "905999000",
-        "patch_version": "test", "source": "NpcName",
-        "text_content": "__test_boss_zqx__", "tags": ["enemy"], "hp": 12345,
+        "entity_type": "enemy",
+        "name": "__test_boss_zqx__",
+        "name_ja": "テスト・ボスzqx",
+        "npc_id": "905999000",
+        "patch_version": "test",
+        "source": "NpcName",
+        "text_content": "__test_boss_zqx__",
+        "tags": ["enemy"],
+        "hp": 12345,
     }
     doc_id = "enemy::__test_boss_zqx__::test"
     try:
         client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
 
-        names = {r["name"] for r in _os.search(
-            client, "__test_boss_zqx__", entity_type="enemy")}
+        names = {
+            r["name"]
+            for r in _os.search(client, "__test_boss_zqx__", entity_type="enemy")
+        }
         assert "__test_boss_zqx__" in names, "enemy must be full-text searchable"
 
         lit = _os.search_literal(
-            client, "__test_boss_zqx__", entity_type="enemy", patch_version="test")
+            client, "__test_boss_zqx__", entity_type="enemy", patch_version="test"
+        )
         assert any(r["name"] == "__test_boss_zqx__" for r in lit["results"])
 
         got = _os.get_entity(client, "__test_boss_zqx__", entity_type="enemy")
@@ -1485,14 +1588,19 @@ def test_enemy_drops_and_dropped_by_searchable(client):
     search (it's an opt-in keyword field, like the other acquisition fields, #61).
     """
     enemy = {
-        "entity_type": "enemy", "name": "__test_drop_boss__",
-        "patch_version": "test", "source": "NpcName",
-        "text_content": "__test_drop_boss__", "tags": ["enemy"],
+        "entity_type": "enemy",
+        "name": "__test_drop_boss__",
+        "patch_version": "test",
+        "source": "NpcName",
+        "text_content": "__test_drop_boss__",
+        "tags": ["enemy"],
         "drops": ["__test_drop_item__"],
     }
     item = {
-        "entity_type": "weapon", "name": "__test_drop_item__",
-        "patch_version": "test", "source": "EquipParamWeapon",
+        "entity_type": "weapon",
+        "name": "__test_drop_item__",
+        "patch_version": "test",
+        "source": "EquipParamWeapon",
         "text_content": "__test_drop_item__",
         "acquisition_types": ["enemy_drop"],
         "acquisition_sources": ["__test_drop_boss__"],
@@ -1512,8 +1620,8 @@ def test_enemy_drops_and_dropped_by_searchable(client):
 
         # dropped_by is opt-in: naming it in a literal search finds the item by boss.
         lit = _os.search_literal(
-            client, "__test_drop_boss__", fields=["dropped_by"],
-            patch_version="test")
+            client, "__test_drop_boss__", fields=["dropped_by"], patch_version="test"
+        )
         assert any(r["name"] == "__test_drop_item__" for r in lit["results"])
 
     finally:

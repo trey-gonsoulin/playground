@@ -2,7 +2,10 @@
 
 from mcp.server.fastmcp import FastMCP
 
-from therapist_finder._scrapers import search_inclusive_therapists, search_psychology_today
+from therapist_finder._scrapers import (
+    search_inclusive_therapists,
+    search_psychology_today,
+)
 
 mcp = FastMCP(
     "therapist-finder",
