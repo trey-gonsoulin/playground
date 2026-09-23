@@ -43,7 +43,7 @@ from collections import defaultdict
 
 import requests
 from opensearchpy import OpenSearch, RequestsHttpConnection
-from opensearchpy.helpers import bulk
+from opensearchpy.helpers import bulk, scan
 
 # ---------------------------------------------------------------------------
 # OpenSearch client
@@ -2150,21 +2150,109 @@ def _to_bulk_actions(docs: list[dict]) -> list[dict]:
     ]
 
 
-def load_documents(client: OpenSearch | None, docs: list[dict], dry_run: bool) -> None:
+def load_documents(
+    client: OpenSearch | None, docs: list[dict], dry_run: bool
+) -> tuple[int, list]:
     actions = _to_bulk_actions(docs)
     if not actions:
         print("  No documents to index.")
-        return
+        return 0, []
     if dry_run:
         print(f"  [dry-run] Would index {len(actions)} documents.")
         print(json.dumps(actions[:2], indent=2, ensure_ascii=False))
-        return
+        return 0, []
     success, errors = bulk(client, actions, raise_on_error=False, chunk_size=500)
     print(f"  Indexed {success} documents.")
     if errors:
         print(f"  {len(errors)} errors (first 3):")
         for e in errors[:3]:
             print(f"    {e}")
+    return success, errors
+
+
+# Refuse to prune when a reload would retract more than this share of an entity
+# type's live docs at one patch — that signals a truncated/broken build, not stale
+# leftovers (the worst real case, #67's 1.02 enemies, is ~21%).
+_PRUNE_MAX_FRACTION = 0.5
+
+
+def _stale_ids(live_ids, docs: list[dict]) -> list[str]:
+    """Live ``_id``s that a rebuild of ``docs`` no longer produces."""
+    built = {a["_id"] for a in _to_bulk_actions(docs)}
+    return [i for i in live_ids if i not in built]
+
+
+def prune_stale(client: OpenSearch | None, docs: list[dict], dry_run: bool) -> int:
+    """Delete docs a reload no longer produces, scoped per patch_version to the
+    entity_types present in ``docs`` (#67).
+
+    The loader is additive (overwrite-by-_id), so a doc written by an earlier,
+    wrong build — e.g. DLC enemies stamped onto 1.02 from 1.17 NpcName — survives
+    every correct rebuild. Other patches and entity_types absent from ``docs``
+    (e.g. npc_dialogue on an --items-only load) are never touched. Aborts without
+    deleting if any type would lose more than ``_PRUNE_MAX_FRACTION`` of its docs.
+    """
+    scopes: dict[str, set[str]] = defaultdict(set)
+    for d in docs:
+        if d.get("name"):
+            scopes[d.get("patch_version", "unknown")].add(d["entity_type"])
+
+    stale: list[str] = []
+    for version, types in sorted(scopes.items()):
+        live = [
+            h["_id"]
+            for h in scan(
+                client,
+                index=INDEX,
+                _source=False,
+                query={
+                    "query": {
+                        "bool": {
+                            "filter": [
+                                {"term": {"patch_version": version}},
+                                {"terms": {"entity_type": sorted(types)}},
+                            ]
+                        }
+                    }
+                },
+            )
+        ]
+        version_stale = _stale_ids(live, docs)
+        live_by_type: dict[str, int] = defaultdict(int)
+        stale_by_type: dict[str, list[str]] = defaultdict(list)
+        for i in live:
+            live_by_type[i.split("::", 1)[0]] += 1
+        for i in version_stale:
+            stale_by_type[i.split("::", 1)[0]].append(i.split("::")[1])
+        for t, names in sorted(stale_by_type.items()):
+            print(
+                f"  [{version}] stale {t}: {len(names)}/{live_by_type[t]} "
+                f"(e.g. {names[:3]})"
+            )
+            if len(names) > _PRUNE_MAX_FRACTION * live_by_type[t]:
+                sys.exit(
+                    f"  !! refusing to prune: {len(names)}/{live_by_type[t]} "
+                    f"{t} docs at {version} would be deleted — build looks "
+                    "truncated; nothing was deleted"
+                )
+        stale += version_stale
+
+    if not stale:
+        print("  No stale documents.")
+        return 0
+    if dry_run:
+        print(f"  [dry-run] Would delete {len(stale)} stale documents.")
+        return 0
+    deleted, errors = bulk(
+        client,
+        [{"_op_type": "delete", "_index": INDEX, "_id": i} for i in stale],
+        raise_on_error=False,
+        chunk_size=500,
+    )
+    print(f"  Pruned {deleted} stale documents.")
+    if errors:
+        print(f"  {len(errors)} delete errors (first 3): {errors[:3]}")
+    return deleted
 
 
 # ---------------------------------------------------------------------------
