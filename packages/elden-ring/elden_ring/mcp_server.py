@@ -45,6 +45,7 @@ def search_entities(
     count_only: bool = False,
     source: str | None = None,
     include_unavailable: bool = False,
+    collapse_affinity: bool = False,
 ) -> list[dict] | dict:
     """Search Elden Ring entities by name, description, location, or tags.
 
@@ -97,15 +98,18 @@ def search_entities(
             when stats/text changed. Use list_patch_versions() to see what's loaded.
             Omit to return one result per entity (latest indexed version); pass
             a specific version to scope results to that snapshot only.
-        limit: Maximum results to return (default 20, max 100).
+        limit: Maximum results to return (default 20, max 100). The list is capped here
+            and carries no total — use count_only for a count.
         include_fields: If provided, only these fields are returned per document (e.g.
             ["name", "sort_id"]). Reduces payload size for large result sets.
         count_only: If True, return {"total": N} instead of the full document list.
-            N is the distinct-entity count when no patch_version is given, or the
-            raw match count when a specific version is specified. Useful for counting
-            query matches without fetching documents. For a type-level census
-            (counting all entities of a given type without a search query), use
-            search_entities_literal with count_only=True instead.
+            N is never capped by limit. Without patch_version it is the number of
+            distinct names (a name shared by two entity_types counts once); with
+            patch_version it is the number of matching docs in that snapshot, which is
+            one per (entity_type, name). Each weapon affinity (Heavy Dagger, Keen
+            Dagger, …) is its own name — see collapse_affinity. Fuzzy matching makes
+            this a relevance count, not an exact-phrase count; for corpus counts use
+            search_entities_literal.
         source: If provided, restrict to documents from one internal game-data
             origin — the param table or FMG the docs were extracted from:
             EquipParamWeapon, EquipParamProtector, Magic, EquipParamAccessory,
@@ -120,6 +124,10 @@ def search_entities(
             no acquisition path, e.g. the Ragged set / enemy-only gear; #71). Pass True to
             include them; they carry the availability field so you can tell them apart from
             live content.
+        collapse_affinity: If True, keep only the Standard row of each infusable weapon
+            (drop Heavy/Keen/…/Occult variants, which are separate docs with their own
+            names and copies of the base text). Non-weapons are unaffected. Use it to
+            count distinct armaments.
 
     Returns a list of entity documents when count_only is False, each with at minimum:
     entity_type, name, patch_version, source, description. Use get_entity() for the
@@ -128,6 +136,11 @@ def search_entities(
       sold_by            — merchant names that sell this item (per-patch)
       dropped_by         — boss / named enemies that drop this item (EMEVD-derived, #68)
       acquisition_types  — how it's obtained: merchant / enemy_drop / found_in_world
+    Talisman rank variants (e.g. Erdtree's Favor +2) link to their base via base_item and
+    carry text_differs: True when their text diverges from the base beyond the
+    effect-magnitude rewording every rank has ("Boosts" → "Greatly boosts" and
+    上昇 → 大きく上昇 are ignored). text_added_lines lists the new lines, e.g.
+    「伝説のタリスマン」のひとつ. False means only the magnitude wording changed.
 
     Returns {"total": N} when count_only is True.
     """
@@ -141,6 +154,7 @@ def search_entities(
         count_only,
         source,
         include_unavailable,
+        collapse_affinity,
     )
 
 
@@ -294,6 +308,7 @@ def search_entities_literal(
     source: str | None = None,
     use_lemmatize: bool = False,
     include_unavailable: bool = False,
+    collapse_affinity: bool = False,
 ) -> dict:
     """Search for entities containing an exact literal substring across text fields.
 
@@ -302,8 +317,15 @@ def search_entities_literal(
     tracking where exact counts matter more than relevance ordering.
 
     Omit pattern (or pass None) to enumerate all entities matching other filters
-    without a text constraint — useful for structural queries like "all named weapons"
-    via sort_id_mod, or census queries via count_only.
+    without a text constraint — useful for structural queries like "all distinct
+    weapons" via collapse_affinity, or census queries via count_only.
+
+    Counting: every infusable weapon is indexed once per affinity (Raptor Talons, Heavy
+    Raptor Talons, … 13 docs), and the variants carry the base's text, so a Japanese
+    phrase in one armament's description counts up to 13 times. Pass
+    collapse_affinity=True to count distinct armaments: Raptor Talons then counts once
+    for 凶手 instead of 13 times. Don't use sort_id_mod=1000 for this — it also drops
+    every non-weapon match and DLC bases (whose sort_ids aren't 1000-aligned).
 
     For Japanese text there are two modes:
     - Default (use_kuromoji=False): standard CJK-unigram tokenization. Every character
@@ -354,13 +376,13 @@ def search_entities_literal(
             ["name", "sort_id"]). Reduces payload when full documents aren't needed.
         count_only: If True, return {"total": N} without a results list. Useful for
             census queries (e.g. count all weapons of a given type) without fetching
-            any documents. N is distinct-entity count without patch_version, raw hit
-            count with patch_version.
+            any documents. See Returns for exactly what N counts.
         sort_id_gte: Filter to entities with sort_id >= this value.
         sort_id_lte: Filter to entities with sort_id <= this value.
         sort_id_mod: If set, keep only entities where sort_id % sort_id_mod == sort_id_remainder.
-            Example: sort_id_mod=1000, sort_id_remainder=0 matches every base named weapon
-            (sort_id is a multiple of 1000 for named armaments, +N for upgrade variants).
+            A raw structural filter on the in-game sort index: docs without a sort_id
+            (enemies, merchants, dialogue) never match. To count distinct armaments use
+            collapse_affinity instead (DLC weapon bases aren't 1000-aligned).
         sort_id_remainder: Remainder for the modulo filter (default 0).
         use_kuromoji: If True, route Japanese fields through kuromoji morpheme segmentation
             so phrase queries respect dictionary word boundaries. Prevents single-kanji
@@ -383,10 +405,21 @@ def search_entities_literal(
             "unobtainable", e.g. Millicent's set / the Ragged set) is excluded. Pass True to
             include it — useful for census/corpus queries that should count everything present
             in the game data. This also affects count_only totals.
+        collapse_affinity: If True, keep only the Standard row of each infusable weapon
+            (drop Heavy/Keen/…/Occult variants). Non-weapons are unaffected. Also
+            applies to total.
 
     Returns a dict with:
-        total: int — distinct entity count when no patch_version is given (deduplicated);
-            raw document count when a specific patch_version is specified.
+        total: int — the full match count, never capped by limit (results may be
+            shorter; total is still exact).
+            - Without patch_version: the number of distinct names across all patches
+              (exact below 40,000). A name shared by two entity_types counts once;
+              each weapon affinity counts separately unless collapse_affinity=True.
+            - With patch_version: the number of matching docs in that snapshot, which
+              is one per (entity_type, name) — no cross-patch duplicates.
+            - With patterns: the size of the de-duplicated union by name. It's exact
+              unless a single pattern matches more than 10,000 docs, in which case
+              it's a lower bound.
         results: list of entity documents (omitted when count_only is True).
     """
     return _os.search_literal(
@@ -407,6 +440,7 @@ def search_entities_literal(
         source,
         use_lemmatize,
         include_unavailable,
+        collapse_affinity,
     )
 
 
