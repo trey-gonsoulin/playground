@@ -236,9 +236,9 @@ INDEX_MAPPING = {
             "npc_id": {"type": "keyword"},
             "name_source": {"type": "keyword"},
             "chr_models": {"type": "keyword"},
-            # Enemy (NpcParam) combat stats — present on the humanoid subset; bosses
-            # are name-only until the chr-id bridge lands (#68). hp is `long` to match
-            # the pre-existing live mapping (put_mapping can't narrow long->integer).
+            # Enemy (NpcParam) combat stats, from the row bound by health bar / NameID
+            # / spirit-ash label (#84). hp is `long` to match the pre-existing live
+            # mapping (put_mapping can't narrow long->integer).
             "hp": {"type": "long"},
             "stamina": {"type": "integer"},
             "poise": {"type": "float"},
@@ -246,6 +246,23 @@ INDEX_MAPPING = {
             "fire_defense": {"type": "float"},
             "lightning_defense": {"type": "float"},
             "holy_defense": {"type": "float"},
+            "resistances": {
+                "properties": {
+                    k: {"type": "integer"}
+                    for k in (
+                        "poison",
+                        "scarlet_rot",
+                        "bleed",
+                        "frostbite",
+                        "sleep",
+                        "madness",
+                        "death_blight",
+                    )
+                }
+            },
+            "immune_to": {"type": "keyword"},
+            "traits": {"type": "keyword"},
+            "weak_point_damage_multiplier": {"type": "float"},
             "name_ja": {
                 "type": "text",
                 "fields": {
@@ -1163,13 +1180,21 @@ _FIELD_NOTES: dict[str, str] = {
     "description_ja": "Japanese description; .ja/.morph/.lemma subfields drive JP search modes",
     "text_content_ja": "Japanese long text; .ja/.morph/.lemma subfields drive JP search modes",
     "npc_id": "enemy's NpcName FMG id (6-digit humanoid / 9-digit boss & creature)",
-    "hp": "enemy max HP (NpcParam; humanoid subset — bosses name-only, see #68)",
-    "stamina": "enemy max stamina (NpcParam; humanoid subset)",
-    "poise": "enemy max poise (NpcParam; humanoid subset)",
-    "magic_defense": "enemy magic defense (NpcParam; humanoid subset)",
-    "fire_defense": "enemy fire defense (NpcParam; humanoid subset)",
-    "lightning_defense": "enemy lightning defense (NpcParam; humanoid subset)",
-    "holy_defense": "enemy holy defense (NpcParam; humanoid subset)",
+    "hp": "enemy base max HP (NpcParam, before per-area scaling). Enemy stats come from one "
+    "NpcParam row, bound by boss health bar, then NameID, then spirit-ash label (#84)",
+    "stamina": "enemy max stamina (NpcParam)",
+    "poise": "enemy max poise (NpcParam)",
+    "magic_defense": "enemy magic defense (NpcParam)",
+    "fire_defense": "enemy fire defense (NpcParam)",
+    "lightning_defense": "enemy lightning defense (NpcParam)",
+    "holy_defense": "enemy holy defense (NpcParam)",
+    "resistances": "enemy status buildup resistances (NpcParam): poison / scarlet_rot / bleed "
+    "/ frostbite / sleep / madness / death_blight. 999 = immune; higher = more buildup needed",
+    "immune_to": "enemy statuses at 999 resistance (immune), e.g. madness, death_blight",
+    "traits": "enemy weakness classes from NpcParam flags: weak_to_gravity (bonus damage from "
+    "gravity weapons), lives_in_death (Golden Order weapons), ancient_dragon, dragon "
+    "(dragon-slaying weapons), undead. Empty list = none; absent = no NpcParam row bound",
+    "weak_point_damage_multiplier": "enemy damage multiplier on hits to weak body parts",
 }
 
 

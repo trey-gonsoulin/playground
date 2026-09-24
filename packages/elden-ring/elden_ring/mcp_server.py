@@ -86,8 +86,9 @@ def search_entities(
                            name / location to get their full stock
             npc_dialogue — individual spoken lines from the TalkMsg text (searchable by quote)
             enemy        — bosses, creatures, and named enemies (from the NpcName roster)
-                           with EN + JP names (name_ja); the humanoid subset also carries
-                           HP/stamina/poise/elemental-defense stats from NpcParam. Enemies
+                           with EN + JP names (name_ja); most also carry NpcParam
+                           HP/stamina/poise/elemental defenses, status resistances +
+                           immune_to, and traits (dragon, undead, …; #84). Enemies
                            have no in-game description. Bosses / named enemies carry a
                            drops list (items they drop, from map EMEVD scripts, #68); the
                            dropped item's own doc carries the reciprocal dropped_by.
