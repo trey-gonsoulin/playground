@@ -91,6 +91,9 @@ def search_entities(
                            have no in-game description. Bosses / named enemies carry a
                            drops list (items they drop, from map EMEVD scripts, #68); the
                            dropped item's own doc carries the reciprocal dropped_by.
+                           Generic mobs are named per model from their spirit ash
+                           (Godrick Soldier, Demi-Human, …; name_source="spirit_ash",
+                           chr_models) — model-level labels, not individual characters.
             Call list_entity_types() for the authoritative live list.
         patch_version: Filter to a specific game patch (e.g. "1.07.0"). Native data
             is extracted per-patch from that patch's regulation.bin, so this is the

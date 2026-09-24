@@ -234,6 +234,8 @@ INDEX_MAPPING = {
             "sort_id": {"type": "integer"},
             "menu_category": {"type": "keyword"},
             "npc_id": {"type": "keyword"},
+            "name_source": {"type": "keyword"},
+            "chr_models": {"type": "keyword"},
             # Enemy (NpcParam) combat stats — present on the humanoid subset; bosses
             # are name-only until the chr-id bridge lands (#68). hp is `long` to match
             # the pre-existing live mapping (put_mapping can't narrow long->integer).
@@ -1134,8 +1136,13 @@ _FIELD_NOTES: dict[str, str] = {
     "sold_by": "merchant names that sell this item, derived per-patch from ShopLineupParam",
     "acquisition_types": "how the item is obtained, per-patch: merchant / enemy_drop / found_in_world",
     "acquisition_sources": "named sources: merchant names and/or boss/named-enemy names (see dropped_by)",
-    "dropped_by": "boss/named enemies that drop this item, derived from map EMEVD scripts (#68)",
-    "drops": "on an enemy doc: items this boss/named enemy drops (EMEVD-derived, #68)",
+    "dropped_by": "enemies that drop this item: bosses/named enemies (map EMEVD + MSB "
+    "placements, #68) and generic mobs named by their spirit-ash model label (#104)",
+    "drops": "on an enemy doc: items this enemy drops (EMEVD awards + MSB death lots)",
+    "name_source": "on an enemy doc: where the name comes from — 'npc_name' (the per-character "
+    "NpcName roster) or 'spirit_ash' (a generic-mob model label taken from its spirit ash, "
+    "e.g. 'Godrick Soldier'; covers every placement of that model, #104)",
+    "chr_models": "on a spirit_ash enemy doc: the chr model ids the label covers (e.g. c4311)",
     "effect": "talisman/item effect text derived from SpEffectParam (native)",
     "effect_value": "primary numeric magnitude of the effect",
     "is_legendary": "part of a legendary set (achievement-tracked)",
