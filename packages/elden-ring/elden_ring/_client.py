@@ -1142,7 +1142,9 @@ _FIELD_NOTES: dict[str, str] = {
     "name_source": "on an enemy doc: where the name comes from — 'npc_name' (the per-character "
     "NpcName roster) or 'spirit_ash' (a generic-mob model label taken from its spirit ash, "
     "e.g. 'Godrick Soldier'; covers every placement of that model, #104)",
-    "chr_models": "on a spirit_ash enemy doc: the chr model ids the label covers (e.g. c4311)",
+    "chr_models": "on a spirit_ash enemy doc: the chr model ids the label covers (e.g. c4311). "
+    "Also on a boss/creature roster doc (name_source=npc_name) whose name a spirit ash shares, "
+    "e.g. Crystalian: its field mobs' drops are merged into that doc (#106)",
     "effect": "talisman/item effect text derived from SpEffectParam (native)",
     "effect_value": "primary numeric magnitude of the effect",
     "is_legendary": "part of a legendary set (achievement-tracked)",
