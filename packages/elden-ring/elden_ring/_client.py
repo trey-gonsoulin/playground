@@ -280,6 +280,14 @@ INDEX_MAPPING = {
             },
             "sold_by": {"type": "keyword"},
             "base_item": {"type": "keyword"},
+            "text_differs": {"type": "boolean"},
+            "text_added_lines": {"type": "text"},
+            # text + keyword multifield to match the dynamic default already live
+            # (see drops); exact-match on affinity.keyword.
+            "affinity": {
+                "type": "text",
+                "fields": {"keyword": {"type": "keyword", "ignore_above": 256}},
+            },
             "is_legendary": {"type": "boolean"},
             "achievement_set": {"type": "keyword"},
             "effect": {"type": "text"},
@@ -350,6 +358,24 @@ def _availability_filter(include_unavailable: bool) -> list[dict]:
     ]
 
 
+def _affinity_filter(collapse_affinity: bool) -> list[dict]:
+    """Filter clause dropping non-Standard weapon affinity variants (#21).
+
+    Infusable weapons are indexed once per affinity (Heavy Dagger, Keen Dagger, …),
+    each stamped with ``affinity``. Collapsing keeps the Standard row; docs without the
+    field (non-weapons, non-infusable weapons) pass through.
+    """
+    if not collapse_affinity:
+        return []
+    variant = {
+        "bool": {
+            "filter": [{"exists": {"field": "affinity"}}],
+            "must_not": [{"term": {"affinity.keyword": "Standard"}}],
+        }
+    }
+    return [{"bool": {"must_not": [variant]}}]
+
+
 def search(
     client: OpenSearch,
     query: str,
@@ -360,6 +386,7 @@ def search(
     count_only: bool = False,
     source: str | None = None,
     include_unavailable: bool = False,
+    collapse_affinity: bool = False,
 ) -> list[dict] | dict:
     filters = []
     if entity_type:
@@ -369,6 +396,7 @@ def search(
     if source:
         filters.append({"term": {"source": source}})
     filters += _availability_filter(include_unavailable)
+    filters += _affinity_filter(collapse_affinity)
 
     body: dict = {
         "size": 0 if count_only else limit,
@@ -749,6 +777,7 @@ def search_literal(
     source: str | None = None,
     use_lemmatize: bool = False,
     include_unavailable: bool = False,
+    collapse_affinity: bool = False,
 ) -> dict:
     """Exact-phrase search across text fields, with optional structural filters.
 
@@ -788,6 +817,7 @@ def search_literal(
     if source:
         filters.append({"term": {"source": source}})
     filters += _availability_filter(include_unavailable)
+    filters += _affinity_filter(collapse_affinity)
     if sort_id_gte is not None or sort_id_lte is not None:
         sort_id_range: dict = {}
         if sort_id_gte is not None:
@@ -851,6 +881,7 @@ def search_literal(
                 source=source,
                 use_lemmatize=use_lemmatize,
                 include_unavailable=include_unavailable,
+                collapse_affinity=collapse_affinity,
             )
             for doc in r.get("results", []):
                 seen.setdefault(doc.get("name", ""), doc)
@@ -1087,7 +1118,17 @@ _FIELD_NOTES: dict[str, str] = {
     "include_unavailable=True to include them.",
     "display_name": "per-patch in-game FMG name; differs from name when an item was renamed across patches",
     "menu_category": "in-game equipment menu grouping (e.g. 'Straight Sword', 'Reaper', 'Head')",
-    "sort_id": "in-game sort index; multiples of ~1000 per named armament, +N for upgrade/affinity variants",
+    "sort_id": "in-game sort index; base-game armaments are 1000-aligned with +N per affinity "
+    "variant, but DLC bases are not 1000-aligned — use collapse_affinity, not sort_id_mod, "
+    "to count distinct armaments",
+    "affinity": "infusable weapon's affinity (Standard, Heavy, Keen, … Occult); each affinity "
+    "is its own doc. Pass collapse_affinity=True to search tools to keep only Standard rows",
+    "base_item": "rank variant's base (e.g. 'Erdtree's Favor' on 'Erdtree's Favor +2')",
+    "text_differs": "on a talisman rank variant: its text diverges from base_item beyond the "
+    "effect-magnitude rewording every rank has (Boosts → Greatly boosts, 上昇 → 大きく上昇 are "
+    "ignored). False = only magnitude wording changed",
+    "text_added_lines": "the variant's text lines (EN + JP) with no counterpart in base_item, "
+    "e.g. 「伝説のタリスマン」のひとつ on Erdtree's Favor +2",
     "tags": "free-form keyword tags (spell school/role, weapon category, 'Talisman', etc.)",
     "location": "where the entity is found / sold (text + .keyword)",
     "sold_by": "merchant names that sell this item, derived per-patch from ShopLineupParam",

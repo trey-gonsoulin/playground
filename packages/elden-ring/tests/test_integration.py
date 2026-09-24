@@ -241,6 +241,42 @@ def test_search_literal_match_all(client):
         client.indices.refresh(index=_os.INDEX)
 
 
+def test_search_literal_collapse_affinity(client):
+    """collapse_affinity keeps a weapon's Standard row and every non-weapon, and drops
+    the affinity variants that repeat the base text (#21)."""
+    marker = "zqxaffinitymarker"
+    docs = {
+        "weapon::__test_aff_std__::test": ("weapon", "__test_aff_std__", "Standard"),
+        "weapon::__test_aff_heavy__::test": ("weapon", "__test_aff_heavy__", "Heavy"),
+        "item::__test_aff_talisman__::test": ("item", "__test_aff_talisman__", None),
+    }
+    try:
+        for doc_id, (etype, name, affinity) in docs.items():
+            body = {
+                "entity_type": etype,
+                "name": name,
+                "patch_version": "test",
+                "source": "test",
+                "description": f"text {marker}",
+            }
+            if affinity:
+                body["affinity"] = affinity
+            client.index(index=_os.INDEX, id=doc_id, body=body, refresh="wait_for")
+
+        full = _os.search_literal(client, pattern=marker, patch_version="test")
+        collapsed = _os.search_literal(
+            client, pattern=marker, patch_version="test", collapse_affinity=True
+        )
+        assert full["total"] == 3, full
+        assert collapsed["total"] == 2, collapsed
+        names = {r["name"] for r in collapsed["results"]}
+        assert names == {"__test_aff_std__", "__test_aff_talisman__"}, names
+    finally:
+        for doc_id in docs:
+            client.delete(index=_os.INDEX, id=doc_id, ignore=[404])
+        client.indices.refresh(index=_os.INDEX)
+
+
 def test_search_literal_sort_id_mod(client):
     """sort_id_mod filter keeps only entities where sort_id % mod == remainder."""
     docs = [
