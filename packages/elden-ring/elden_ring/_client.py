@@ -225,7 +225,13 @@ INDEX_MAPPING = {
             "attack_power": {"properties": _props("integer", _DAMAGE_TYPES)},
             "scaling": {
                 "properties": {
-                    s: {"properties": {"grade": {"type": "keyword"}}} for s in _STATS
+                    s: {
+                        "properties": {
+                            "grade": {"type": "keyword"},
+                            "value": {"type": "float"},
+                        }
+                    }
+                    for s in _STATS
                 }
             },
             "requirements": {"properties": _props("integer", _STATS)},
@@ -1168,9 +1174,11 @@ _FIELD_NOTES: dict[str, str] = {
     "default_ash_of_war": "the skill a weapon ships with (from SwordArtsParam)",
     "depicts_weapon": "talisman depicts this weapon (lore cross-reference)",
     "depicted_in_talisman": "weapon depicted in this talisman (lore cross-reference)",
-    "attack_power": "weapon/ammo base attack power (+0) by damage type",
-    "scaling": "weapon attribute scaling by stat (str/dex/int/fai/arc); scaling.<stat>.grade "
-    "is the letter grade",
+    "attack_power": "weapon/ammo attack power at +0 by damage type, as shown in game "
+    "(affinity multiplier applied)",
+    "scaling": "weapon attribute scaling at +0 by stat (str/dex/int/fai/arc), affinity "
+    "multiplier applied; scaling.<stat>.grade is the in-game letter (S>=175 A>=140 B>=90 "
+    "C>=60 D>=25 E>=1), scaling.<stat>.value the number it is graded from",
     "requirements": "attribute requirements by stat (weapons: str/dex/int/fai/arc; spells: "
     "int/fai)",
     "negation": "armor damage negation % by type: physical, strike, slash, pierce (physical "

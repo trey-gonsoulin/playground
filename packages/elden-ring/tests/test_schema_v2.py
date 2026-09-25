@@ -43,6 +43,7 @@ def test_grouped_leaves_mapped():
     expected = {
         "attack_power.holy": "integer",
         "scaling.arc.grade": "keyword",
+        "scaling.arc.value": "float",
         "requirements.fai": "integer",
         "negation.pierce": "float",
         "negation.lightning": "float",
@@ -61,7 +62,7 @@ def test_builder_doc_shapes_fully_mapped():
     docs = [
         {
             "attack_power": {"physical": 96},
-            "scaling": {"str": {"grade": "D"}},
+            "scaling": {"str": {"grade": "B", "value": 97.2}},
             "requirements": {"str": 14, "dex": 12},
             "depicted_in_talisman": "Dagger Talisman",
         },
