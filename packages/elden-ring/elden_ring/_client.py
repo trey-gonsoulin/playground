@@ -144,6 +144,35 @@ def _props(type_: str, keys) -> dict:
     return {k: {"type": type_} for k in keys}
 
 
+# Weapon stat groups (#115), shared by the +0 fields and max_level (#112). Plain
+# `object` fields index as dotted paths (attack_power.fire), so filters, sorts and
+# aggregations work as on flat fields.
+_WEAPON_STATS = {
+    "attack_power": {
+        "properties": _props("integer", (*_DAMAGE_TYPES, "stamina", "critical"))
+    },
+    # Weapon block stats (#114); floats, as the affinity products are
+    # fractional (Fire Halberd guard 52.25).
+    "guard": {
+        "properties": {
+            **_props("float", (*_DAMAGE_TYPES, "boost")),
+            "resistances": {"properties": _props("float", _STATUSES)},
+        }
+    },
+    "scaling": {
+        "properties": {
+            s: {
+                "properties": {
+                    "grade": {"type": "keyword"},
+                    "value": {"type": "float"},
+                }
+            }
+            for s in _STATS
+        }
+    },
+}
+
+
 INDEX_MAPPING = {
     "settings": {
         "number_of_shards": 1,
@@ -228,31 +257,15 @@ INDEX_MAPPING = {
             "tags": {"type": "keyword"},
             "location": {"type": "text", "fields": {"keyword": {"type": "keyword"}}},
             "weight": {"type": "float"},
-            # Grouped stat objects (#115). Plain `object` fields index as dotted paths
-            # (attack_power.fire, requirements.str), so filters, sorts and aggregations
-            # work as on flat fields.
-            "attack_power": {
-                "properties": _props("integer", (*_DAMAGE_TYPES, "stamina", "critical"))
+            # Grouped stat objects (#115); weapon stats at +0.
+            **_WEAPON_STATS,
+            # Weapon stats at its max upgrade (+25, somber +10) in the +0 shape, and
+            # the per-level curve as non-indexed arrays (#112).
+            "reinforce_type_id": {"type": "integer"},
+            "max_level": {
+                "properties": {"level": {"type": "integer"}, **_WEAPON_STATS}
             },
-            # Weapon block stats at +0 (#114); floats, as the affinity products are
-            # fractional (Fire Halberd guard 52.25).
-            "guard": {
-                "properties": {
-                    **_props("float", (*_DAMAGE_TYPES, "boost")),
-                    "resistances": {"properties": _props("float", _STATUSES)},
-                }
-            },
-            "scaling": {
-                "properties": {
-                    s: {
-                        "properties": {
-                            "grade": {"type": "keyword"},
-                            "value": {"type": "float"},
-                        }
-                    }
-                    for s in _STATS
-                }
-            },
+            "upgrade_curve": {"type": "object", "enabled": False},
             "requirements": {"properties": _props("integer", _STATS)},
             "fp_cost": {"type": "integer"},
             "spell_role": {"type": "keyword"},
@@ -1192,6 +1205,15 @@ _FIELD_NOTES: dict[str, str] = {
     "scaling": "weapon attribute scaling at +0 by stat (str/dex/int/fai/arc), affinity "
     "multiplier applied; scaling.<stat>.grade is the in-game letter (S>=175 A>=140 B>=90 "
     "C>=60 D>=25 E>=1), scaling.<stat>.value the number it is graded from",
+    "reinforce_type_id": "weapon's ReinforceParamWeapon type (the upgrade path; affinity "
+    "types are 100-offset), kept for traceability",
+    "max_level": "weapon stats at its max upgrade, in the same shape as the +0 fields "
+    "(attack_power / scaling / guard, affinity applied); max_level.level is the max "
+    "(+25 regular, +10 somber, 0 if it can't be upgraded). Sort on "
+    "max_level.attack_power.physical for the strongest fully upgraded weapons",
+    "upgrade_curve": "not searchable; returned by get_entity. The weapon's stats at every "
+    "upgrade level as arrays indexed by level (upgrade_curve.attack_power.physical[25] = "
+    "+25), only for stats that change with level; an absent stat keeps its +0 value",
     "requirements": "attribute requirements by stat (weapons: str/dex/int/fai/arc; spells: "
     "int/fai)",
     "negation": "armor damage negation % by type: physical, strike, slash, pierce (physical "
