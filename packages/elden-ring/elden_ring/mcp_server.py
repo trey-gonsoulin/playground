@@ -237,8 +237,9 @@ def describe_fields() -> dict:
     .ja/.morph/.lemma Japanese subfields. Stats are grouped objects listed by dotted
     path (attack_power.fire, attack_power.critical, scaling.str.grade,
     scaling.str.value, requirements.dex, guard.physical, guard.resistances.bleed,
-    negation.slash,
-    stats.hp, defense.fire, resistances.bleed).
+    max_level.attack_power.physical, max_level.scaling.str.grade, negation.slash,
+    stats.hp, defense.fire, resistances.bleed). Weapons at max upgrade are under
+    max_level; the per-level upgrade_curve comes back from get_entity.
 
     If this tool returns a connection error, call start_search_service() first.
 

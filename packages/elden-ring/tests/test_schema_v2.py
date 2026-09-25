@@ -58,10 +58,20 @@ def test_grouped_leaves_mapped():
         "guard.boost": "float",
         "guard.resistances.bleed": "float",
         "guard.resistances.death_blight": "float",
+        "reinforce_type_id": "integer",
+        "max_level.level": "integer",
+        "max_level.attack_power.physical": "integer",
+        "max_level.scaling.str.grade": "keyword",
+        "max_level.guard.boost": "float",
     }
     for path, type_ in expected.items():
         assert (_mapped(path) or {}).get("type") == type_, path
     assert _mapped("defense.physical") is None  # NpcParam has no physical defense
+
+
+def test_upgrade_curve_not_indexed():
+    # Per-level arrays are returned, never searched (#112).
+    assert _PROPS["upgrade_curve"] == {"type": "object", "enabled": False}
 
 
 def test_builder_doc_shapes_fully_mapped():
@@ -78,6 +88,13 @@ def test_builder_doc_shapes_fully_mapped():
             },
             "requirements": {"str": 14, "dex": 12},
             "depicted_in_talisman": "Dagger Talisman",
+            "reinforce_type_id": 0,
+            "max_level": {
+                "level": 25,
+                "attack_power": {"physical": 306, "stamina": 122, "critical": 100},
+                "scaling": {"str": {"grade": "C", "value": 81.0}},
+                "guard": {"boost": 50.4, "resistances": {"bleed": 15.0}},
+            },
         },
         {"negation": {"physical": 10.0, "strike": 12.0, "holy": 4.0}},
         {"requirements": {"int": 18}, "fp_cost": 12, "spell_role": "Offensive"},
