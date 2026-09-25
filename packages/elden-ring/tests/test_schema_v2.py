@@ -51,6 +51,13 @@ def test_grouped_leaves_mapped():
         "stats.poise": "float",
         "defense.holy": "float",
         "resistances.bleed": "integer",
+        "attack_power.stamina": "integer",
+        "attack_power.critical": "integer",
+        "guard.physical": "float",
+        "guard.holy": "float",
+        "guard.boost": "float",
+        "guard.resistances.bleed": "float",
+        "guard.resistances.death_blight": "float",
     }
     for path, type_ in expected.items():
         assert (_mapped(path) or {}).get("type") == type_, path
@@ -61,8 +68,14 @@ def test_builder_doc_shapes_fully_mapped():
     # One doc per grouped shape the builders emit; strict mapping rejects any stray leaf.
     docs = [
         {
-            "attack_power": {"physical": 96},
+            "attack_power": {"physical": 96, "stamina": 61, "critical": 130},
             "scaling": {"str": {"grade": "B", "value": 97.2}},
+            "guard": {
+                "physical": 52.25,
+                "fire": 40.25,
+                "boost": 42.0,
+                "resistances": {"scarlet_rot": 14.25, "frostbite": 14.25},
+            },
             "requirements": {"str": 14, "dex": 12},
             "depicted_in_talisman": "Dagger Talisman",
         },
