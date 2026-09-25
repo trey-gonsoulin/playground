@@ -259,6 +259,8 @@ INDEX_MAPPING = {
             "weight": {"type": "float"},
             # Grouped stat objects (#115); weapon stats at +0.
             **_WEAPON_STATS,
+            # Weapon/ammo physical damage type(s), main first (#116).
+            "damage_types": {"type": "keyword"},
             # Weapon stats at its max upgrade (+25, somber +10) in the +0 shape, and
             # the per-level curve as non-indexed arrays (#112).
             "reinforce_type_id": {"type": "integer"},
@@ -1205,6 +1207,9 @@ _FIELD_NOTES: dict[str, str] = {
     "scaling": "weapon attribute scaling at +0 by stat (str/dex/int/fai/arc), affinity "
     "multiplier applied; scaling.<stat>.grade is the in-game letter (S>=175 A>=140 B>=90 "
     "C>=60 D>=25 E>=1), scaling.<stat>.value the number it is graded from",
+    "damage_types": "weapon/ammo physical damage type(s) as shown in game: Standard, "
+    "Strike, Slash, Pierce (main type first, e.g. Halberd [Standard, Pierce]). Omitted on "
+    "bows/crossbows/ballistas, whose damage type comes from the ammo",
     "reinforce_type_id": "weapon's ReinforceParamWeapon type (the upgrade path; affinity "
     "types are 100-offset), kept for traceability",
     "max_level": "weapon stats at its max upgrade, in the same shape as the +0 fields "

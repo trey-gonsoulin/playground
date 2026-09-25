@@ -58,6 +58,7 @@ def test_grouped_leaves_mapped():
         "guard.boost": "float",
         "guard.resistances.bleed": "float",
         "guard.resistances.death_blight": "float",
+        "damage_types": "keyword",
         "reinforce_type_id": "integer",
         "max_level.level": "integer",
         "max_level.attack_power.physical": "integer",
@@ -88,6 +89,7 @@ def test_builder_doc_shapes_fully_mapped():
             },
             "requirements": {"str": 14, "dex": 12},
             "depicted_in_talisman": "Dagger Talisman",
+            "damage_types": ["Standard", "Pierce"],
             "reinforce_type_id": 0,
             "max_level": {
                 "level": 25,
