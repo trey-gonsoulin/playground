@@ -233,7 +233,7 @@ def describe_fields() -> dict:
     that can be searched (search_entities_literal fields=), filtered (source=), or
     diffed (text_changed_between field=) is listed with its type and a note where
     the meaning isn't obvious — including the native-rich fields like effect,
-    infusable, default_ash_of_war, is_legendary, depicts_weapon, and the
+    infusable, default_ash_of_war, damage_types, is_legendary, depicts_weapon, and the
     .ja/.morph/.lemma Japanese subfields. Stats are grouped objects listed by dotted
     path (attack_power.fire, attack_power.critical, scaling.str.grade,
     scaling.str.value, requirements.dex, guard.physical, guard.resistances.bleed,
