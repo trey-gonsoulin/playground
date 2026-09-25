@@ -13,4 +13,4 @@ def test_affinity_filter_drops_only_non_standard_affinity_docs():
     # Excluded = has an affinity AND it isn't Standard; docs without the field
     # (non-weapons, non-infusable weapons) and Standard rows pass through.
     assert variant["bool"]["filter"] == [{"exists": {"field": "affinity"}}]
-    assert variant["bool"]["must_not"] == [{"term": {"affinity.keyword": "Standard"}}]
+    assert variant["bool"]["must_not"] == [{"term": {"affinity": "Standard"}}]

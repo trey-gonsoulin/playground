@@ -233,8 +233,10 @@ def describe_fields() -> dict:
     that can be searched (search_entities_literal fields=), filtered (source=), or
     diffed (text_changed_between field=) is listed with its type and a note where
     the meaning isn't obvious — including the native-rich fields like effect,
-    negation_slash/strike/pierce, infusable, default_ash_of_war, is_legendary,
-    depicts_weapon, and the .ja/.morph/.lemma Japanese subfields.
+    infusable, default_ash_of_war, is_legendary, depicts_weapon, and the
+    .ja/.morph/.lemma Japanese subfields. Stats are grouped objects listed by dotted
+    path (attack_power.fire, scaling.str.grade, requirements.dex, negation.slash,
+    stats.hp, defense.fire, resistances.bleed).
 
     If this tool returns a connection error, call start_search_service() first.
 
@@ -482,8 +484,9 @@ def text_changed_between(
             merchant, npc_dialogue).
         field: Field to compare, e.g. "description", "description_ja", "text_content",
             "location", "effect", "display_name" (per-patch FMG name — use this to find
-            weapons renamed across patches). Any indexed field works; missing values compare
-            as null. Call describe_fields() for the full list.
+            weapons renamed across patches). Any indexed field works, including a grouped
+            stat by dotted path ("attack_power.physical", "stats.hp"); missing values
+            compare as null. Call describe_fields() for the full list.
         v1: Older patch version, e.g. "1.02.1".
         v2: Newer patch version, e.g. "1.10.0".
         count_only: If True, return {"total": N} instead of the full diff list. Useful
@@ -533,7 +536,8 @@ def diff_entities(
         name: the entity's current (canonical) name
         queried_name: your input, only when it differed from name
         changed: bool — whether any fields differ
-        changed_fields: {field: {v1: old_value, v2: new_value}} for each changed field
+        changed_fields: {field: {v1: old_value, v2: new_value}} for each changed field;
+            grouped stats are compared per leaf by dotted path (attack_power.physical)
         unchanged_fields: [field, ...] for fields present in both with identical values
 
     Returns {"error": "..."} if either version is not loaded or the entity is not

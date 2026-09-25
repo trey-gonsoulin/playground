@@ -98,9 +98,8 @@ def test_index_and_retrieve(client):
         "description": "A test weapon used only for integration testing.",
         "text_content": "integration test placeholder",
         "tags": ["test"],
-        "req_str": 10,
-        "req_dex": 20,
-        "attack_physical": 100,
+        "requirements": {"str": 10, "dex": 20},
+        "attack_power": {"physical": 100},
     }
     doc_id = "weapon::__test_sword__::test"
 
@@ -118,8 +117,8 @@ def test_index_and_retrieve(client):
         # Get by exact name
         retrieved = _os.get_entity(client, "__test_sword__", entity_type="weapon")
         assert retrieved is not None
-        assert retrieved["req_dex"] == 20
-        assert retrieved["attack_physical"] == 100
+        assert retrieved["requirements"]["dex"] == 20
+        assert retrieved["attack_power"]["physical"] == 100
 
         # entity type aggregation
         types = _os.list_entity_types(client)
@@ -166,7 +165,7 @@ def test_search_include_fields(client):
         "source": "test",
         "description": "include_fields integration test weapon.",
         "text_content": "fields test placeholder",
-        "req_str": 15,
+        "requirements": {"str": 15},
     }
     doc_id = "weapon::__test_fields_sword__::test"
     try:
@@ -836,7 +835,7 @@ def test_get_entity_returns_newest_patch(client):
             "source": "test",
             "description": "old version",
             "text_content": "",
-            "req_str": 1,
+            "requirements": {"str": 1},
         },
         {
             "entity_type": "weapon",
@@ -845,7 +844,7 @@ def test_get_entity_returns_newest_patch(client):
             "source": "test",
             "description": "new version",
             "text_content": "",
-            "req_str": 99,
+            "requirements": {"str": 99},
         },
     ]
     ids = [
@@ -862,7 +861,7 @@ def test_get_entity_returns_newest_patch(client):
             f"Expected newest patch, got '{result['patch_version']}'; "
             "get_entity may be missing the patch_version desc sort (#28)"
         )
-        assert result["req_str"] == 99
+        assert result["requirements"]["str"] == 99
 
     finally:
         for doc_id in ids:
@@ -1127,7 +1126,7 @@ def test_search_collapse_returns_newest_patch(client):
             "source": "test",
             "description": "collapse newest regression unique qwerty",
             "text_content": "",
-            "req_str": 1,
+            "requirements": {"str": 1},
         },
         {
             "entity_type": "weapon",
@@ -1136,7 +1135,7 @@ def test_search_collapse_returns_newest_patch(client):
             "source": "test",
             "description": "collapse newest regression unique qwerty",
             "text_content": "",
-            "req_str": 99,
+            "requirements": {"str": 99},
             "effect": "newest-only field",  # stamped only on the newer patch
         },
         {
@@ -1635,7 +1634,7 @@ def test_enemy_entity_searchable(client):
         "source": "NpcName",
         "text_content": "__test_boss_zqx__",
         "tags": ["enemy"],
-        "hp": 12345,
+        "stats": {"hp": 12345},
     }
     doc_id = "enemy::__test_boss_zqx__::test"
     try:
@@ -1655,7 +1654,7 @@ def test_enemy_entity_searchable(client):
         got = _os.get_entity(client, "__test_boss_zqx__", entity_type="enemy")
         assert got is not None
         assert got["name_ja"] == "テスト・ボスzqx"
-        assert got["hp"] == 12345
+        assert got["stats"]["hp"] == 12345
 
         assert "enemy" in _os.list_entity_types(client)
 
@@ -1727,7 +1726,7 @@ _RENAME_DOCS = [
             "source": "EquipParamWeapon",
             "description": "rename test",
             "text_content": "",
-            "attack_physical": 114,
+            "attack_power": {"physical": 114},
         },
     ),
     # New patch: display_name == canonical name.
@@ -1741,7 +1740,7 @@ _RENAME_DOCS = [
             "source": "EquipParamWeapon",
             "description": "rename test",
             "text_content": "",
-            "attack_physical": 120,
+            "attack_power": {"physical": 120},
         },
     ),
 ]
@@ -1768,7 +1767,7 @@ def test_get_entity_flags_historical_name(client, renamed_weapon):
     got = _os.get_entity(client, "__test_canon_old__", entity_type="weapon")
     assert got is not None
     assert got["patch_version"] == "test-ren-b", got
-    assert got["attack_physical"] == 120
+    assert got["attack_power"]["physical"] == 120
     assert got["name_is_historical"] is True
     assert got["queried_name"] == "__test_canon_old__"
 
@@ -1783,7 +1782,7 @@ def test_diff_entities_accepts_historical_name(client, renamed_weapon):
     assert "error" not in result, result
     assert result["name"] == "__test_canon__"
     assert result["queried_name"] == "__test_canon_old__"
-    assert result["changed_fields"]["attack_physical"] == {
+    assert result["changed_fields"]["attack_power.physical"] == {
         "test-ren-a": 114,
         "test-ren-b": 120,
     }

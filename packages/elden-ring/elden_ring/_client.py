@@ -123,7 +123,17 @@ def start_instance(timeout_seconds: int = 240) -> str:
 # Index definition
 # ---------------------------------------------------------------------------
 
-INDEX = "elden-ring-entities"
+# Overridable so a full reindex can target a new versioned index before cutover.
+INDEX = os.environ.get("ELDEN_RING_INDEX", "elden-ring-entities")
+
+_DAMAGE_TYPES = ("physical", "magic", "fire", "lightning", "holy")
+_NEGATION_TYPES = (*_DAMAGE_TYPES, "strike", "slash", "pierce")
+_STATS = ("str", "dex", "int", "fai", "arc")
+
+
+def _props(type_: str, keys) -> dict:
+    return {k: {"type": type_} for k in keys}
+
 
 INDEX_MAPPING = {
     "settings": {
@@ -182,6 +192,8 @@ INDEX_MAPPING = {
         },
     },
     "mappings": {
+        # An unmapped field fails the load instead of silently becoming text+keyword.
+        "dynamic": "strict",
         "properties": {
             "entity_type": {"type": "keyword"},
             "name": {
@@ -200,36 +212,25 @@ INDEX_MAPPING = {
             },
             "patch_version": {"type": "keyword"},
             "source": {"type": "keyword"},
-            # text + keyword subfield (the standard dynamic-string shape). The
-            # availability vocabulary is single-token ("cut"), so the term filter in
-            # _availability_filter matches on the analyzed base field; the .keyword
-            # subfield is there for exact aggregation. Kept as text (not bare keyword)
-            # to match the already-live mapping so put_mapping stays idempotent.
-            "availability": {
-                "type": "text",
-                "fields": {"keyword": {"type": "keyword", "ignore_above": 256}},
-            },
+            # cut / unobtainable (#71, #102); absent on obtainable content.
+            "availability": {"type": "keyword"},
             "description": {"type": "text"},
             "text_content": {"type": "text"},
             "tags": {"type": "keyword"},
             "location": {"type": "text", "fields": {"keyword": {"type": "keyword"}}},
             "weight": {"type": "float"},
-            "attack_physical": {"type": "integer"},
-            "attack_magic": {"type": "integer"},
-            "attack_fire": {"type": "integer"},
-            "attack_lightning": {"type": "integer"},
-            "attack_holy": {"type": "integer"},
-            "scaling_str": {"type": "keyword"},
-            "scaling_dex": {"type": "keyword"},
-            "scaling_int": {"type": "keyword"},
-            "scaling_fai": {"type": "keyword"},
-            "scaling_arc": {"type": "keyword"},
-            "req_str": {"type": "integer"},
-            "req_dex": {"type": "integer"},
-            "req_int": {"type": "integer"},
-            "req_fai": {"type": "integer"},
-            "req_arc": {"type": "integer"},
+            # Grouped stat objects (#115). Plain `object` fields index as dotted paths
+            # (attack_power.fire, requirements.str), so filters, sorts and aggregations
+            # work as on flat fields.
+            "attack_power": {"properties": _props("integer", _DAMAGE_TYPES)},
+            "scaling": {
+                "properties": {
+                    s: {"properties": {"grade": {"type": "keyword"}}} for s in _STATS
+                }
+            },
+            "requirements": {"properties": _props("integer", _STATS)},
             "fp_cost": {"type": "integer"},
+            "spell_role": {"type": "keyword"},
             "slots": {"type": "integer"},
             "sort_id": {"type": "integer"},
             "menu_category": {"type": "keyword"},
@@ -237,15 +238,15 @@ INDEX_MAPPING = {
             "name_source": {"type": "keyword"},
             "chr_models": {"type": "keyword"},
             # Enemy (NpcParam) combat stats, from the row bound by health bar / NameID
-            # / spirit-ash label (#84). hp is `long` to match the pre-existing live
-            # mapping (put_mapping can't narrow long->integer).
-            "hp": {"type": "long"},
-            "stamina": {"type": "integer"},
-            "poise": {"type": "float"},
-            "magic_defense": {"type": "float"},
-            "fire_defense": {"type": "float"},
-            "lightning_defense": {"type": "float"},
-            "holy_defense": {"type": "float"},
+            # / spirit-ash label (#84).
+            "stats": {
+                "properties": {
+                    "hp": {"type": "integer"},
+                    "stamina": {"type": "integer"},
+                    "poise": {"type": "float"},
+                }
+            },
+            "defense": {"properties": _props("float", _DAMAGE_TYPES[1:])},
             "resistances": {
                 "properties": {
                     k: {"type": "integer"}
@@ -290,41 +291,26 @@ INDEX_MAPPING = {
             "acquisition_types": {"type": "keyword"},
             "acquisition_sources": {"type": "keyword"},
             "dropped_by": {"type": "keyword"},
-            # text + keyword multifield: matches the dynamic default already live,
-            # so ensure_index's put_mapping is a no-op (avoids a text->keyword
-            # conflict); exact-match / aggregate on drops.keyword, free-text on drops.
-            "drops": {
-                "type": "text",
-                "fields": {"keyword": {"type": "keyword", "ignore_above": 256}},
-            },
+            "drops": {"type": "keyword"},
             "sold_by": {"type": "keyword"},
             "base_item": {"type": "keyword"},
             "text_differs": {"type": "boolean"},
             "text_added_lines": {"type": "text"},
-            # text + keyword multifield to match the dynamic default already live
-            # (see drops); exact-match on affinity.keyword.
-            "affinity": {
-                "type": "text",
-                "fields": {"keyword": {"type": "keyword", "ignore_above": 256}},
-            },
+            "affinity": {"type": "keyword"},
             "is_legendary": {"type": "boolean"},
-            "achievement_set": {"type": "keyword"},
             "effect": {"type": "text"},
             "effect_value": {"type": "float"},
             "infusable": {"type": "boolean"},
             "default_ash_of_war": {"type": "keyword"},
             "depicted_in_talisman": {"type": "keyword"},
             "depicts_weapon": {"type": "keyword"},
-            # Armor damage negation (percent) by physical sub-type; the standard
-            # physical/magic/fire/lightning/holy negation lives in defense_*.
-            "negation_slash": {"type": "float"},
-            "negation_strike": {"type": "float"},
-            "negation_pierce": {"type": "float"},
+            # Armor damage negation (percent).
+            "negation": {"properties": _props("float", _NEGATION_TYPES)},
             # Armor-alteration links (Boc / Master Hewg service).
             "alterable": {"type": "boolean"},
             "altered_variant": {"type": "keyword"},
             "altered_from": {"type": "keyword"},
-        }
+        },
     },
 }
 
@@ -389,7 +375,7 @@ def _affinity_filter(collapse_affinity: bool) -> list[dict]:
     variant = {
         "bool": {
             "filter": [{"exists": {"field": "affinity"}}],
-            "must_not": [{"term": {"affinity.keyword": "Standard"}}],
+            "must_not": [{"term": {"affinity": "Standard"}}],
         }
     }
     return [{"bool": {"must_not": [variant]}}]
@@ -605,6 +591,18 @@ def _resolve_asof(version: str, versions: list[str]) -> str | None:
     return max(candidates, key=_ver_key) if candidates else None
 
 
+def _flatten(doc: dict, prefix: str = "") -> dict:
+    """Grouped stat objects as dotted leaves ({"stats": {"hp": 1}} -> {"stats.hp": 1}),
+    so a diff names the stat that changed rather than the whole group (#115)."""
+    out: dict = {}
+    for k, v in doc.items():
+        if isinstance(v, dict):
+            out.update(_flatten(v, f"{prefix}{k}."))
+        else:
+            out[prefix + k] = v
+    return out
+
+
 _DIFF_SKIP_FIELDS: frozenset[str] = frozenset(
     {"entity_type", "patch_version", "source", "npc_id"}
 )
@@ -681,6 +679,7 @@ def diff_entities(
         missing_str = " and ".join(missing)
         return {"error": f"'{name}' not present in {missing_str}"}
 
+    doc1, doc2 = _flatten(doc1), _flatten(doc2)
     all_fields = (set(doc1) | set(doc2)) - _DIFF_SKIP_FIELDS
     changed: dict = {}
     unchanged: list[str] = []
@@ -1016,7 +1015,7 @@ def text_changed_between(
             },
         )
         return {
-            hit["_source"]["name"]: hit["_source"].get(field)
+            hit["_source"]["name"]: _flatten(hit["_source"]).get(field)
             for hit in resp["hits"]["hits"]
         }
 
@@ -1122,8 +1121,8 @@ def list_entity_types(client: OpenSearch) -> list[str]:
 
 # Human-oriented notes for non-obvious queryable fields. Every mapped field is
 # reported by describe_index with its type; these annotations add meaning for the
-# ones a caller can't guess. Base-game stats (attack_*, req_*, scaling_*, weight,
-# fp_cost) are self-describing and intentionally omitted.
+# ones a caller can't guess. Grouped stat objects are keyed by their dotted path
+# (stats.hp); self-describing leaves (attack_power.fire, requirements.str) get no note.
 _FIELD_NOTES: dict[str, str] = {
     "entity_type": "category filter: weapon, armor, spell, item, ash_of_war, merchant, npc_dialogue",
     "patch_version": "real game patch the doc was extracted from (native is per-patch); use with diff_entities",
@@ -1149,7 +1148,7 @@ _FIELD_NOTES: dict[str, str] = {
     "text_added_lines": "the variant's text lines (EN + JP) with no counterpart in base_item, "
     "e.g. 「伝説のタリスマン」のひとつ on Erdtree's Favor +2",
     "tags": "free-form keyword tags (spell school/role, weapon category, 'Talisman', etc.)",
-    "location": "where the entity is found / sold (text + .keyword)",
+    "location": "where a merchant is found",
     "sold_by": "merchant names that sell this item, derived per-patch from ShopLineupParam",
     "acquisition_types": "how the item is obtained, per-patch: merchant / enemy_drop / found_in_world",
     "acquisition_sources": "named sources: merchant names and/or boss/named-enemy names (see dropped_by)",
@@ -1165,14 +1164,17 @@ _FIELD_NOTES: dict[str, str] = {
     "effect": "talisman/item effect text derived from SpEffectParam (native)",
     "effect_value": "primary numeric magnitude of the effect",
     "is_legendary": "part of a legendary set (achievement-tracked)",
-    "achievement_set": "which legendary achievement set the item belongs to",
     "infusable": "weapon can take an affinity/ash-of-war infusion",
     "default_ash_of_war": "the skill a weapon ships with (from SwordArtsParam)",
     "depicts_weapon": "talisman depicts this weapon (lore cross-reference)",
     "depicted_in_talisman": "weapon depicted in this talisman (lore cross-reference)",
-    "negation_slash": "armor slash (physical sub-type) damage negation %",
-    "negation_strike": "armor strike (physical sub-type) damage negation %",
-    "negation_pierce": "armor pierce (physical sub-type) damage negation %",
+    "attack_power": "weapon/ammo base attack power (+0) by damage type",
+    "scaling": "weapon attribute scaling by stat (str/dex/int/fai/arc); scaling.<stat>.grade "
+    "is the letter grade",
+    "requirements": "attribute requirements by stat (weapons: str/dex/int/fai/arc; spells: "
+    "int/fai)",
+    "negation": "armor damage negation % by type: physical, strike, slash, pierce (physical "
+    "sub-types), magic, fire, lightning, holy",
     "alterable": "armor piece can be altered (Boc / Master Hewg service)",
     "altered_variant": "name of the altered version of this armor",
     "altered_from": "name of the base armor this piece is altered from",
@@ -1180,14 +1182,12 @@ _FIELD_NOTES: dict[str, str] = {
     "description_ja": "Japanese description; .ja/.morph/.lemma subfields drive JP search modes",
     "text_content_ja": "Japanese long text; .ja/.morph/.lemma subfields drive JP search modes",
     "npc_id": "enemy's NpcName FMG id (6-digit humanoid / 9-digit boss & creature)",
-    "hp": "enemy base max HP (NpcParam, before per-area scaling). Enemy stats come from one "
-    "NpcParam row, bound by boss health bar, then NameID, then spirit-ash label (#84)",
-    "stamina": "enemy max stamina (NpcParam)",
-    "poise": "enemy max poise (NpcParam)",
-    "magic_defense": "enemy magic defense (NpcParam)",
-    "fire_defense": "enemy fire defense (NpcParam)",
-    "lightning_defense": "enemy lightning defense (NpcParam)",
-    "holy_defense": "enemy holy defense (NpcParam)",
+    "stats": "enemy combat stats from one NpcParam row, bound by boss health bar, then "
+    "NameID, then spirit-ash label (#84)",
+    "stats.hp": "enemy base max HP (NpcParam, before per-area scaling)",
+    "stats.poise": "enemy max poise; absent when poise is disabled",
+    "defense": "enemy elemental defense (NpcParam): magic, fire, lightning, holy. NpcParam has "
+    "no physical defense",
     "resistances": "enemy status buildup resistances (NpcParam): poison / scarlet_rot / bleed "
     "/ frostbite / sleep / madness / death_blight. 999 = immune; higher = more buildup needed",
     "immune_to": "enemy statuses at 999 resistance (immune), e.g. madness, death_blight",
@@ -1221,15 +1221,21 @@ def describe_index(client: OpenSearch) -> dict:
         b["key"]: b["doc_count"] for b in resp["aggregations"]["sources"]["buckets"]
     }
 
-    props = INDEX_MAPPING["mappings"]["properties"]
     fields: dict[str, dict] = {}
-    for fname, spec in props.items():
-        entry: dict = {"type": spec.get("type", "object")}
-        subs = [s for s in spec.get("fields", {})]
-        if subs:
-            entry["subfields"] = subs
-        if fname in _FIELD_NOTES:
-            entry["note"] = _FIELD_NOTES[fname]
-        fields[fname] = entry
+
+    def _walk(props: dict, prefix: str) -> None:
+        for fname, spec in props.items():
+            path = prefix + fname
+            entry: dict = {"type": spec.get("type", "object")}
+            subs = [s for s in spec.get("fields", {})]
+            if subs:
+                entry["subfields"] = subs
+            if path in _FIELD_NOTES:
+                entry["note"] = _FIELD_NOTES[path]
+            fields[path] = entry
+            if "properties" in spec:
+                _walk(spec["properties"], path + ".")
+
+    _walk(INDEX_MAPPING["mappings"]["properties"], "")
 
     return {"entity_types": entity_types, "sources": sources, "fields": fields}
