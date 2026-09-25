@@ -129,6 +129,15 @@ INDEX = os.environ.get("ELDEN_RING_INDEX", "elden-ring-entities")
 _DAMAGE_TYPES = ("physical", "magic", "fire", "lightning", "holy")
 _NEGATION_TYPES = (*_DAMAGE_TYPES, "strike", "slash", "pierce")
 _STATS = ("str", "dex", "int", "fai", "arc")
+_STATUSES = (
+    "poison",
+    "scarlet_rot",
+    "bleed",
+    "frostbite",
+    "sleep",
+    "madness",
+    "death_blight",
+)
 
 
 def _props(type_: str, keys) -> dict:
@@ -222,7 +231,17 @@ INDEX_MAPPING = {
             # Grouped stat objects (#115). Plain `object` fields index as dotted paths
             # (attack_power.fire, requirements.str), so filters, sorts and aggregations
             # work as on flat fields.
-            "attack_power": {"properties": _props("integer", _DAMAGE_TYPES)},
+            "attack_power": {
+                "properties": _props("integer", (*_DAMAGE_TYPES, "stamina", "critical"))
+            },
+            # Weapon block stats at +0 (#114); floats, as the affinity products are
+            # fractional (Fire Halberd guard 52.25).
+            "guard": {
+                "properties": {
+                    **_props("float", (*_DAMAGE_TYPES, "boost")),
+                    "resistances": {"properties": _props("float", _STATUSES)},
+                }
+            },
             "scaling": {
                 "properties": {
                     s: {
@@ -253,20 +272,7 @@ INDEX_MAPPING = {
                 }
             },
             "defense": {"properties": _props("float", _DAMAGE_TYPES[1:])},
-            "resistances": {
-                "properties": {
-                    k: {"type": "integer"}
-                    for k in (
-                        "poison",
-                        "scarlet_rot",
-                        "bleed",
-                        "frostbite",
-                        "sleep",
-                        "madness",
-                        "death_blight",
-                    )
-                }
-            },
+            "resistances": {"properties": _props("integer", _STATUSES)},
             "immune_to": {"type": "keyword"},
             "traits": {"type": "keyword"},
             "weak_point_damage_multiplier": {"type": "float"},
@@ -1175,7 +1181,14 @@ _FIELD_NOTES: dict[str, str] = {
     "depicts_weapon": "talisman depicts this weapon (lore cross-reference)",
     "depicted_in_talisman": "weapon depicted in this talisman (lore cross-reference)",
     "attack_power": "weapon/ammo attack power at +0 by damage type, as shown in game "
-    "(affinity multiplier applied)",
+    "(affinity multiplier applied). Weapons also carry stamina (damage dealt to the "
+    "target's stamina) and critical (critical-hit multiplier, 100 = base; daggers 130)",
+    "guard": "weapon block stats at +0, affinity multiplier applied: guarded damage "
+    "negation % by type (physical/magic/fire/lightning/holy), boost (guard boost) and "
+    "resistances (guarded status resistance by status)",
+    "guard.boost": "guard boost: how well blocking withstands stamina damage",
+    "guard.resistances": "guarded status buildup resistance: poison / scarlet_rot / bleed / "
+    "frostbite / sleep / madness / death_blight (the in-game Guard 'Resist' line)",
     "scaling": "weapon attribute scaling at +0 by stat (str/dex/int/fai/arc), affinity "
     "multiplier applied; scaling.<stat>.grade is the in-game letter (S>=175 A>=140 B>=90 "
     "C>=60 D>=25 E>=1), scaling.<stat>.value the number it is graded from",

@@ -235,7 +235,8 @@ def describe_fields() -> dict:
     the meaning isn't obvious — including the native-rich fields like effect,
     infusable, default_ash_of_war, is_legendary, depicts_weapon, and the
     .ja/.morph/.lemma Japanese subfields. Stats are grouped objects listed by dotted
-    path (attack_power.fire, scaling.str.grade, scaling.str.value, requirements.dex,
+    path (attack_power.fire, attack_power.critical, scaling.str.grade,
+    scaling.str.value, requirements.dex, guard.physical, guard.resistances.bleed,
     negation.slash,
     stats.hp, defense.fire, resistances.bleed).
 
