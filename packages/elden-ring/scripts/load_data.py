@@ -68,9 +68,7 @@ def _get_client() -> OpenSearch:
     )
 
 
-INDEX = "elden-ring-entities"
-
-from elden_ring._client import INDEX_MAPPING  # reuse mapping definition
+from elden_ring._client import INDEX, INDEX_MAPPING  # reuse index name + mapping
 
 # ---------------------------------------------------------------------------
 # erdb source

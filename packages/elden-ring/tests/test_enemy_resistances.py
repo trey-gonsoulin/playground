@@ -36,4 +36,4 @@ def test_resistance_and_trait_fields_documented():
         assert trait in _FIELD_NOTES["traits"]
     assert "immune_to" in _FIELD_NOTES
     assert "weak_point_damage_multiplier" in _FIELD_NOTES
-    assert "humanoid subset" not in _FIELD_NOTES["hp"]
+    assert "humanoid subset" not in _FIELD_NOTES["stats.hp"]
