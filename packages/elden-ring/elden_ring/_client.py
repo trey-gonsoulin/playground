@@ -187,6 +187,22 @@ _POISE_ATTACKS = (
     "jumping_r1",
     "jumping_r2",
     "powerstance",
+    # One-handed only (#126).
+    "left_r1",
+    "mounted_r1",
+    "mounted_r2",
+    "mounted_charged_r2",
+    "mounted_jumping_r1",
+    "mounted_jumping_r2",
+    "mounted_left_r1",
+    "mounted_left_r2",
+    "mounted_left_charged_r2",
+    "mounted_left_jumping_r1",
+    "mounted_left_jumping_r2",
+    "powerstance_running",
+    "powerstance_rolling",
+    "powerstance_backstep",
+    "powerstance_jumping",
 )
 _POISE_HANDS = {
     hand: {"properties": _props("float", _POISE_ATTACKS)}
@@ -1276,8 +1292,11 @@ _FIELD_NOTES: dict[str, str] = {
     "or raise it and it grows with upgrade level (see max_level / upgrade_curve)",
     "poise_damage": "weapon poise (stance) damage per attack, first hit, by hand "
     "(one_handed / two_handed) and attack: r1, r2, charged_r2, guard_counter, "
-    "running_r1, running_r2, rolling_r1, crouch_r1, jumping_r1, jumping_r2, and "
-    "powerstance (dual-wield L1 combo, one_handed only, e.g. Dagger 1.8 per hit). PvE "
+    "running_r1, running_r2, rolling_r1, crouch_r1, jumping_r1, jumping_r2. One_handed "
+    "only: powerstance (dual-wield L1 combo, e.g. Dagger 1.8 per hit) and "
+    "powerstance_running/_rolling/_backstep/_jumping; left_r1 (left-hand light chain); "
+    "mounted (Torrent) attacks mounted_r1, mounted_r2, mounted_charged_r2, "
+    "mounted_jumping_r1/_r2 and the same swung to the left side as mounted_left_*. PvE "
     "values are in the same units as an enemy's stats.poise (Greatsword 2H charged R2 "
     "39.6; Dagger 1H jumping_r2 12); upgrades never change them. An attack a weapon "
     "lacks is absent (staves/seals/shields have no running/rolling/crouch rows). Ash of "
@@ -1289,7 +1308,9 @@ _FIELD_NOTES: dict[str, str] = {
     "player's displayed poise. Only from 1.07, when the PvP rates were introduced",
     "poise_damage_chains": "not searchable; returned by get_entity. Every hit of each "
     "chain, e.g. poise_damage_chains.pvp.one_handed.r1 = Dagger [40.5, 63, 63, 63, 63, "
-    "126]",
+    "126]. Jumping chains hold the jump's two hit rows: equal on most weapons, a "
+    "stronger second hit on some two-handed jumps (Hookclaws two_handed.jumping_r1 "
+    "[2.7, 5.4], Twinblade [3.25, 5])",
     "reinforce_type_id": "weapon's ReinforceParamWeapon type (the upgrade path; affinity "
     "types are 100-offset), kept for traceability",
     "max_level": "weapon stats at its max upgrade, in the same shape as the +0 fields "

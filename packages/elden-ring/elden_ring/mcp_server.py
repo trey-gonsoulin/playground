@@ -245,7 +245,8 @@ def describe_fields() -> dict:
     get_entity. Spirit ashes carry their summons' +0 stats as summon_stats, +10 as
     max_level.summon_stats, and every level in upgrade_curve.summon_stats. Weapons
     carry per-attack poise damage (poise_damage.two_handed.charged_r2, running,
-    rolling, crouch, jumping and one-handed powerstance attacks, PvP under
+    rolling, crouch and jumping attacks; one-handed powerstance, left-hand and
+    mounted attacks such as poise_damage.one_handed.mounted_charged_r2; PvP under
     poise_damage.pvp); full hit chains come back from get_entity as poise_damage_chains.
 
     If this tool returns a connection error, call start_search_service() first.
