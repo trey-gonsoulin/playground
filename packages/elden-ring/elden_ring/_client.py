@@ -364,6 +364,22 @@ INDEX_MAPPING = {
                     "shared_with": {"type": "keyword"},
                 }
             },
+            # Humanoid enemy loadout (MSB CharaInitID -> CharaInitParam, #85) and
+            # its reverse on item docs.
+            "equipment": {
+                "properties": _props(
+                    "keyword",
+                    (
+                        "weapons",
+                        "ashes_of_war",
+                        "armor",
+                        "spells",
+                        "talismans",
+                        "ammo",
+                    ),
+                )
+            },
+            "equipped_by": {"type": "keyword"},
             # Spirit-ash summons: one entry per distinct summoned NpcParam row (#86).
             "summon_count": {"type": "integer"},
             "summon_stats": {"properties": _SUMMON_STATS},
@@ -1258,6 +1274,14 @@ _FIELD_NOTES: dict[str, str] = {
     "dropped_by": "enemies that drop this item: bosses/named enemies (map EMEVD + MSB "
     "placements, #68) and generic mobs named by their spirit-ash model label (#104)",
     "drops": "on an enemy doc: items this enemy drops (EMEVD awards + MSB death lots)",
+    "equipment": "on a humanoid enemy/NPC/invader doc: the gear it is equipped with, from "
+    "its map placement's CharaInitParam loadout (#85). Groups: weapons, ashes_of_war, armor, "
+    "spells, talismans, ammo (item doc names; e.g. Recusant Henricus: Great Mace + Ash of "
+    "War: Eruption). NPCs mostly use NPC-only copies of items; those are resolved to the real "
+    "item they copy, and unnamed pieces (bare heads, placeholder armor) are left out. A name "
+    "with several encounters lists the union. Absent on bosses/creatures without a loadout",
+    "equipped_by": "on an item doc: enemies whose loadout includes it (reverse of "
+    "equipment). A weapon's Standard doc carries it, not its affinity variants",
     "name_source": "on an enemy doc: where the name comes from — 'npc_name' (the per-character "
     "NpcName roster) or 'spirit_ash' (a generic-mob model label taken from its spirit ash, "
     "e.g. 'Godrick Soldier'; covers every placement of that model, #104)",

@@ -100,6 +100,11 @@ def test_grouped_leaves_mapped():
         "attacks.status_buildup.scarlet_rot": "integer",
         "attacks.status_effects": "keyword",
         "attacks.shared_with": "keyword",
+        "equipment.weapons": "keyword",
+        "equipment.ashes_of_war": "keyword",
+        "equipment.spells": "keyword",
+        "equipment.ammo": "keyword",
+        "equipped_by": "keyword",
     }
     for path, type_ in expected.items():
         assert (_mapped(path) or {}).get("type") == type_, path
@@ -168,7 +173,16 @@ def test_builder_doc_shapes_fully_mapped():
                 "status_effects": ["scarlet_rot", "frostbite"],
                 "shared_with": ["Commander O'Neil"],
             },
+            "equipment": {
+                "weapons": ["Great Stars", "Clawmark Seal"],
+                "ashes_of_war": ["Ash of War: Lion's Claw"],
+                "armor": ["Page Hood"],
+                "spells": ["Beast Claw"],
+                "talismans": ["Sacred Scorpion Charm"],
+                "ammo": ["Arrow"],
+            },
         },
+        {"equipped_by": ["Recusant Henricus"]},
         {
             "summon_count": 3,
             "summon_stats": [
