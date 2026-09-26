@@ -12,6 +12,8 @@ def _mapped(path: str) -> dict | None:
         spec = props.get(part)
         if spec is None:
             return None
+        if spec.get("enabled") is False:  # stored, not indexed: covers its subtree
+            return spec
         props = spec.get("properties", {})
     return spec
 
@@ -72,6 +74,12 @@ def test_grouped_leaves_mapped():
         "summon_stats.stats.hp": "integer",
         "summon_stats.resistances.sleep": "integer",
         "summon_stats.immune_to": "keyword",
+        "summon_stats.damage_multiplier": "float",
+        "max_level.summon_count": "integer",
+        "max_level.summon_stats.count": "integer",
+        "max_level.summon_stats.stats.hp": "integer",
+        "max_level.summon_stats.resistances.sleep": "integer",
+        "max_level.summon_stats.damage_multiplier": "float",
     }
     for path, type_ in expected.items():
         assert (_mapped(path) or {}).get("type") == type_, path
@@ -126,8 +134,25 @@ def test_builder_doc_shapes_fully_mapped():
                     "immune_to": ["bleed"],
                     "traits": [],
                     "weak_point_damage_multiplier": 1.5,
+                    "damage_multiplier": 1.0,
                 }
             ],
+            "max_level": {
+                "level": 10,
+                "summon_count": 3,
+                "summon_stats": [
+                    {
+                        "count": 3,
+                        "stats": {"hp": 3711, "stamina": 94, "poise": 35.0},
+                        "defense": {"magic": 120.0},
+                        "resistances": {"sleep": 200, "bleed": 999},
+                        "immune_to": ["bleed"],
+                        "traits": [],
+                        "damage_multiplier": 3.796,
+                    }
+                ],
+            },
+            "upgrade_curve": {"summon_stats": [{"stats": {"hp": [500, 3711]}}]},
         },
     ]
     for doc in docs:
