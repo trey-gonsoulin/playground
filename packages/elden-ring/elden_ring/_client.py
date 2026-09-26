@@ -1123,6 +1123,33 @@ def search_literal(
     return {"total": total, "results": [hit["_source"] for hit in resp["hits"]["hits"]]}
 
 
+def _affinity_variant(client: OpenSearch, base: str, affinity: str) -> str | None:
+    """Name of ``base``'s ``affinity`` variant when the affinity word isn't a prefix:
+    the game names some variants mid-name ("Scavenger's Heavy Curved Sword")."""
+    resp = client.search(
+        index=INDEX,
+        body={
+            "size": 20,
+            "_source": ["name"],
+            "query": {
+                "bool": {
+                    "filter": [
+                        {"term": {"entity_type": "weapon"}},
+                        {"term": {"affinity": affinity}},
+                    ],
+                    "must": [{"match": {"name": {"query": base, "operator": "and"}}}],
+                }
+            },
+            "collapse": {"field": "name.keyword"},
+        },
+    )
+    for hit in resp["hits"]["hits"]:
+        name = hit["_source"]["name"]
+        if name.replace(f"{affinity} ", "", 1) == base:
+            return name
+    return None
+
+
 def calculate_attack_rating(
     client: OpenSearch,
     weapon: str,
@@ -1141,6 +1168,10 @@ def calculate_attack_rating(
     if affinity and affinity != "Standard" and not weapon.startswith(f"{affinity} "):
         name = f"{affinity} {weapon}"
     canonical = _resolve_entity_name(client, name, "weapon")
+    if canonical is None and affinity:
+        canonical = _affinity_variant(client, weapon, affinity)
+    elif canonical is None and " " in weapon:  # "Heavy Scavenger's Curved Sword"
+        canonical = _affinity_variant(client, *reversed(weapon.split(" ", 1)))
     if canonical is None:
         return {"error": f"weapon '{name}' not found"}
     versions = _entity_versions(client, "weapon")
