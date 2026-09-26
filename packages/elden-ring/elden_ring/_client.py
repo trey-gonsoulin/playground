@@ -174,6 +174,12 @@ _WEAPON_STATS = {
     "status_buildup": {"properties": _props("integer", _STATUSES)},
 }
 
+# Weapon poise damage per attack, by hand (#119).
+_POISE_HANDS = {
+    hand: {"properties": _props("float", ("r1", "r2", "charged_r2", "guard_counter"))}
+    for hand in ("one_handed", "two_handed")
+}
+
 # NpcParam stat groups (#84), shared by enemy docs and spirit-ash summon_stats (#86).
 _NPC_STATS = {
     "stats": {
@@ -286,6 +292,11 @@ INDEX_MAPPING = {
             **_WEAPON_STATS,
             # Weapon/ammo physical damage type(s), main first (#116).
             "damage_types": {"type": "keyword"},
+            # Per-attack poise damage, first hit; chains stored, not indexed (#119).
+            "poise_damage": {
+                "properties": {**_POISE_HANDS, "pvp": {"properties": _POISE_HANDS}}
+            },
+            "poise_damage_chains": {"type": "object", "enabled": False},
             # Weapon stats at its max upgrade (+25, somber +10) in the +0 shape, and
             # the per-level curve as non-indexed arrays (#112); spirit-ash summons
             # at +10 (#117).
@@ -1237,6 +1248,17 @@ _FIELD_NOTES: dict[str, str] = {
     "scarlet_rot / bleed / frostbite / sleep / madness / death_blight), the in-game "
     "passive effect number, e.g. Uchigatana bleed 45. Cold/Poison/Blood affinities add "
     "or raise it and it grows with upgrade level (see max_level / upgrade_curve)",
+    "poise_damage": "weapon poise (stance) damage per attack, first hit, by hand "
+    "(one_handed / two_handed) and attack (r1, r2, charged_r2, guard_counter). PvE values "
+    "are in the same units as an enemy's stats.poise (Greatsword 2H charged R2 39.6); "
+    "upgrades never change them. Full hit chains in poise_damage_chains. Omitted on "
+    "bows/crossbows/ballistas (the shot's poise damage comes from the ammo)",
+    "poise_damage.pvp": "the same attacks against players, on the wiki's displayed-poise "
+    "scale (PvE x the attack's PvP rate x 10, e.g. Dagger 1H R1 40.5); compare with a "
+    "player's displayed poise. Only from 1.07, when the PvP rates were introduced",
+    "poise_damage_chains": "not searchable; returned by get_entity. Every hit of each "
+    "chain, e.g. poise_damage_chains.pvp.one_handed.r1 = Dagger [40.5, 63, 63, 63, 63, "
+    "126]",
     "reinforce_type_id": "weapon's ReinforceParamWeapon type (the upgrade path; affinity "
     "types are 100-offset), kept for traceability",
     "max_level": "weapon stats at its max upgrade, in the same shape as the +0 fields "
