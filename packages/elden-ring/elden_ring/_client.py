@@ -190,6 +190,13 @@ _NPC_STATS = {
     "weak_point_damage_multiplier": {"type": "float"},
 }
 
+# One spirit-ash summon entry (#86) at a given upgrade level (#117).
+_SUMMON_STATS = {
+    "count": {"type": "integer"},
+    **_NPC_STATS,
+    "damage_multiplier": {"type": "float"},
+}
+
 
 INDEX_MAPPING = {
     "settings": {
@@ -280,10 +287,16 @@ INDEX_MAPPING = {
             # Weapon/ammo physical damage type(s), main first (#116).
             "damage_types": {"type": "keyword"},
             # Weapon stats at its max upgrade (+25, somber +10) in the +0 shape, and
-            # the per-level curve as non-indexed arrays (#112).
+            # the per-level curve as non-indexed arrays (#112); spirit-ash summons
+            # at +10 (#117).
             "reinforce_type_id": {"type": "integer"},
             "max_level": {
-                "properties": {"level": {"type": "integer"}, **_WEAPON_STATS}
+                "properties": {
+                    "level": {"type": "integer"},
+                    **_WEAPON_STATS,
+                    "summon_count": {"type": "integer"},
+                    "summon_stats": {"properties": _SUMMON_STATS},
+                }
             },
             "upgrade_curve": {"type": "object", "enabled": False},
             "requirements": {"properties": _props("integer", _STATS)},
@@ -300,9 +313,7 @@ INDEX_MAPPING = {
             **_NPC_STATS,
             # Spirit-ash summons: one entry per distinct summoned NpcParam row (#86).
             "summon_count": {"type": "integer"},
-            "summon_stats": {
-                "properties": {"count": {"type": "integer"}, **_NPC_STATS}
-            },
+            "summon_stats": {"properties": _SUMMON_STATS},
             "name_ja": {
                 "type": "text",
                 "fields": {
@@ -1231,10 +1242,15 @@ _FIELD_NOTES: dict[str, str] = {
     "max_level": "weapon stats at its max upgrade, in the same shape as the +0 fields "
     "(attack_power / scaling / guard / status_buildup, affinity applied); max_level.level is the max "
     "(+25 regular, +10 somber, 0 if it can't be upgraded). Sort on "
-    "max_level.attack_power.physical for the strongest fully upgraded weapons",
+    "max_level.attack_power.physical for the strongest fully upgraded weapons. On a "
+    "spirit_ash doc: the summons at +10 (max_level.summon_stats / max_level.summon_count), "
+    "e.g. filter max_level.summon_stats.stats.hp for the tankiest fully upgraded spirits",
     "upgrade_curve": "not searchable; returned by get_entity. The weapon's stats at every "
     "upgrade level as arrays indexed by level (upgrade_curve.attack_power.physical[25] = "
-    "+25), only for stats that change with level; an absent stat keeps its +0 value",
+    "+25), only for stats that change with level; an absent stat keeps its +0 value. On a "
+    "spirit_ash doc: upgrade_curve.summon_stats is a list aligned with summon_stats "
+    "(upgrade_curve.summon_stats[0].stats.hp[10] = first spirit's +10 HP), plus "
+    "upgrade_curve.summon_count when the number of spirits grows (Giant Rat Ashes 3 -> 5)",
     "requirements": "attribute requirements by stat (weapons: str/dex/int/fai/arc; spells: "
     "int/fai)",
     "negation": "armor damage negation % by type: physical, strike, slash, pierce (physical "
@@ -1259,13 +1275,18 @@ _FIELD_NOTES: dict[str, str] = {
     "gravity weapons), lives_in_death (Golden Order weapons), ancient_dragon, dragon "
     "(dragon-slaying weapons), undead. Empty list = none; absent = no NpcParam row bound",
     "weak_point_damage_multiplier": "enemy damage multiplier on hits to weak body parts",
-    "summon_stats": "on a spirit_ash doc: the summoned spirits' base (+0) stats, one entry "
+    "summon_stats": "on a spirit_ash doc: the summoned spirits' stats at +0, one entry "
     "per distinct spirit with count and the enemy stat groups (stats / defense / resistances "
-    "/ immune_to / traits / weak_point_damage_multiplier), from BuddyParam -> NpcParam. A "
-    "filter like summon_stats.stats.hp matches if any spirit matches. No attack power: "
-    "summon damage lives per attack, not on the NpcParam row. Mimic Tear also lists its "
-    "player-copy row",
-    "summon_count": "on a spirit_ash doc: total spirits summoned (e.g. Lone Wolf Ashes 3)",
+    "/ immune_to / traits / weak_point_damage_multiplier), from BuddyParam -> NpcParam with "
+    "the summon's upgrade-level SpEffect applied (at +0 most base-game spirits get double "
+    "status resistance). A filter like summon_stats.stats.hp matches if any spirit matches. "
+    "No attack power: summon damage lives per attack, not on the NpcParam row "
+    "(damage_multiplier scales it). Mimic Tear also lists its player-copy row. +10 in "
+    "max_level, every level in upgrade_curve",
+    "summon_stats.damage_multiplier": "spirit's outgoing damage multiplier at that upgrade "
+    "level (1.0 at +0, ~3.8 at +10 for most base-game spirits)",
+    "summon_count": "on a spirit_ash doc: total spirits summoned at +0 (e.g. Lone Wolf "
+    "Ashes 3); max_level.summon_count at +10",
 }
 
 
