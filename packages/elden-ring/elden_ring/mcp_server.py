@@ -91,7 +91,9 @@ def search_entities(
                            immune_to, and traits (dragon, undead, …; #84), plus an
                            attacks profile (elements, damage types, status effects,
                            shared_with for model-family move tables; #81) and a
-                           grabs profile for enemies that can grab you (#82). Enemies
+                           grabs profile for enemies that can grab you (#82), a
+                           team_type (+ team label; same value = allies) and an ai
+                           perception profile (sight/smell/leash ranges; #83). Enemies
                            have no in-game description. Bosses / named enemies carry a
                            drops list (items they drop, from map EMEVD scripts, #68); the
                            dropped item's own doc carries the reciprocal dropped_by.

@@ -375,6 +375,27 @@ INDEX_MAPPING = {
                     "status_effects": {"type": "keyword"},
                 }
             },
+            # NpcParam TeamType + NpcThinkParam AI profile via MSB placements (#83).
+            "team_type": {"type": "integer"},
+            "team": {"type": "keyword"},
+            "ai": {
+                "properties": {
+                    **_props(
+                        "integer",
+                        (
+                            "think_id",
+                            "sight_distance",
+                            "sight_angle_width",
+                            "sight_angle_height",
+                            "smell_distance",
+                            "hearing_level",
+                            "leash_distance",
+                            "team_attack_weight",
+                        ),
+                    ),
+                    "guards": {"type": "boolean"},
+                }
+            },
             # Humanoid enemy loadout (MSB CharaInitID -> CharaInitParam, #85) and
             # its reverse on item docs.
             "equipment": {
@@ -1416,6 +1437,29 @@ _FIELD_NOTES: dict[str, str] = {
     "Standard",
     "grabs.status_buildup": "max direct per-hit status buildup of grab hits",
     "grabs.status_effects": "statuses a grab inflicts (Margit's grab: bleed)",
+    "team_type": "enemy NpcParam TeamType (#83): the team deciding whose attacks hit whom and "
+    "who is targeted, so enemies with the same value are allies. Values without a team "
+    "label are Elden Ring factions with no confirmed name (48 = lord soldiers + Mad "
+    "Pumpkin Heads, 51 = demi-humans / imps / albinaurics, 11 = dragons, 9 = Runebear / "
+    "trolls)",
+    "team": "readable team_type label where confirmed: enemy (6), boss (7, health-bar field "
+    "bosses), arch_enemy (33, marquee bosses like Malenia and Radahn), friendly_npc (26), "
+    "hostile_npc (27, invaders), none (0, untargetable NPCs/objects), cooperator (2, "
+    "summonable-ally rows), spirit_summon (47)",
+    "ai": "enemy AI perception profile (#83) from NpcThinkParam, the think row most used by "
+    "the enemy's MSB placements. Absent = never placed with a think row",
+    "ai.think_id": "NpcThinkParam row id",
+    "ai.sight_distance": "sight range in meters",
+    "ai.sight_angle_width": "horizontal field of view in degrees",
+    "ai.sight_angle_height": "vertical field of view in degrees",
+    "ai.smell_distance": "smell (auto-detect, sees through walls) range in meters; absent = "
+    "no smell",
+    "ai.hearing_level": "hearing sensitivity (AI sound level it can hear; 128 is standard)",
+    "ai.leash_distance": "how far (m) it chases from its home spot before returning; 999 / "
+    "9999 = effectively unleashed (most bosses)",
+    "ai.team_attack_weight": "0-100 pack-attack weight: higher lets fewer members of its team "
+    "attack at the same time. Not friendly fire",
+    "ai.guards": "raises its guard while acting (returning home, facing the target)",
     "summon_stats": "on a spirit_ash doc: the summoned spirits' stats at +0, one entry "
     "per distinct spirit with count and the enemy stat groups (stats / defense / resistances "
     "/ immune_to / traits / weak_point_damage_multiplier), from BuddyParam -> NpcParam with "
