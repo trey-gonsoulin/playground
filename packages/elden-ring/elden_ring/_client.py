@@ -174,9 +174,22 @@ _WEAPON_STATS = {
     "status_buildup": {"properties": _props("integer", _STATUSES)},
 }
 
-# Weapon poise damage per attack, by hand (#119).
+# Weapon poise damage per attack, by hand (#119); more attacks + powerstance (#122).
+_POISE_ATTACKS = (
+    "r1",
+    "r2",
+    "charged_r2",
+    "guard_counter",
+    "running_r1",
+    "running_r2",
+    "rolling_r1",
+    "crouch_r1",
+    "jumping_r1",
+    "jumping_r2",
+    "powerstance",
+)
 _POISE_HANDS = {
-    hand: {"properties": _props("float", ("r1", "r2", "charged_r2", "guard_counter"))}
+    hand: {"properties": _props("float", _POISE_ATTACKS)}
     for hand in ("one_handed", "two_handed")
 }
 
@@ -1262,10 +1275,15 @@ _FIELD_NOTES: dict[str, str] = {
     "passive effect number, e.g. Uchigatana bleed 45. Cold/Poison/Blood affinities add "
     "or raise it and it grows with upgrade level (see max_level / upgrade_curve)",
     "poise_damage": "weapon poise (stance) damage per attack, first hit, by hand "
-    "(one_handed / two_handed) and attack (r1, r2, charged_r2, guard_counter). PvE values "
-    "are in the same units as an enemy's stats.poise (Greatsword 2H charged R2 39.6); "
-    "upgrades never change them. Full hit chains in poise_damage_chains. Omitted on "
-    "bows/crossbows/ballistas (the shot's poise damage comes from the ammo)",
+    "(one_handed / two_handed) and attack: r1, r2, charged_r2, guard_counter, "
+    "running_r1, running_r2, rolling_r1, crouch_r1, jumping_r1, jumping_r2, and "
+    "powerstance (dual-wield L1 combo, one_handed only, e.g. Dagger 1.8 per hit). PvE "
+    "values are in the same units as an enemy's stats.poise (Greatsword 2H charged R2 "
+    "39.6; Dagger 1H jumping_r2 12); upgrades never change them. An attack a weapon "
+    "lacks is absent (staves/seals/shields have no running/rolling/crouch rows). Ash of "
+    "War / weapon skill attacks are not included. Full hit chains in "
+    "poise_damage_chains. Omitted on bows/crossbows/ballistas (the shot's poise damage "
+    "comes from the ammo)",
     "poise_damage.pvp": "the same attacks against players, on the wiki's displayed-poise "
     "scale (PvE x the attack's PvP rate x 10, e.g. Dagger 1H R1 40.5); compare with a "
     "player's displayed poise. Only from 1.07, when the PvP rates were introduced",
