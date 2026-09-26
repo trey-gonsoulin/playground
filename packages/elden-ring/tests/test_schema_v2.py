@@ -83,6 +83,14 @@ def test_grouped_leaves_mapped():
         "poise_damage.one_handed.r1": "float",
         "poise_damage.two_handed.guard_counter": "float",
         "poise_damage.pvp.two_handed.charged_r2": "float",
+        "attacks.behavior_variation": "integer",
+        "attacks.count": "integer",
+        "attacks.damage_types": "keyword",
+        "attacks.elements": "keyword",
+        "attacks.attack_power.holy": "integer",
+        "attacks.status_buildup.scarlet_rot": "integer",
+        "attacks.status_effects": "keyword",
+        "attacks.shared_with": "keyword",
     }
     for path, type_ in expected.items():
         assert (_mapped(path) or {}).get("type") == type_, path
@@ -135,6 +143,16 @@ def test_builder_doc_shapes_fully_mapped():
             "stats": {"hp": 3186, "stamina": 150, "poise": 80.0},
             "defense": {"magic": 100, "fire": 100, "lightning": 100, "holy": 100},
             "resistances": {"poison": 154},
+            "attacks": {
+                "behavior_variation": 30500,
+                "count": 61,
+                "damage_types": ["Slash", "Strike"],
+                "elements": ["physical", "lightning"],
+                "attack_power": {"physical": 300, "lightning": 250},
+                "status_buildup": {"scarlet_rot": 130, "frostbite": 130},
+                "status_effects": ["scarlet_rot", "frostbite"],
+                "shared_with": ["Commander O'Neil"],
+            },
         },
         {
             "summon_count": 3,
