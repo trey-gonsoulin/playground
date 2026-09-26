@@ -94,6 +94,9 @@ def search_entities(
                            have no in-game description. Bosses / named enemies carry a
                            drops list (items they drop, from map EMEVD scripts, #68); the
                            dropped item's own doc carries the reciprocal dropped_by.
+                           Humanoid NPCs/invaders carry equipment (weapons, ashes of
+                           war, armor, spells, talismans, ammo; #85); items carry the
+                           reciprocal equipped_by.
                            Generic mobs are named per model from their spirit ash
                            (Godrick Soldier, Demi-Human, …; name_source="spirit_ash",
                            chr_models) — model-level labels, not individual characters.
@@ -141,6 +144,7 @@ def search_entities(
     queryable fields. Item documents may include cross-reference edge fields:
       sold_by            — merchant names that sell this item (per-patch)
       dropped_by         — boss / named enemies that drop this item (EMEVD-derived, #68)
+      equipped_by        — humanoid enemies/NPCs whose loadout includes it (#85)
       acquisition_types  — how it's obtained: merchant / enemy_drop / found_in_world
     Talisman rank variants (e.g. Erdtree's Favor +2) link to their base via base_item and
     carry text_differs: True when their text diverges from the base beyond the
