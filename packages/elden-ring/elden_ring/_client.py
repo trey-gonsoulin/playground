@@ -10,6 +10,8 @@ import boto3
 import requests
 from opensearchpy import OpenSearch, RequestsHttpConnection
 
+from elden_ring._calc import STATS, attack_rating
+
 # ---------------------------------------------------------------------------
 # Module-level cache — survives across warm Lambda invocations.
 # Cold starts re-derive endpoint + password via one API call each.
@@ -339,6 +341,7 @@ INDEX_MAPPING = {
                 }
             },
             "upgrade_curve": {"type": "object", "enabled": False},
+            "ar_inputs": {"type": "object", "enabled": False},  # #120
             "requirements": {"properties": _props("integer", _STATS)},
             "fp_cost": {"type": "integer"},
             "spell_role": {"type": "keyword"},
@@ -683,11 +686,19 @@ def get_entity(
         return None
     doc, historical = resolved
     if not historical:
-        return doc
+        return _public(doc)
     # A historical name matched an old patch; return the current doc instead of
     # stale stats, and say so (#63).
     newest = _newest_doc(client, {"name.keyword": doc["name"]}, doc["entity_type"])
-    return {**(newest or doc), "name_is_historical": True, "queried_name": name}
+    return {**_public(newest or doc), "name_is_historical": True, "queried_name": name}
+
+
+# Calculator plumbing stored on docs but never returned or diffed (#120).
+_INTERNAL_FIELDS: frozenset[str] = frozenset({"ar_inputs"})
+
+
+def _public(doc: dict) -> dict:
+    return {k: v for k, v in doc.items() if k not in _INTERNAL_FIELDS}
 
 
 def _ver_key(version: str) -> tuple:
@@ -830,7 +841,7 @@ def diff_entities(
         missing_str = " and ".join(missing)
         return {"error": f"'{name}' not present in {missing_str}"}
 
-    doc1, doc2 = _flatten(doc1), _flatten(doc2)
+    doc1, doc2 = _flatten(_public(doc1)), _flatten(_public(doc2))
     all_fields = (set(doc1) | set(doc2)) - _DIFF_SKIP_FIELDS
     changed: dict = {}
     unchanged: list[str] = []
@@ -1112,6 +1123,77 @@ def search_literal(
     return {"total": total, "results": [hit["_source"] for hit in resp["hits"]["hits"]]}
 
 
+def calculate_attack_rating(
+    client: OpenSearch,
+    weapon: str,
+    stats: dict,
+    level: int | None = None,
+    two_handed: bool = False,
+    affinity: str | None = None,
+    patch_version: str | None = None,
+) -> dict:
+    """Attack rating / status buildup / spell scaling of one weapon for character
+    ``stats`` at ``level`` (default max), from its doc's ar_inputs (#120)."""
+    bad = {s: v for s, v in stats.items() if not 1 <= v <= 99}
+    if bad:
+        return {"error": f"stats must be 1-99: {bad}"}
+    name = weapon
+    if affinity and affinity != "Standard" and not weapon.startswith(f"{affinity} "):
+        name = f"{affinity} {weapon}"
+    canonical = _resolve_entity_name(client, name, "weapon")
+    if canonical is None:
+        return {"error": f"weapon '{name}' not found"}
+    versions = _entity_versions(client, "weapon")
+    version = _resolve_asof(patch_version, versions) if patch_version else versions[-1]
+    if version is None:
+        return {"error": f"no weapon data at or before '{patch_version}'"}
+    resp = client.search(
+        index=INDEX,
+        body={
+            "size": 1,
+            "query": {
+                "bool": {
+                    "filter": [
+                        {"term": {"name.keyword": canonical}},
+                        {"term": {"entity_type": "weapon"}},
+                        {"term": {"patch_version": version}},
+                    ]
+                }
+            },
+        },
+    )
+    hits = resp["hits"]["hits"]
+    if not hits:
+        return {"error": f"'{canonical}' not present in {version}"}
+    doc = hits[0]["_source"]
+    inputs = doc.get("ar_inputs") or {}
+    per_level = [
+        arr
+        for k in ("attack", "scaling", "status")
+        for arr in (inputs.get(k) or {}).values()
+    ]
+    if not per_level:
+        return {
+            "error": f"no attack-rating data for '{canonical}' in {version} (its "
+            "element-correction row is missing from that patch's regulation)"
+        }
+    max_level = len(per_level[0]) - 1
+    level = max_level if level is None else level
+    if not 0 <= level <= max_level:
+        return {"error": f"level must be 0-{max_level} for '{canonical}'"}
+    full = {s: stats.get(s, 10) for s in STATS}
+    return {
+        "weapon": canonical,
+        "patch_version": version,
+        "level": level,
+        "max_level": max_level,
+        "two_handed": two_handed,
+        "stats": full,
+        "requirements": doc.get("requirements"),
+        **attack_rating(inputs, doc.get("requirements") or {}, full, level, two_handed),
+    }
+
+
 def text_changed_between(
     client: OpenSearch,
     entity_type: str,
@@ -1381,6 +1463,9 @@ _FIELD_NOTES: dict[str, str] = {
     "spirit_ash doc: upgrade_curve.summon_stats is a list aligned with summon_stats "
     "(upgrade_curve.summon_stats[0].stats.hp[10] = first spirit's +10 HP), plus "
     "upgrade_curve.summon_count when the number of spirits grows (Giant Rat Ashes 3 -> 5)",
+    "ar_inputs": "not searchable and not returned by get_entity: a weapon's per-level "
+    "attack / scaling / buildup and correction curves, the inputs calculate_attack_rating "
+    "uses to compute attack rating and Arcane status buildup for given stats",
     "requirements": "attribute requirements by stat (weapons: str/dex/int/fai/arc; spells: "
     "int/fai)",
     "negation": "armor damage negation % by type: physical, strike, slash, pierce (physical "

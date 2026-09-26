@@ -194,6 +194,70 @@ def get_entity(name: str, entity_type: str | None = None) -> dict | None:
 
 
 @mcp.tool(annotations=_READ_ONLY)
+def calculate_attack_rating(
+    weapon: str,
+    str: int = 10,
+    dex: int = 10,
+    int: int = 10,
+    fai: int = 10,
+    arc: int = 10,
+    level: int | None = None,
+    two_handed: bool = False,
+    affinity: str | None = None,
+    patch_version: str | None = None,
+) -> dict:
+    """Compute a weapon's attack rating and status buildup for given character stats.
+
+    Stored weapon stats (attack_power, scaling, status_buildup) ignore the character;
+    this tool applies the stats the way the game does:
+    - each damage type = base x (1 + sum of scaling x stat curve) for the stats
+      that scale it (AttackElementCorrectParam + CalcCorrectGraph);
+    - a requirement not met (after the two-handing bonus) makes every type that
+      scales with that stat deal base x 0.6, listed in penalized;
+    - two-handing counts Str as floor(Str x 1.5), except on paired weapons; bows
+      and ballistae are always two-handed;
+    - poison, bleed, sleep and madness buildup scale with Arcane (not two-handed
+      Str); rot, frost and death blight don't scale;
+    - staves and seals also return spell_scaling per damage type.
+    Values are floored per type like the in-game menu. Not modeled: buffs,
+    talismans, great runes, enemy defense.
+
+    If this tool returns a connection error, call start_search_service() first.
+
+    Args:
+        weapon: Weapon name, e.g. "Uchigatana" or "Blood Uchigatana".
+        str, dex, int, fai, arc: Character attributes, 1-99 (default 10).
+        level: Upgrade level; defaults to the weapon's max (+25, somber +10).
+        two_handed: Wield two-handed (Str x 1.5).
+        affinity: Optional affinity prefix for infusable weapons, e.g. "Heavy",
+            "Blood", "Occult"; same as passing "Heavy Halberd" as weapon.
+        patch_version: Compute with that patch's data (e.g. "1.07.0", resolved to
+            the latest loaded patch at or before it); default newest.
+
+    Returns a dict with:
+        weapon, patch_version, level, max_level, two_handed, stats, requirements
+        effective_stats: stats after the two-handing bonus
+        attack_power: {type: {base, scaling, total}} per damage type
+        total: sum of the attack_power totals (the menu's attack rating)
+        status_buildup: {status: {base, scaling, total}} for on-hit buildup
+        spell_scaling: {type: value} for staves and seals, else null
+        unmet_requirements: stats below requirement, else null
+        penalized: types dealt at x0.6 for an unmet requirement, else null
+    Or {"error": "..."} for an unknown weapon, bad level/stats, or a patch
+    without the data.
+    """
+    return _os.calculate_attack_rating(
+        _os.get_client(),
+        weapon,
+        {"str": str, "dex": dex, "int": int, "fai": fai, "arc": arc},
+        level,
+        two_handed,
+        affinity,
+        patch_version,
+    )
+
+
+@mcp.tool(annotations=_READ_ONLY)
 def list_menu_categories(
     entity_type: str | None = None,
     source: str | None = None,
