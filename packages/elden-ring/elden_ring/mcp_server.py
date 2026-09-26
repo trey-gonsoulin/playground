@@ -238,8 +238,9 @@ def describe_fields() -> dict:
     path (attack_power.fire, attack_power.critical, scaling.str.grade,
     scaling.str.value, requirements.dex, guard.physical, guard.resistances.bleed,
     status_buildup.bleed, max_level.attack_power.physical, max_level.scaling.str.grade, negation.slash,
-    stats.hp, defense.fire, resistances.bleed). Weapons at max upgrade are under
-    max_level; the per-level upgrade_curve comes back from get_entity.
+    stats.hp, defense.fire, resistances.bleed, summon_stats.stats.hp). Weapons at max
+    upgrade are under max_level; the per-level upgrade_curve comes back from
+    get_entity. Spirit ashes carry their summons' +0 stats as summon_stats.
 
     If this tool returns a connection error, call start_search_service() first.
 

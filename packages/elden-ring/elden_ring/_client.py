@@ -174,6 +174,22 @@ _WEAPON_STATS = {
     "status_buildup": {"properties": _props("integer", _STATUSES)},
 }
 
+# NpcParam stat groups (#84), shared by enemy docs and spirit-ash summon_stats (#86).
+_NPC_STATS = {
+    "stats": {
+        "properties": {
+            "hp": {"type": "integer"},
+            "stamina": {"type": "integer"},
+            "poise": {"type": "float"},
+        }
+    },
+    "defense": {"properties": _props("float", _DAMAGE_TYPES[1:])},
+    "resistances": {"properties": _props("integer", _STATUSES)},
+    "immune_to": {"type": "keyword"},
+    "traits": {"type": "keyword"},
+    "weak_point_damage_multiplier": {"type": "float"},
+}
+
 
 INDEX_MAPPING = {
     "settings": {
@@ -281,18 +297,12 @@ INDEX_MAPPING = {
             "chr_models": {"type": "keyword"},
             # Enemy (NpcParam) combat stats, from the row bound by health bar / NameID
             # / spirit-ash label (#84).
-            "stats": {
-                "properties": {
-                    "hp": {"type": "integer"},
-                    "stamina": {"type": "integer"},
-                    "poise": {"type": "float"},
-                }
+            **_NPC_STATS,
+            # Spirit-ash summons: one entry per distinct summoned NpcParam row (#86).
+            "summon_count": {"type": "integer"},
+            "summon_stats": {
+                "properties": {"count": {"type": "integer"}, **_NPC_STATS}
             },
-            "defense": {"properties": _props("float", _DAMAGE_TYPES[1:])},
-            "resistances": {"properties": _props("integer", _STATUSES)},
-            "immune_to": {"type": "keyword"},
-            "traits": {"type": "keyword"},
-            "weak_point_damage_multiplier": {"type": "float"},
             "name_ja": {
                 "type": "text",
                 "fields": {
@@ -1249,6 +1259,13 @@ _FIELD_NOTES: dict[str, str] = {
     "gravity weapons), lives_in_death (Golden Order weapons), ancient_dragon, dragon "
     "(dragon-slaying weapons), undead. Empty list = none; absent = no NpcParam row bound",
     "weak_point_damage_multiplier": "enemy damage multiplier on hits to weak body parts",
+    "summon_stats": "on a spirit_ash doc: the summoned spirits' base (+0) stats, one entry "
+    "per distinct spirit with count and the enemy stat groups (stats / defense / resistances "
+    "/ immune_to / traits / weak_point_damage_multiplier), from BuddyParam -> NpcParam. A "
+    "filter like summon_stats.stats.hp matches if any spirit matches. No attack power: "
+    "summon damage lives per attack, not on the NpcParam row. Mimic Tear also lists its "
+    "player-copy row",
+    "summon_count": "on a spirit_ash doc: total spirits summoned (e.g. Lone Wolf Ashes 3)",
 }
 
 
