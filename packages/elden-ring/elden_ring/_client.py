@@ -170,6 +170,8 @@ _WEAPON_STATS = {
             for s in _STATS
         }
     },
+    # On-hit status buildup (#118).
+    "status_buildup": {"properties": _props("integer", _STATUSES)},
 }
 
 
@@ -1210,10 +1212,14 @@ _FIELD_NOTES: dict[str, str] = {
     "damage_types": "weapon/ammo physical damage type(s) as shown in game: Standard, "
     "Strike, Slash, Pierce (main type first, e.g. Halberd [Standard, Pierce]). Omitted on "
     "bows/crossbows/ballistas, whose damage type comes from the ammo",
+    "status_buildup": "weapon/ammo on-hit status buildup at +0 by status (poison / "
+    "scarlet_rot / bleed / frostbite / sleep / madness / death_blight), the in-game "
+    "passive effect number, e.g. Uchigatana bleed 45. Cold/Poison/Blood affinities add "
+    "or raise it and it grows with upgrade level (see max_level / upgrade_curve)",
     "reinforce_type_id": "weapon's ReinforceParamWeapon type (the upgrade path; affinity "
     "types are 100-offset), kept for traceability",
     "max_level": "weapon stats at its max upgrade, in the same shape as the +0 fields "
-    "(attack_power / scaling / guard, affinity applied); max_level.level is the max "
+    "(attack_power / scaling / guard / status_buildup, affinity applied); max_level.level is the max "
     "(+25 regular, +10 somber, 0 if it can't be upgraded). Sort on "
     "max_level.attack_power.physical for the strongest fully upgraded weapons",
     "upgrade_curve": "not searchable; returned by get_entity. The weapon's stats at every "

@@ -59,11 +59,14 @@ def test_grouped_leaves_mapped():
         "guard.resistances.bleed": "float",
         "guard.resistances.death_blight": "float",
         "damage_types": "keyword",
+        "status_buildup.bleed": "integer",
+        "status_buildup.death_blight": "integer",
         "reinforce_type_id": "integer",
         "max_level.level": "integer",
         "max_level.attack_power.physical": "integer",
         "max_level.scaling.str.grade": "keyword",
         "max_level.guard.boost": "float",
+        "max_level.status_buildup.frostbite": "integer",
     }
     for path, type_ in expected.items():
         assert (_mapped(path) or {}).get("type") == type_, path
@@ -90,12 +93,14 @@ def test_builder_doc_shapes_fully_mapped():
             "requirements": {"str": 14, "dex": 12},
             "depicted_in_talisman": "Dagger Talisman",
             "damage_types": ["Standard", "Pierce"],
+            "status_buildup": {"bleed": 38, "frostbite": 66},
             "reinforce_type_id": 0,
             "max_level": {
                 "level": 25,
                 "attack_power": {"physical": 306, "stamina": 122, "critical": 100},
                 "scaling": {"str": {"grade": "C", "value": 81.0}},
                 "guard": {"boost": 50.4, "resistances": {"bleed": 15.0}},
+                "status_buildup": {"bleed": 38, "frostbite": 105},
             },
         },
         {"negation": {"physical": 10.0, "strike": 12.0, "holy": 4.0}},
