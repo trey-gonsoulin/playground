@@ -80,6 +80,9 @@ def test_grouped_leaves_mapped():
         "max_level.summon_stats.stats.hp": "integer",
         "max_level.summon_stats.resistances.sleep": "integer",
         "max_level.summon_stats.damage_multiplier": "float",
+        "poise_damage.one_handed.r1": "float",
+        "poise_damage.two_handed.guard_counter": "float",
+        "poise_damage.pvp.two_handed.charged_r2": "float",
     }
     for path, type_ in expected.items():
         assert (_mapped(path) or {}).get("type") == type_, path
@@ -89,6 +92,7 @@ def test_grouped_leaves_mapped():
 def test_upgrade_curve_not_indexed():
     # Per-level arrays are returned, never searched (#112).
     assert _PROPS["upgrade_curve"] == {"type": "object", "enabled": False}
+    assert _PROPS["poise_damage_chains"] == {"type": "object", "enabled": False}  # #119
 
 
 def test_builder_doc_shapes_fully_mapped():
@@ -108,6 +112,15 @@ def test_builder_doc_shapes_fully_mapped():
             "damage_types": ["Standard", "Pierce"],
             "status_buildup": {"bleed": 38, "frostbite": 66},
             "reinforce_type_id": 0,
+            "poise_damage": {
+                "one_handed": {"r1": 3.0, "r2": 6.0, "charged_r2": 18.0},
+                "two_handed": {"r1": 3.9, "guard_counter": 4.5},
+                "pvp": {
+                    "one_handed": {"r1": 40.5},
+                    "two_handed": {"charged_r2": 594.0},
+                },
+            },
+            "poise_damage_chains": {"pvp": {"one_handed": {"r1": [40.5, 63.0]}}},
             "max_level": {
                 "level": 25,
                 "attack_power": {"physical": 306, "stamina": 122, "critical": 100},

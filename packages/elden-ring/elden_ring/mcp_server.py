@@ -241,7 +241,9 @@ def describe_fields() -> dict:
     stats.hp, defense.fire, resistances.bleed, summon_stats.stats.hp). Weapons at max
     upgrade are under max_level; the per-level upgrade_curve comes back from
     get_entity. Spirit ashes carry their summons' +0 stats as summon_stats, +10 as
-    max_level.summon_stats, and every level in upgrade_curve.summon_stats.
+    max_level.summon_stats, and every level in upgrade_curve.summon_stats. Weapons
+    carry per-attack poise damage (poise_damage.two_handed.charged_r2, PvP under
+    poise_damage.pvp); full hit chains come back from get_entity as poise_damage_chains.
 
     If this tool returns a connection error, call start_search_service() first.
 
