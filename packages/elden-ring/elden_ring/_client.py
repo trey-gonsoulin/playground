@@ -322,6 +322,19 @@ INDEX_MAPPING = {
             # Enemy (NpcParam) combat stats, from the row bound by health bar / NameID
             # / spirit-ash label (#84).
             **_NPC_STATS,
+            # Enemy attack profile over its model family's move table (#81).
+            "attacks": {
+                "properties": {
+                    "behavior_variation": {"type": "integer"},
+                    "count": {"type": "integer"},
+                    "damage_types": {"type": "keyword"},
+                    "elements": {"type": "keyword"},
+                    "attack_power": {"properties": _props("integer", _DAMAGE_TYPES)},
+                    "status_buildup": {"properties": _props("integer", _STATUSES)},
+                    "status_effects": {"type": "keyword"},
+                    "shared_with": {"type": "keyword"},
+                }
+            },
             # Spirit-ash summons: one entry per distinct summoned NpcParam row (#86).
             "summon_count": {"type": "integer"},
             "summon_stats": {"properties": _SUMMON_STATS},
@@ -1297,6 +1310,25 @@ _FIELD_NOTES: dict[str, str] = {
     "gravity weapons), lives_in_death (Golden Order weapons), ancient_dragon, dragon "
     "(dragon-slaying weapons), undead. Empty list = none; absent = no NpcParam row bound",
     "weak_point_damage_multiplier": "enemy damage multiplier on hits to weak body parts",
+    "attacks": "enemy attack profile (#81), aggregated over the move table of its NpcParam "
+    "BehaviorVariationID (BehaviorParam -> AtkParam_Npc / Bullet -> on-hit SpEffect). A table "
+    "belongs to a whole model family, so this is a SUPERSET of what this enemy uses; "
+    "shared_with names the other enemies on the same table (Commander Niall lists "
+    "Commander O'Neil's scarlet rot). Moves have no names in the data, so there is no "
+    "per-move list. Absent on humanoid NPCs/invaders, which fight with equipped weapons",
+    "attacks.attack_power": "max base attack power per element across the table (before "
+    "per-area scaling; includes grabs and set-piece attacks)",
+    "attacks.elements": "elements any move deals: physical / magic / fire / lightning / holy",
+    "attacks.damage_types": "physical damage types across moves: Slash / Strike / Pierce / "
+    "Standard",
+    "attacks.status_buildup": "max direct per-hit status buildup per status",
+    "attacks.status_effects": "statuses any move inflicts, including damage-over-time "
+    "effects with no per-hit value (Mohg's bloodflame bleed); filter here for 'which "
+    "enemies inflict X'",
+    "attacks.shared_with": "other enemies sharing this move table; non-empty means the "
+    "profile may include their moves",
+    "attacks.count": "distinct attack + projectile rows reached from the table",
+    "attacks.behavior_variation": "NpcParam BehaviorVariationID (the move table id)",
     "summon_stats": "on a spirit_ash doc: the summoned spirits' stats at +0, one entry "
     "per distinct spirit with count and the enemy stat groups (stats / defense / resistances "
     "/ immune_to / traits / weak_point_damage_multiplier), from BuddyParam -> NpcParam with "
