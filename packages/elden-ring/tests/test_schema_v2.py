@@ -83,6 +83,11 @@ def test_grouped_leaves_mapped():
         "poise_damage.one_handed.r1": "float",
         "poise_damage.two_handed.guard_counter": "float",
         "poise_damage.pvp.two_handed.charged_r2": "float",
+        "poise_damage.one_handed.powerstance": "float",
+        "poise_damage.two_handed.jumping_r2": "float",
+        "poise_damage.pvp.one_handed.running_r1": "float",
+        "poise_damage.one_handed.crouch_r1": "float",
+        "poise_damage.two_handed.rolling_r1": "float",
         "attacks.behavior_variation": "integer",
         "attacks.count": "integer",
         "attacks.damage_types": "keyword",
@@ -121,7 +126,13 @@ def test_builder_doc_shapes_fully_mapped():
             "status_buildup": {"bleed": 38, "frostbite": 66},
             "reinforce_type_id": 0,
             "poise_damage": {
-                "one_handed": {"r1": 3.0, "r2": 6.0, "charged_r2": 18.0},
+                "one_handed": {
+                    "r1": 3.0,
+                    "r2": 6.0,
+                    "charged_r2": 18.0,
+                    "jumping_r2": 12.0,
+                    "powerstance": 1.8,
+                },
                 "two_handed": {"r1": 3.9, "guard_counter": 4.5},
                 "pvp": {
                     "one_handed": {"r1": 40.5},
