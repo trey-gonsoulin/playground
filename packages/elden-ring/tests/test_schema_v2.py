@@ -67,6 +67,11 @@ def test_grouped_leaves_mapped():
         "max_level.scaling.str.grade": "keyword",
         "max_level.guard.boost": "float",
         "max_level.status_buildup.frostbite": "integer",
+        "summon_count": "integer",
+        "summon_stats.count": "integer",
+        "summon_stats.stats.hp": "integer",
+        "summon_stats.resistances.sleep": "integer",
+        "summon_stats.immune_to": "keyword",
     }
     for path, type_ in expected.items():
         assert (_mapped(path) or {}).get("type") == type_, path
@@ -110,10 +115,28 @@ def test_builder_doc_shapes_fully_mapped():
             "defense": {"magic": 100, "fire": 100, "lightning": 100, "holy": 100},
             "resistances": {"poison": 154},
         },
+        {
+            "summon_count": 3,
+            "summon_stats": [
+                {
+                    "count": 3,
+                    "stats": {"hp": 500, "stamina": 50, "poise": 35.0},
+                    "defense": {"magic": 100, "holy": 100},
+                    "resistances": {"sleep": 84, "bleed": 999},
+                    "immune_to": ["bleed"],
+                    "traits": [],
+                    "weak_point_damage_multiplier": 1.5,
+                }
+            ],
+        },
     ]
     for doc in docs:
-        for path in _flatten(doc):
+        for path, v in _flatten(doc).items():
             assert _mapped(path) is not None, path
+            for item in v if isinstance(v, list) else []:
+                if isinstance(item, dict):  # object arrays (summon_stats)
+                    for sub in _flatten(item, f"{path}."):
+                        assert _mapped(sub) is not None, sub
 
 
 def test_flatten_to_dotted_leaves():
