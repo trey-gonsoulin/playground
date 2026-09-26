@@ -364,6 +364,17 @@ INDEX_MAPPING = {
                     "shared_with": {"type": "keyword"},
                 }
             },
+            # Grab subset of that move table, joined to ThrowParam (#82).
+            "grabs": {
+                "properties": {
+                    "count": {"type": "integer"},
+                    "damage_types": {"type": "keyword"},
+                    "elements": {"type": "keyword"},
+                    "attack_power": {"properties": _props("integer", _DAMAGE_TYPES)},
+                    "status_buildup": {"properties": _props("integer", _STATUSES)},
+                    "status_effects": {"type": "keyword"},
+                }
+            },
             # Humanoid enemy loadout (MSB CharaInitID -> CharaInitParam, #85) and
             # its reverse on item docs.
             "equipment": {
@@ -1392,6 +1403,19 @@ _FIELD_NOTES: dict[str, str] = {
     "profile may include their moves",
     "attacks.count": "distinct attack + projectile rows reached from the table",
     "attacks.behavior_variation": "NpcParam BehaviorVariationID (the move table id)",
+    "grabs": "enemy grab attacks on the player (#82): the moves of the same move table as "
+    "attacks whose catch hit starts a ThrowParam grab, plus the hits dealt during the "
+    "throw. Like attacks, a model-family SUPERSET (see attacks.shared_with). Absent = "
+    "no grab. Filter exists:grabs for 'which enemies can grab you'",
+    "grabs.count": "distinct grabs (ThrowParam rows for this enemy's model)",
+    "grabs.attack_power": "max base attack power per element across grab hits (before "
+    "per-area scaling)",
+    "grabs.elements": "elements any grab hit deals: physical / magic / fire / lightning / "
+    "holy",
+    "grabs.damage_types": "physical damage types of grab hits: Slash / Strike / Pierce / "
+    "Standard",
+    "grabs.status_buildup": "max direct per-hit status buildup of grab hits",
+    "grabs.status_effects": "statuses a grab inflicts (Margit's grab: bleed)",
     "summon_stats": "on a spirit_ash doc: the summoned spirits' stats at +0, one entry "
     "per distinct spirit with count and the enemy stat groups (stats / defense / resistances "
     "/ immune_to / traits / weak_point_damage_multiplier), from BuddyParam -> NpcParam with "
