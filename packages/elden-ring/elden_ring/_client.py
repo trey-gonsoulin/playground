@@ -514,6 +514,8 @@ INDEX_MAPPING = {
             "dropped_by": {"type": "keyword"},
             "drops": {"type": "keyword"},
             "sold_by": {"type": "keyword"},
+            "given_by": {"type": "keyword"},
+            "starting_classes": {"type": "keyword"},
             "base_item": {"type": "keyword"},
             "text_differs": {"type": "boolean"},
             "text_added_lines": {"type": "text"},
@@ -1535,8 +1537,20 @@ _FIELD_NOTES: dict[str, str] = {
     "whose map holds the arena (PlaceName, e.g. Stormfoot Catacombs); absent for "
     "open-world bosses (see nearest_grace / region)",
     "sold_by": "merchant names that sell this item, derived per-patch from ShopLineupParam",
-    "acquisition_types": "how the item is obtained, per-patch: merchant / enemy_drop / found_in_world",
-    "acquisition_sources": "named sources: merchant names and/or boss/named-enemy names (see dropped_by)",
+    "acquisition_types": "how the item is obtained, per-patch: merchant / enemy_drop / "
+    "found_in_world / chest (a treasure-chest placement, #76) / given_by_npc (an NPC's talk "
+    "script gives it, see given_by) / starting_equipment (a starting class's gear or item, "
+    "see starting_classes) / keepsake (on the character-creation keepsake menu) (#23)",
+    "acquisition_sources": "named sources: merchant names, boss/named-enemy names (see "
+    "dropped_by) and gift-giving NPC names (see given_by)",
+    "given_by": "on an item doc: NPCs whose talk script gives the item (#23), named via the "
+    "NPC's map placement. One script can serve several personas of the same character "
+    "(Roderika / Roderika, Spirit Tuner) or a shared questline (Irina and Hyetta); gifts from "
+    "scripts with no named placement (Melina, some DLC characters) have acquisition_types "
+    "given_by_npc but no name. DLC gifts are indexed at 1.17.0 only (the older DLC-era "
+    "patches' DLC talk scripts aren't extracted)",
+    "starting_classes": "on an item doc: the starting classes whose initial loadout includes "
+    "it (#23), e.g. Longsword: [Vagabond]; Memory of Grace: every class",
     "dropped_by": "enemies that drop this item: bosses/named enemies (map EMEVD + MSB "
     "placements, #68) and generic mobs named by their spirit-ash model label (#104)",
     "drops": "on an enemy doc: items this enemy drops (EMEVD awards + MSB death lots), "
