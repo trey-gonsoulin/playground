@@ -399,6 +399,10 @@ INDEX_MAPPING = {
                     "guards": {"type": "boolean"},
                 }
             },
+            # In-game HP range over MSB placements, area scaling applied (#108).
+            "hp_scaled": {
+                "properties": _props("integer", ("min", "max", "placements"))
+            },
             # Humanoid enemy loadout (MSB CharaInitID -> CharaInitParam, #85) and
             # its reverse on item docs.
             "equipment": {
@@ -1510,7 +1514,8 @@ _FIELD_NOTES: dict[str, str] = {
     "npc_id": "enemy's NpcName FMG id (6-digit humanoid / 9-digit boss & creature)",
     "stats": "enemy combat stats from one NpcParam row, bound by boss health bar, then "
     "NameID, then spirit-ash label (#84)",
-    "stats.hp": "enemy base max HP (NpcParam, before per-area scaling)",
+    "stats.hp": "enemy base max HP (NpcParam, before per-area scaling; the in-game HP is "
+    "hp_scaled)",
     "stats.poise": "enemy max poise; absent when poise is disabled",
     "defense": "enemy elemental defense (NpcParam): magic, fire, lightning, holy. NpcParam has "
     "no physical defense",
@@ -1576,6 +1581,15 @@ _FIELD_NOTES: dict[str, str] = {
     "ai.team_attack_weight": "0-100 pack-attack weight: higher lets fewer members of its team "
     "attack at the same time. Not friendly fire",
     "ai.guards": "raises its guard while acting (returning home, facing the target)",
+    "hp_scaled": "enemy in-game max HP (#108) over its MSB placements: each placement's "
+    "NpcParam row is base HP times its SpEffect HP multipliers (the per-area scaling, plus "
+    "e.g. x2 on field-boss versions of regular enemies), floored after each. First "
+    "playthrough, solo: NG+ and multiplayer scaling are not applied. A phase-2 boss "
+    "sharing phase 1's character shows phase 1's HP. Absent = never placed",
+    "hp_scaled.min": "lowest in-game HP over the enemy's placements",
+    "hp_scaled.max": "highest in-game HP over the enemy's placements (min = max when one "
+    "encounter or all placements scale alike)",
+    "hp_scaled.placements": "number of MSB placements the range covers",
     "summon_stats": "on a spirit_ash doc: the summoned spirits' stats at +0, one entry "
     "per distinct spirit with count and the enemy stat groups (stats / defense / resistances "
     "/ immune_to / traits / weak_point_damage_multiplier), from BuddyParam -> NpcParam with "
