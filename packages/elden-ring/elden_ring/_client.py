@@ -443,6 +443,17 @@ INDEX_MAPPING = {
                     "heals_on_entry": {"type": "boolean"},
                 }
             },
+            # Boss encounters (GameAreaParam + defeat banner, #79) and the reverse
+            # link on enemy docs.
+            "enemies": {"type": "keyword"},
+            "region": {"type": "keyword"},
+            "nearest_grace": {"type": "keyword"},
+            "map": {"type": "keyword"},
+            "arena_position": {"properties": _props("float", ("x", "y", "z"))},
+            "runes": {"type": "integer"},
+            "banner": {"type": "keyword"},
+            "defeat_flag": {"type": "long"},
+            "boss_encounters": {"type": "keyword"},
             # Humanoid enemy loadout (MSB CharaInitID -> CharaInitParam, #85) and
             # its reverse on item docs.
             "equipment": {
@@ -1479,11 +1490,12 @@ def list_entity_types(client: OpenSearch) -> list[str]:
 # ones a caller can't guess. Grouped stat objects are keyed by their dotted path
 # (stats.hp); self-describing leaves (attack_power.fire, requirements.str) get no note.
 _FIELD_NOTES: dict[str, str] = {
-    "entity_type": "category filter: weapon, armor, spell, item, ash_of_war, merchant, npc_dialogue",
+    "entity_type": "category filter: weapon, armor, spell, item, ash_of_war, merchant, "
+    "enemy, boss (one doc per boss encounter, #79), npc_dialogue",
     "patch_version": "real game patch the doc was extracted from (native is per-patch); use with diff_entities",
     "source": "internal game-data origin — the param table or FMG the doc was built from "
     "(EquipParamWeapon, EquipParamProtector, Magic, EquipParamAccessory, EquipParamGem, "
-    "ShopLineupParam, TalkMsg). All data is first-party native extraction.",
+    "ShopLineupParam, GameAreaParam, TalkMsg). All data is first-party native extraction.",
     "availability": "'cut' for content whose in-game name row is [ERROR]-marked (scrapped, "
     "e.g. Millicent's set); 'unobtainable' for real-named armor with no acquisition path — "
     "enemy-only gear / reused assets like the Ragged set (#71); absent for normal obtainable "
@@ -1507,13 +1519,17 @@ _FIELD_NOTES: dict[str, str] = {
     "text_added_lines": "the variant's text lines (EN + JP) with no counterpart in base_item, "
     "e.g. 「伝説のタリスマン」のひとつ on Erdtree's Favor +2",
     "tags": "free-form keyword tags (spell school/role, weapon category, 'Talisman', etc.)",
-    "location": "where a merchant is found",
+    "location": "where a merchant is found; on a boss doc, the legacy dungeon or area "
+    "whose map holds the arena (PlaceName, e.g. Stormfoot Catacombs); absent for "
+    "open-world bosses (see nearest_grace / region)",
     "sold_by": "merchant names that sell this item, derived per-patch from ShopLineupParam",
     "acquisition_types": "how the item is obtained, per-patch: merchant / enemy_drop / found_in_world",
     "acquisition_sources": "named sources: merchant names and/or boss/named-enemy names (see dropped_by)",
     "dropped_by": "enemies that drop this item: bosses/named enemies (map EMEVD + MSB "
     "placements, #68) and generic mobs named by their spirit-ash model label (#104)",
-    "drops": "on an enemy doc: items this enemy drops (EMEVD awards + MSB death lots)",
+    "drops": "on an enemy doc: items this enemy drops (EMEVD awards + MSB death lots), "
+    "merged over every encounter of the name; on a boss doc: the items awarded for that "
+    "one encounter",
     "equipment": "on a humanoid enemy/NPC/invader doc: the gear it is equipped with, from "
     "its map placement's CharaInitParam loadout (#85). Groups: weapons, ashes_of_war, armor, "
     "spells, talismans, ammo (item doc names; e.g. Recusant Henricus: Great Mace + Ash of "
@@ -1735,6 +1751,30 @@ _FIELD_NOTES: dict[str, str] = {
     "phases.heals_on_entry": "the phase starts with a scripted regeneration effect "
     "(Malenia, Goddess of Rot). How far it heals isn't in the params or event scripts "
     "(the wiki says 80%), so hp_scaled is the full max HP",
+    "enemies": "on a boss doc: the enemy doc names fought in this encounter, from its "
+    "health bars (every phase and duo partner: Godfrey + Hoarah Loux, Radagon + Elden "
+    "Beast, the two Night's Cavalry). The boss doc's name is the defeated character's "
+    "(the last phase); a name shared by several encounters of the patch gets the place "
+    "in parentheses: 'Night's Cavalry (Gate Town Bridge)', 'Erdtree Burial Watchdog "
+    "(Stormfoot Catacombs)'",
+    "boss_encounters": "on an enemy doc: the boss docs where it is fought (reverse of "
+    "enemies)",
+    "region": "on a boss doc: map region of the arena's nearest grace (its map-menu "
+    "group: Stormhill, Liurnia of the Lakes, Gravesite Plain)",
+    "nearest_grace": "on a boss doc: the site of grace closest to the arena (world "
+    "coordinates in the open world, same map otherwise); locates open-world bosses",
+    "map": "on a boss doc: MSB map id of the arena (m10_00_00_00 Stormveil; open world "
+    "m60_XX_YY_00 tiles, DLC m61)",
+    "arena_position": "on a boss doc: the arena's position in its map's local "
+    "coordinates (GameAreaParam BossPos)",
+    "runes": "on a boss doc: runes awarded for the kill (GameAreaParam "
+    "SingleplayerSoulReward, before rune-gain buffs)",
+    "banner": "on a boss doc: the defeat banner, i.e. the boss tier: Enemy Felled "
+    "(field/dungeon bosses), Great Enemy Felled, Demigod Felled, Legend Felled, God Slain "
+    "(Elden Beast, Consort Radahn), Duelist Vanquished. Absent when the defeat isn't "
+    "scripted with a banner the event scripts expose",
+    "defeat_flag": "on a boss doc: the event flag set when the boss is defeated "
+    "(GameAreaParam DefeatBossFlagId)",
     "summon_stats": "on a spirit_ash doc: the summoned spirits' stats at +0, one entry "
     "per distinct spirit with count and the enemy stat groups (stats / defense / resistances "
     "/ immune_to / traits / weak_point_damage_multiplier), from BuddyParam -> NpcParam with "

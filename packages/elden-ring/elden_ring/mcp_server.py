@@ -98,6 +98,15 @@ def search_entities(
                            have no in-game description. Bosses / named enemies carry a
                            drops list (items they drop, from map EMEVD scripts, #68); the
                            dropped item's own doc carries the reciprocal dropped_by.
+                           boss_encounters names the boss docs where it is fought.
+            boss         — one doc per boss encounter (#79, GameAreaParam): enemies
+                           fought (phases, duo partners), location / region /
+                           nearest_grace / map, runes, the defeat banner (boss tier:
+                           Enemy Felled … Demigod Felled, Legend Felled, God Slain),
+                           and the items that encounter awards. Named after the
+                           defeated character; a name several encounters share gets
+                           the place appended, e.g. "Night's Cavalry (Gate Town
+                           Bridge)" — search entity_type="boss" by name to list them.
                            Humanoid NPCs/invaders carry equipment (weapons, ashes of
                            war, armor, spells, talismans, ammo; #85); items carry the
                            reciprocal equipped_by.
@@ -200,7 +209,9 @@ def get_entity(
     variants that share one display name (Rennala's two phases) are nested in the
     enemy doc's variants instead. A multi-phase boss doc (Maliketh, Malenia, Elden
     Beast, Hoarah Loux…) carries the whole fight in phases: each phase's character,
-    its own stats and HP, and the HP ratio its phase ends at.
+    its own stats and HP, and the HP ratio its phase ends at. A boss and its enemy
+    share a name ("Godrick the Grafted"): pass entity_type="boss" for the encounter
+    doc (arena, runes, banner), "enemy" for the character's stats.
 
     Historical names resolve too: an item renamed across patches is indexed under
     its current name, with the per-patch name kept in display_name. Looking one up
@@ -475,7 +486,7 @@ def search_entities_literal(
             everything a merchant sells) you must name them explicitly, e.g.
             fields=["sold_by"]. See describe_fields() for the full field catalog.
         entity_type: Narrow to one entity category (weapon, armor, spell, consumable,
-            key_item, spirit_ash, ammo, enemy, etc.). See search_entities() for the full
+            key_item, spirit_ash, ammo, enemy, boss, etc.). See search_entities() for the full
             list or call list_entity_types() for the authoritative live set.
         patch_version: Filter to a specific patch snapshot (e.g. "1.10.0"). Omit to
             search across all patches and return one result per entity (latest version).
