@@ -169,7 +169,10 @@ def search_entities(
       sold_by            — merchant names that sell this item (per-patch)
       dropped_by         — boss / named enemies that drop this item (EMEVD-derived, #68)
       equipped_by        — humanoid enemies/NPCs whose loadout includes it (#85)
-      acquisition_types  — how it's obtained: merchant / enemy_drop / found_in_world
+      given_by           — NPCs whose dialogue gives this item (talk scripts, #23)
+      starting_classes   — starting classes whose initial loadout includes it (#23)
+      acquisition_types  — how it's obtained: merchant / enemy_drop / found_in_world /
+                           chest / given_by_npc / starting_equipment / keepsake
       placements / maps  — where it is picked up in the world (MSB treasure: map,
                            world_position or map-local position, in_chest; #76)
     Item variants (weapon affinities, talisman ranks, flask +N, altered armor) are their

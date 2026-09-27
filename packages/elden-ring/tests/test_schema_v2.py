@@ -168,6 +168,8 @@ def test_grouped_leaves_mapped():
         "equipment.spells": "keyword",
         "equipment.ammo": "keyword",
         "equipped_by": "keyword",
+        "given_by": "keyword",
+        "starting_classes": "keyword",
     }
     for path, type_ in expected.items():
         assert (_mapped(path) or {}).get("type") == type_, path
@@ -314,6 +316,11 @@ def test_builder_doc_shapes_fully_mapped():
             },
         },
         {"equipped_by": ["Recusant Henricus"]},
+        {
+            "acquisition_types": ["found_in_world", "given_by_npc", "keepsake"],
+            "given_by": ["Roderika"],
+            "starting_classes": ["Vagabond"],
+        },
         {
             "entity_type": "boss",
             "name": "Night's Cavalry (Gate Town Bridge)",
