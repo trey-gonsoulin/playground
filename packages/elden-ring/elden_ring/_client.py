@@ -454,6 +454,14 @@ INDEX_MAPPING = {
             "banner": {"type": "keyword"},
             "defeat_flag": {"type": "long"},
             "boss_encounters": {"type": "keyword"},
+            # Sites of grace (BonfireWarpParam, #78); region/map/nearest_grace shared
+            # with bosses.
+            "parent_region": {"type": "keyword"},
+            "position": {"properties": _props("float", ("x", "y", "z"))},
+            "world_position": {"properties": _props("float", ("x", "y", "z"))},
+            "entity_id": {"type": "long"},
+            "unlock_flag": {"type": "long"},
+            "bosses": {"type": "keyword"},
             # Humanoid enemy loadout (MSB CharaInitID -> CharaInitParam, #85) and
             # its reverse on item docs.
             "equipment": {
@@ -1759,12 +1767,25 @@ _FIELD_NOTES: dict[str, str] = {
     "(Stormfoot Catacombs)'",
     "boss_encounters": "on an enemy doc: the boss docs where it is fought (reverse of "
     "enemies)",
-    "region": "on a boss doc: map region of the arena's nearest grace (its map-menu "
-    "group: Stormhill, Liurnia of the Lakes, Gravesite Plain)",
-    "nearest_grace": "on a boss doc: the site of grace closest to the arena (world "
+    "region": "on a site_of_grace doc: the grace's map-menu region (Stormhill, Liurnia "
+    "of the Lakes, Leyndell, Ashen Capital, Gravesite Plain); on a boss doc: the region "
+    "of the arena's nearest grace",
+    "parent_region": "on a site_of_grace doc: the map-menu tab its region sits under "
+    "(Stormhill and Weeping Peninsula -> Limgrave; Castle Ensis -> Gravesite Plain)",
+    "nearest_grace": "on a boss doc: the site_of_grace doc closest to the arena (world "
     "coordinates in the open world, same map otherwise); locates open-world bosses",
-    "map": "on a boss doc: MSB map id of the arena (m10_00_00_00 Stormveil; open world "
-    "m60_XX_YY_00 tiles, DLC m61)",
+    "map": "MSB map id: a boss doc's arena, a site_of_grace doc's map (a dungeon grace "
+    "gives the dungeon's map even though its world-map marker is on the overworld). "
+    "m10_00_00_00 Stormveil; open world m60_XX_YY_00 tiles, DLC m61",
+    "position": "on a site_of_grace doc outside the open world: its position in map's "
+    "local coordinates",
+    "world_position": "on a site_of_grace doc in the open world (and dungeon graces, "
+    "whose marker sits on the overworld): world coordinates, tile x 256 + local, so "
+    "distances compare across tiles. The base map (m60) and the DLC map (m61) are "
+    "separate frames",
+    "entity_id": "on a site_of_grace doc: the grace's MSB entity id (BonfireEntityId)",
+    "unlock_flag": "on a site_of_grace doc: the event flag set when the grace is lit",
+    "bosses": "on a site_of_grace doc: the boss docs whose nearest grace it is",
     "arena_position": "on a boss doc: the arena's position in its map's local "
     "coordinates (GameAreaParam BossPos)",
     "runes": "on a boss doc: runes awarded for the kill (GameAreaParam "
