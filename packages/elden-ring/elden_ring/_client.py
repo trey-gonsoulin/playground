@@ -462,6 +462,10 @@ INDEX_MAPPING = {
             "entity_id": {"type": "long"},
             "unlock_flag": {"type": "long"},
             "bosses": {"type": "keyword"},
+            # MSB placements of enemies and treasure pickups of items (#76): the
+            # list is returned, never searched; maps is the filterable summary.
+            "placements": {"type": "object", "enabled": False},
+            "maps": {"type": "keyword"},
             # Humanoid enemy loadout (MSB CharaInitID -> CharaInitParam, #85) and
             # its reverse on item docs.
             "equipment": {
@@ -1779,11 +1783,23 @@ _FIELD_NOTES: dict[str, str] = {
     "gives the dungeon's map even though its world-map marker is on the overworld). "
     "m10_00_00_00 Stormveil; open world m60_XX_YY_00 tiles, DLC m61",
     "position": "on a site_of_grace doc outside the open world: its position in map's "
-    "local coordinates",
+    "local coordinates. Also the key used inside placements entries",
     "world_position": "on a site_of_grace doc in the open world (and dungeon graces, "
     "whose marker sits on the overworld): world coordinates, tile x 256 + local, so "
     "distances compare across tiles. The base map (m60) and the DLC map (m61) are "
-    "separate frames",
+    "separate frames. placements entries on open-world tiles use the same frame, so "
+    "they compare with grace and boss positions",
+    "placements": "on enemy and item docs (#76): where it is in the world, from the "
+    "map MSBs. Enemy: one entry per placed instance of the name (health-bar, NameID or "
+    "spirit-ash label), {map, world_position | position, entity_id}. Item: one entry "
+    "per pickup (MSB treasure event: corpse, chest, or an enemy carrying it), {map, "
+    "world_position | position, lot_id, in_chest}; enemy drops are not pickups (see "
+    "dropped_by). Open-world tiles (m60 base, m61 DLC, any tile size) give "
+    "world_position; dungeons and legacy maps give map-local position. Returned, not "
+    "searchable; filter on maps",
+    "maps": "on enemy and item docs (#76): the distinct MSB map ids of its placements, "
+    "e.g. maps='m10_00_00_00' finds everything placed in Stormveil Castle. DLC maps "
+    "(m20-m28, m40-m45, m61) are resolved too",
     "entity_id": "on a site_of_grace doc: the grace's MSB entity id (BonfireEntityId)",
     "unlock_flag": "on a site_of_grace doc: the event flag set when the grace is lit",
     "bosses": "on a site_of_grace doc: the boss docs whose nearest grace it is",

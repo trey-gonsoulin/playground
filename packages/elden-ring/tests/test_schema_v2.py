@@ -162,6 +162,7 @@ def test_grouped_leaves_mapped():
         "entity_id": "long",
         "unlock_flag": "long",
         "bosses": "keyword",
+        "maps": "keyword",
         "equipment.weapons": "keyword",
         "equipment.ashes_of_war": "keyword",
         "equipment.spells": "keyword",
@@ -178,6 +179,7 @@ def test_upgrade_curve_not_indexed():
     assert _PROPS["upgrade_curve"] == {"type": "object", "enabled": False}
     assert _PROPS["poise_damage_chains"] == {"type": "object", "enabled": False}  # #119
     assert _PROPS["ar_inputs"] == {"type": "object", "enabled": False}  # #120
+    assert _PROPS["placements"] == {"type": "object", "enabled": False}  # #76
 
 
 def test_builder_doc_shapes_fully_mapped():
@@ -339,6 +341,22 @@ def test_builder_doc_shapes_fully_mapped():
             "bosses": ["Hoarah Loux, Warrior"],
         },
         {"world_position": {"x": 10517.3, "y": 41.2, "z": 9828.7}},
+        {
+            "placements": [
+                {
+                    "map": "m60_42_36_00",
+                    "world_position": {"x": 10760.1, "y": 60.2, "z": 9310.5},
+                    "entity_id": 1042360800,
+                },
+                {
+                    "map": "m10_00_00_00",
+                    "position": {"x": 1.0, "y": 2.0, "z": 3.0},
+                    "lot_id": 10000,
+                    "in_chest": True,
+                },
+            ],
+            "maps": ["m60_42_36_00", "m10_00_00_00"],
+        },
         {
             "base_item": None,
             "variants": [
