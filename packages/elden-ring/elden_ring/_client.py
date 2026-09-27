@@ -1793,7 +1793,9 @@ _FIELD_NOTES: dict[str, str] = {
     "map MSBs. Enemy: one entry per placed instance of the name (health-bar, NameID or "
     "spirit-ash label), {map, world_position | position, entity_id}. Item: one entry "
     "per pickup (MSB treasure event: corpse, chest, or an enemy carrying it), {map, "
-    "world_position | position, lot_id, in_chest}; enemy drops are not pickups (see "
+    "world_position | position, lot_id, in_chest}; in_chest is true only for "
+    "treasure chests (altar and tree pickups aren't chests); enemy drops are not "
+    "pickups (see "
     "dropped_by). Open-world tiles (m60 base, m61 DLC, any tile size) give "
     "world_position; dungeons and legacy maps give map-local position. Returned, not "
     "searchable; filter on maps",
