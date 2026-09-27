@@ -240,17 +240,26 @@ def test_search_literal_match_all(client):
         client.indices.refresh(index=_os.INDEX)
 
 
-def test_search_literal_collapse_affinity(client):
-    """collapse_affinity keeps a weapon's Standard row and every non-weapon, and drops
-    the affinity variants that repeat the base text (#21)."""
+def test_search_literal_collapse_variants(client):
+    """collapse_variants keeps each family's base and everything outside a family, and
+    drops the variant docs naming a base_item (#111; collapse_affinity is an alias)."""
     marker = "zqxaffinitymarker"
     docs = {
-        "weapon::__test_aff_std__::test": ("weapon", "__test_aff_std__", "Standard"),
-        "weapon::__test_aff_heavy__::test": ("weapon", "__test_aff_heavy__", "Heavy"),
+        "weapon::__test_aff_std__::test": ("weapon", "__test_aff_std__", None),
+        "weapon::__test_aff_heavy__::test": (
+            "weapon",
+            "__test_aff_heavy__",
+            "__test_aff_std__",
+        ),
         "item::__test_aff_talisman__::test": ("item", "__test_aff_talisman__", None),
+        "item::__test_aff_talisman_1__::test": (
+            "item",
+            "__test_aff_talisman_1__",
+            "__test_aff_talisman__",
+        ),
     }
     try:
-        for doc_id, (etype, name, affinity) in docs.items():
+        for doc_id, (etype, name, base_item) in docs.items():
             body = {
                 "entity_type": etype,
                 "name": name,
@@ -258,18 +267,19 @@ def test_search_literal_collapse_affinity(client):
                 "source": "test",
                 "description": f"text {marker}",
             }
-            if affinity:
-                body["affinity"] = affinity
+            if base_item:
+                body["base_item"] = base_item
             client.index(index=_os.INDEX, id=doc_id, body=body, refresh="wait_for")
 
         full = _os.search_literal(client, pattern=marker, patch_version="test")
-        collapsed = _os.search_literal(
-            client, pattern=marker, patch_version="test", collapse_affinity=True
-        )
-        assert full["total"] == 3, full
-        assert collapsed["total"] == 2, collapsed
-        names = {r["name"] for r in collapsed["results"]}
-        assert names == {"__test_aff_std__", "__test_aff_talisman__"}, names
+        assert full["total"] == 4, full
+        for kw in ("collapse_variants", "collapse_affinity"):
+            collapsed = _os.search_literal(
+                client, pattern=marker, patch_version="test", **{kw: True}
+            )
+            assert collapsed["total"] == 2, collapsed
+            names = {r["name"] for r in collapsed["results"]}
+            assert names == {"__test_aff_std__", "__test_aff_talisman__"}, names
     finally:
         for doc_id in docs:
             client.delete(index=_os.INDEX, id=doc_id, ignore=[404])

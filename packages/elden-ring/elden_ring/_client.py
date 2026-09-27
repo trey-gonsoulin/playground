@@ -403,9 +403,23 @@ INDEX_MAPPING = {
             "hp_scaled": {
                 "properties": _props("integer", ("min", "max", "placements"))
             },
-            # Distinct stat blocks over a name's health-bar placements (#110).
+            # Enemies: distinct stat blocks over a name's health-bar placements (#110).
+            # Item bases: one summary entry per variant naming it in base_item (#111).
             "variants": {
                 "properties": {
+                    "name": {"type": "keyword"},
+                    "affinity": {"type": "keyword"},
+                    "rank": {"type": "integer"},
+                    "differs": {"type": "keyword"},
+                    **{
+                        k: _WEAPON_STATS[k]
+                        for k in ("attack_power", "scaling", "status_buildup")
+                    },
+                    "weight": {"type": "float"},
+                    "effect_value": {"type": "float"},
+                    "is_legendary": {"type": "boolean"},
+                    "text_differs": {"type": "boolean"},
+                    "availability": {"type": "keyword"},
                     "npc_ids": {"type": "keyword"},
                     "npc_param_ids": {"type": "integer"},
                     **_NPC_STATS,
@@ -533,22 +547,17 @@ def _availability_filter(include_unavailable: bool) -> list[dict]:
     ]
 
 
-def _affinity_filter(collapse_affinity: bool) -> list[dict]:
-    """Filter clause dropping non-Standard weapon affinity variants (#21).
+def _variant_filter(collapse_variants: bool) -> list[dict]:
+    """Filter clause dropping item variant docs, keeping each family's base (#111).
 
-    Infusable weapons are indexed once per affinity (Heavy Dagger, Keen Dagger, …),
-    each stamped with ``affinity``. Collapsing keeps the Standard row; docs without the
-    field (non-weapons, non-infusable weapons) pass through.
+    Weapon affinities (Heavy Dagger), talisman ranks (Erdtree's Favor +2), flask +N
+    and altered armor are their own docs naming their base in ``base_item``;
+    collapsing keeps the docs without it (bases, and everything outside a family).
+    Supersedes the weapon-only collapse_affinity (#21).
     """
-    if not collapse_affinity:
+    if not collapse_variants:
         return []
-    variant = {
-        "bool": {
-            "filter": [{"exists": {"field": "affinity"}}],
-            "must_not": [{"term": {"affinity": "Standard"}}],
-        }
-    }
-    return [{"bool": {"must_not": [variant]}}]
+    return [{"bool": {"must_not": [{"exists": {"field": "base_item"}}]}}]
 
 
 def search(
@@ -562,6 +571,7 @@ def search(
     source: str | None = None,
     include_unavailable: bool = False,
     collapse_affinity: bool = False,
+    collapse_variants: bool = False,
 ) -> list[dict] | dict:
     filters = []
     if entity_type:
@@ -571,7 +581,7 @@ def search(
     if source:
         filters.append({"term": {"source": source}})
     filters += _availability_filter(include_unavailable)
-    filters += _affinity_filter(collapse_affinity)
+    filters += _variant_filter(collapse_variants or collapse_affinity)
 
     body: dict = {
         "size": 0 if count_only else limit,
@@ -695,18 +705,67 @@ def _resolve_entity_name(
 
 
 def get_entity(
-    client: OpenSearch, name: str, entity_type: str | None = None
+    client: OpenSearch,
+    name: str,
+    entity_type: str | None = None,
+    include_variants: bool = False,
 ) -> dict | None:
     resolved = _resolve_entity_doc(client, name, entity_type)
     if resolved is None:
         return None
     doc, historical = resolved
-    if not historical:
-        return _public(doc)
-    # A historical name matched an old patch; return the current doc instead of
-    # stale stats, and say so (#63).
-    newest = _newest_doc(client, {"name.keyword": doc["name"]}, doc["entity_type"])
-    return {**_public(newest or doc), "name_is_historical": True, "queried_name": name}
+    if historical:
+        # A historical name matched an old patch; return the current doc instead of
+        # stale stats, and say so (#63).
+        newest = _newest_doc(client, {"name.keyword": doc["name"]}, doc["entity_type"])
+        out = {
+            **_public(newest or doc),
+            "name_is_historical": True,
+            "queried_name": name,
+        }
+    else:
+        out = _public(doc)
+    if include_variants:
+        out["variant_docs"] = _family_docs(client, out)
+    return out
+
+
+# Larger than any item family (a base + 12 affinities).
+_FAMILY_FETCH_SIZE = 50
+
+
+def _family_docs(client: OpenSearch, doc: dict) -> list[dict]:
+    """The rest of ``doc``'s item variant family at its patch, in sort_id order (#111).
+
+    The family is the base (the doc's ``base_item``, or the doc itself) plus every doc
+    naming that base in ``base_item``, same entity_type; ``doc`` itself is left out.
+    """
+    base = doc.get("base_item") or doc["name"]
+    resp = client.search(
+        index=INDEX,
+        body={
+            "size": _FAMILY_FETCH_SIZE,
+            "query": {
+                "bool": {
+                    "filter": [
+                        {"term": {"entity_type": doc["entity_type"]}},
+                        {"term": {"patch_version": doc["patch_version"]}},
+                    ],
+                    "should": [
+                        {"term": {"base_item": base}},
+                        {"term": {"name.keyword": base}},
+                    ],
+                    "minimum_should_match": 1,
+                }
+            },
+            "sort": [{"sort_id": {"order": "asc", "missing": "_first"}}],
+        },
+    )
+    return [
+        _public(h["_source"])
+        for h in resp["hits"]["hits"]
+        if h["_source"]["name"] != doc["name"]
+    ]
 
 
 # Calculator plumbing stored on docs but never returned or diffed (#120).
@@ -974,6 +1033,7 @@ def search_literal(
     use_lemmatize: bool = False,
     include_unavailable: bool = False,
     collapse_affinity: bool = False,
+    collapse_variants: bool = False,
 ) -> dict:
     """Exact-phrase search across text fields, with optional structural filters.
 
@@ -1013,7 +1073,7 @@ def search_literal(
     if source:
         filters.append({"term": {"source": source}})
     filters += _availability_filter(include_unavailable)
-    filters += _affinity_filter(collapse_affinity)
+    filters += _variant_filter(collapse_variants or collapse_affinity)
     if sort_id_gte is not None or sort_id_lte is not None:
         sort_id_range: dict = {}
         if sort_id_gte is not None:
@@ -1078,6 +1138,7 @@ def search_literal(
                 use_lemmatize=use_lemmatize,
                 include_unavailable=include_unavailable,
                 collapse_affinity=collapse_affinity,
+                collapse_variants=collapse_variants,
             )
             for doc in r.get("results", []):
                 seen.setdefault(doc.get("name", ""), doc)
@@ -1417,11 +1478,15 @@ _FIELD_NOTES: dict[str, str] = {
     "display_name": "per-patch in-game FMG name; differs from name when an item was renamed across patches",
     "menu_category": "in-game equipment menu grouping (e.g. 'Straight Sword', 'Reaper', 'Head')",
     "sort_id": "in-game sort index; base-game armaments are 1000-aligned with +N per affinity "
-    "variant, but DLC bases are not 1000-aligned — use collapse_affinity, not sort_id_mod, "
+    "variant, but DLC bases are not 1000-aligned — use collapse_variants, not sort_id_mod, "
     "to count distinct armaments",
     "affinity": "infusable weapon's affinity (Standard, Heavy, Keen, … Occult); each affinity "
-    "is its own doc. Pass collapse_affinity=True to search tools to keep only Standard rows",
-    "base_item": "rank variant's base (e.g. 'Erdtree's Favor' on 'Erdtree's Favor +2')",
+    "is its own doc, linked to the Standard row by base_item",
+    "base_item": "on an item variant doc: its family's base. Weapon affinity -> Standard "
+    "weapon ('Halberd' on 'Heavy Halberd'), talisman rank ('Erdtree's Favor' on "
+    "'Erdtree's Favor +2'), flask +N ('Flask of Crimson Tears' on '... +6'), altered armor "
+    "(as altered_from). Absent on bases and non-family items. Filter base_item=X to list "
+    "a family; pass collapse_variants=True to search tools to keep only bases",
     "text_differs": "on a talisman rank variant: its text diverges from base_item beyond the "
     "effect-magnitude rewording every rank has (Boosts → Greatly boosts, 上昇 → 大きく上昇 are "
     "ignored). False = only magnitude wording changed",
@@ -1602,7 +1667,14 @@ _FIELD_NOTES: dict[str, str] = {
     "hp_scaled.max": "highest in-game HP over the enemy's placements (min = max when one "
     "encounter or all placements scale alike)",
     "hp_scaled.placements": "number of MSB placements the range covers",
-    "variants": "enemy stat variants (#110): one entry per distinct NpcParam stat block "
+    "variants": "variants of one entity. Named variants are separate docs (Heavy Halberd, "
+    "Erdtree's Favor +2), so on an item base this is a summary: one entry per doc naming it "
+    "in base_item, in sort order, with name, affinity or rank, differs, and the values of "
+    "the compact fields among attack_power / scaling / status_buildup (at +0) / weight / "
+    "effect_value / is_legendary / availability, plus text_differs on talisman ranks; "
+    "get_entity(include_variants=True) returns the full docs. Variants that share a "
+    "display name can't be separate docs, so on an enemy each entry is a full stat block "
+    "instead: enemy stat variants (#110): one entry per distinct NpcParam stat block "
     "over the name's boss-health-bar placements, e.g. Rennala's phase 2, the Scadutree "
     "Avatar forms, the Golden Shade Godfrey, the rot-immune Lake of Rot Dragonkin. The "
     "primary encounter (the doc's top-level stats) comes first. Rows that differ only in "
@@ -1611,6 +1683,12 @@ _FIELD_NOTES: dict[str, str] = {
     "enemy stat groups (stats / defense / resistances / immune_to / traits / "
     "weak_point_damage_multiplier) plus hp_scaled; a filter like variants.stats.hp matches "
     "if any variant matches",
+    "variants.name": "item variant doc's name (get_entity it for the full doc)",
+    "variants.affinity": "weapon variant's affinity (Heavy, Keen, … Occult)",
+    "variants.rank": "talisman / flask variant's +N rank",
+    "variants.differs": "top-level fields whose values differ from the base (stats, text, "
+    "guard, max_level, poise_damage, …; names, sort order and acquisition are not "
+    "compared). Only compact fields carry values in the entry",
     "variants.npc_ids": "NpcName ids whose health bar shows this stat block",
     "variants.npc_param_ids": "NpcParam rows in this stat block",
     "variants.hp_scaled": "in-game HP range over this block's placements (as hp_scaled)",
