@@ -46,6 +46,7 @@ def search_entities(
     source: str | None = None,
     include_unavailable: bool = False,
     collapse_affinity: bool = False,
+    collapse_variants: bool = False,
 ) -> list[dict] | dict:
     """Search Elden Ring entities by name, description, location, or tags.
 
@@ -119,7 +120,7 @@ def search_entities(
             distinct names (a name shared by two entity_types counts once); with
             patch_version it is the number of matching docs in that snapshot, which is
             one per (entity_type, name). Each weapon affinity (Heavy Dagger, Keen
-            Dagger, …) is its own name — see collapse_affinity. Fuzzy matching makes
+            Dagger, …) is its own name — see collapse_variants. Fuzzy matching makes
             this a relevance count, not an exact-phrase count; for corpus counts use
             search_entities_literal.
         source: If provided, restrict to documents from one internal game-data
@@ -136,10 +137,12 @@ def search_entities(
             no acquisition path, e.g. the Ragged set / enemy-only gear; #71). Pass True to
             include them; they carry the availability field so you can tell them apart from
             live content.
-        collapse_affinity: If True, keep only the Standard row of each infusable weapon
-            (drop Heavy/Keen/…/Occult variants, which are separate docs with their own
-            names and copies of the base text). Non-weapons are unaffected. Use it to
-            count distinct armaments.
+        collapse_variants: If True, keep only the base of each item variant family:
+            drop docs with a base_item (weapon affinities like Heavy/Keen/…/Occult,
+            talisman ranks +1/+2/+3, flask +N, altered armor), which are separate docs
+            with their own names and often copies of the base text. Everything outside
+            a family is unaffected. Use it to count distinct items.
+        collapse_affinity: Deprecated alias for collapse_variants.
 
     Returns a list of entity documents when count_only is False, each with at minimum:
     entity_type, name, patch_version, source, description. Use get_entity() for the
@@ -149,9 +152,10 @@ def search_entities(
       dropped_by         — boss / named enemies that drop this item (EMEVD-derived, #68)
       equipped_by        — humanoid enemies/NPCs whose loadout includes it (#85)
       acquisition_types  — how it's obtained: merchant / enemy_drop / found_in_world
-    Talisman rank variants (e.g. Erdtree's Favor +2) link to their base via base_item and
-    carry text_differs: True when their text diverges from the base beyond the
-    effect-magnitude rewording every rank has ("Boosts" → "Greatly boosts" and
+    Item variants (weapon affinities, talisman ranks, flask +N, altered armor) are their
+    own docs and link to their base via base_item; the base doc's variants field
+    summarizes the family. Talisman ranks also carry text_differs: True when their text
+    diverges from the base beyond the effect-magnitude rewording every rank has ("Boosts" → "Greatly boosts" and
     上昇 → 大きく上昇 are ignored). text_added_lines lists the new lines, e.g.
     「伝説のタリスマン」のひとつ. False means only the magnitude wording changed.
 
@@ -168,11 +172,14 @@ def search_entities(
         source,
         include_unavailable,
         collapse_affinity,
+        collapse_variants,
     )
 
 
 @mcp.tool(annotations=_READ_ONLY)
-def get_entity(name: str, entity_type: str | None = None) -> dict | None:
+def get_entity(
+    name: str, entity_type: str | None = None, include_variants: bool = False
+) -> dict | None:
     """Retrieve the full data document for a named Elden Ring entity.
 
     If this tool returns a connection error, call start_search_service() first.
@@ -181,6 +188,17 @@ def get_entity(name: str, entity_type: str | None = None) -> dict | None:
         name: Exact entity name (case-sensitive), e.g. "Rivers of Blood".
         entity_type: Optional type hint to disambiguate if two entities share
             a name across categories (e.g. a boss and a lore entry).
+        include_variants: If True, add variant_docs: the full docs of the rest of the
+            entity's item variant family at the same patch, in sort order (the base
+            plus every doc naming it in base_item). Works from the base (Halberd ->
+            its 12 affinities) or a variant (Heavy Halberd -> Halberd + the other
+            affinities); an entity outside a family gets an empty list.
+
+    Named variants (weapon affinities, talisman ranks, flask +N, altered armor) are
+    separate docs linked by base_item, and the base doc's variants field summarizes
+    them (name, affinity or rank, which fields differ, compact values). Enemy
+    variants that share one display name (Rennala's two phases) are nested in the
+    enemy doc's variants instead.
 
     Historical names resolve too: an item renamed across patches is indexed under
     its current name, with the per-patch name kept in display_name. Looking one up
@@ -190,7 +208,7 @@ def get_entity(name: str, entity_type: str | None = None) -> dict | None:
 
     Returns the full document dict, or null if the entity is not in the index.
     """
-    return _os.get_entity(_os.get_client(), name, entity_type)
+    return _os.get_entity(_os.get_client(), name, entity_type, include_variants)
 
 
 @mcp.tool(annotations=_READ_ONLY)
@@ -397,6 +415,7 @@ def search_entities_literal(
     use_lemmatize: bool = False,
     include_unavailable: bool = False,
     collapse_affinity: bool = False,
+    collapse_variants: bool = False,
 ) -> dict:
     """Search for entities containing an exact literal substring across text fields.
 
@@ -406,12 +425,12 @@ def search_entities_literal(
 
     Omit pattern (or pass None) to enumerate all entities matching other filters
     without a text constraint — useful for structural queries like "all distinct
-    weapons" via collapse_affinity, or census queries via count_only.
+    weapons" via collapse_variants, or census queries via count_only.
 
     Counting: every infusable weapon is indexed once per affinity (Raptor Talons, Heavy
     Raptor Talons, … 13 docs), and the variants carry the base's text, so a Japanese
     phrase in one armament's description counts up to 13 times. Pass
-    collapse_affinity=True to count distinct armaments: Raptor Talons then counts once
+    collapse_variants=True to count distinct items: Raptor Talons then counts once
     for 凶手 instead of 13 times. Don't use sort_id_mod=1000 for this — it also drops
     every non-weapon match and DLC bases (whose sort_ids aren't 1000-aligned).
 
@@ -470,7 +489,7 @@ def search_entities_literal(
         sort_id_mod: If set, keep only entities where sort_id % sort_id_mod == sort_id_remainder.
             A raw structural filter on the in-game sort index: docs without a sort_id
             (enemies, merchants, dialogue) never match. To count distinct armaments use
-            collapse_affinity instead (DLC weapon bases aren't 1000-aligned).
+            collapse_variants instead (DLC weapon bases aren't 1000-aligned).
         sort_id_remainder: Remainder for the modulo filter (default 0).
         use_kuromoji: If True, route Japanese fields through kuromoji morpheme segmentation
             so phrase queries respect dictionary word boundaries. Prevents single-kanji
@@ -493,16 +512,18 @@ def search_entities_literal(
             "unobtainable", e.g. Millicent's set / the Ragged set) is excluded. Pass True to
             include it — useful for census/corpus queries that should count everything present
             in the game data. This also affects count_only totals.
-        collapse_affinity: If True, keep only the Standard row of each infusable weapon
-            (drop Heavy/Keen/…/Occult variants). Non-weapons are unaffected. Also
-            applies to total.
+        collapse_variants: If True, keep only the base of each item variant family
+            (drop docs with a base_item: weapon affinities, talisman ranks, flask +N,
+            altered armor). Everything outside a family is unaffected. Also applies to
+            total.
+        collapse_affinity: Deprecated alias for collapse_variants.
 
     Returns a dict with:
         total: int — the full match count, never capped by limit (results may be
             shorter; total is still exact).
             - Without patch_version: the number of distinct names across all patches
               (exact below 40,000). A name shared by two entity_types counts once;
-              each weapon affinity counts separately unless collapse_affinity=True.
+              each weapon affinity counts separately unless collapse_variants=True.
             - With patch_version: the number of matching docs in that snapshot, which
               is one per (entity_type, name) — no cross-patch duplicates.
             - With patterns: the size of the de-duplicated union by name. It's exact
@@ -529,6 +550,7 @@ def search_entities_literal(
         use_lemmatize,
         include_unavailable,
         collapse_affinity,
+        collapse_variants,
     )
 
 
