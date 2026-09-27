@@ -403,6 +403,18 @@ INDEX_MAPPING = {
             "hp_scaled": {
                 "properties": _props("integer", ("min", "max", "placements"))
             },
+            # Distinct stat blocks over a name's health-bar placements (#110).
+            "variants": {
+                "properties": {
+                    "npc_ids": {"type": "keyword"},
+                    "npc_param_ids": {"type": "integer"},
+                    **_NPC_STATS,
+                    "hp_scaled": {
+                        "properties": _props("integer", ("min", "max", "placements"))
+                    },
+                    "maps": {"type": "keyword"},
+                }
+            },
             # Humanoid enemy loadout (MSB CharaInitID -> CharaInitParam, #85) and
             # its reverse on item docs.
             "equipment": {
@@ -1590,6 +1602,20 @@ _FIELD_NOTES: dict[str, str] = {
     "hp_scaled.max": "highest in-game HP over the enemy's placements (min = max when one "
     "encounter or all placements scale alike)",
     "hp_scaled.placements": "number of MSB placements the range covers",
+    "variants": "enemy stat variants (#110): one entry per distinct NpcParam stat block "
+    "over the name's boss-health-bar placements, e.g. Rennala's phase 2, the Scadutree "
+    "Avatar forms, the Golden Shade Godfrey, the rot-immune Lake of Rot Dragonkin. The "
+    "primary encounter (the doc's top-level stats) comes first. Rows that differ only in "
+    "area scaling share an entry. Absent = one stat block (e.g. Night's Cavalry), or the "
+    "enemy isn't bound by a health bar (humanoids, spirit-ash labels). Each entry has the "
+    "enemy stat groups (stats / defense / resistances / immune_to / traits / "
+    "weak_point_damage_multiplier) plus hp_scaled; a filter like variants.stats.hp matches "
+    "if any variant matches",
+    "variants.npc_ids": "NpcName ids whose health bar shows this stat block",
+    "variants.npc_param_ids": "NpcParam rows in this stat block",
+    "variants.hp_scaled": "in-game HP range over this block's placements (as hp_scaled)",
+    "variants.maps": "MSB map ids of this block's placements (e.g. m12_01_00_00 for the "
+    "Lake of Rot). DLC maps are omitted: their MSB file names are content hashes",
     "summon_stats": "on a spirit_ash doc: the summoned spirits' stats at +0, one entry "
     "per distinct spirit with count and the enemy stat groups (stats / defense / resistances "
     "/ immune_to / traits / weak_point_damage_multiplier), from BuddyParam -> NpcParam with "
