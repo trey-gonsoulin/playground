@@ -96,7 +96,8 @@ def search_entities(
                            team_type (+ team label; same value = allies) and an ai
                            perception profile (sight/smell/leash ranges; #83). Enemies
                            have no in-game description. Bosses / named enemies carry a
-                           drops list (items they drop, from map EMEVD scripts, #68); the
+                           drops list (items they drop, from map EMEVD scripts, #68, incl.
+                           boss rewards such as remembrances and great runes, #134); the
                            dropped item's own doc carries the reciprocal dropped_by.
                            boss_encounters names the boss docs where it is fought.
                            Humanoid NPCs/invaders carry equipment (weapons, ashes of
