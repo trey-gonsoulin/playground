@@ -99,6 +99,12 @@ def search_entities(
                            drops list (items they drop, from map EMEVD scripts, #68); the
                            dropped item's own doc carries the reciprocal dropped_by.
                            boss_encounters names the boss docs where it is fought.
+                           Humanoid NPCs/invaders carry equipment (weapons, ashes of
+                           war, armor, spells, talismans, ammo; #85); items carry the
+                           reciprocal equipped_by.
+                           Generic mobs are named per model from their spirit ash
+                           (Godrick Soldier, Demi-Human, …; name_source="spirit_ash",
+                           chr_models) — model-level labels, not individual characters.
             boss         — one doc per boss encounter (#79, GameAreaParam): enemies
                            fought (phases, duo partners), location / region /
                            nearest_grace / map, runes, the defeat banner (boss tier:
@@ -107,12 +113,12 @@ def search_entities(
                            defeated character; a name several encounters share gets
                            the place appended, e.g. "Night's Cavalry (Gate Town
                            Bridge)" — search entity_type="boss" by name to list them.
-                           Humanoid NPCs/invaders carry equipment (weapons, ashes of
-                           war, armor, spells, talismans, ammo; #85); items carry the
-                           reciprocal equipped_by.
-                           Generic mobs are named per model from their spirit ash
-                           (Godrick Soldier, Demi-Human, …; name_source="spirit_ash",
-                           chr_models) — model-level labels, not individual characters.
+            site_of_grace — one doc per named Site of Grace (#78, BonfireWarpParam):
+                           region + parent_region (the map-menu grouping), map,
+                           position (map-local) or world_position (open world),
+                           unlock_flag, and bosses (boss docs whose nearest grace it
+                           is). A name two graces share gets its region appended,
+                           e.g. "Elden Throne (Leyndell, Ashen Capital)".
             Call list_entity_types() for the authoritative live list.
         patch_version: Filter to a specific game patch (e.g. "1.07.0"). Native data
             is extracted per-patch from that patch's regulation.bin, so this is the
@@ -211,7 +217,8 @@ def get_entity(
     Beast, Hoarah Loux…) carries the whole fight in phases: each phase's character,
     its own stats and HP, and the HP ratio its phase ends at. A boss and its enemy
     share a name ("Godrick the Grafted"): pass entity_type="boss" for the encounter
-    doc (arena, runes, banner), "enemy" for the character's stats.
+    doc (arena, runes, banner), "enemy" for the character's stats, and
+    "site_of_grace" for a grace named after its boss.
 
     Historical names resolve too: an item renamed across patches is indexed under
     its current name, with the per-patch name kept in display_name. Looking one up
@@ -486,7 +493,7 @@ def search_entities_literal(
             everything a merchant sells) you must name them explicitly, e.g.
             fields=["sold_by"]. See describe_fields() for the full field catalog.
         entity_type: Narrow to one entity category (weapon, armor, spell, consumable,
-            key_item, spirit_ash, ammo, enemy, boss, etc.). See search_entities() for the full
+            key_item, spirit_ash, ammo, enemy, boss, site_of_grace, etc.). See search_entities() for the full
             list or call list_entity_types() for the authoritative live set.
         patch_version: Filter to a specific patch snapshot (e.g. "1.10.0"). Omit to
             search across all patches and return one result per entity (latest version).
