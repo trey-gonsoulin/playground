@@ -102,7 +102,9 @@ def search_entities(
                            boss_encounters names the boss docs where it is fought.
                            Humanoid NPCs/invaders carry equipment (weapons, ashes of
                            war, armor, spells, talismans, ammo; #85); items carry the
-                           reciprocal equipped_by.
+                           reciprocal equipped_by. placements lists where each
+                           instance stands (map + world_position in the open world,
+                           else map-local position; #76) and maps the distinct maps.
                            Generic mobs are named per model from their spirit ash
                            (Godrick Soldier, Demi-Human, …; name_source="spirit_ash",
                            chr_models) — model-level labels, not individual characters.
@@ -168,6 +170,8 @@ def search_entities(
       dropped_by         — boss / named enemies that drop this item (EMEVD-derived, #68)
       equipped_by        — humanoid enemies/NPCs whose loadout includes it (#85)
       acquisition_types  — how it's obtained: merchant / enemy_drop / found_in_world
+      placements / maps  — where it is picked up in the world (MSB treasure: map,
+                           world_position or map-local position, in_chest; #76)
     Item variants (weapon affinities, talisman ranks, flask +N, altered armor) are their
     own docs and link to their base via base_item; the base doc's variants field
     summarizes the family. Talisman ranks also carry text_differs: True when their text
