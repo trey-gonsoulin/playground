@@ -114,6 +114,9 @@ def test_grouped_leaves_mapped():
         "ai.leash_distance": "integer",
         "ai.team_attack_weight": "integer",
         "ai.guards": "boolean",
+        "hp_scaled.min": "integer",
+        "hp_scaled.max": "integer",
+        "hp_scaled.placements": "integer",
         "equipment.weapons": "keyword",
         "equipment.ashes_of_war": "keyword",
         "equipment.spells": "keyword",
@@ -209,6 +212,7 @@ def test_builder_doc_shapes_fully_mapped():
                 "team_attack_weight": 0,
                 "guards": False,
             },
+            "hp_scaled": {"min": 1391, "max": 5460, "placements": 4},
             "equipment": {
                 "weapons": ["Great Stars", "Clawmark Seal"],
                 "ashes_of_war": ["Ash of War: Lion's Claw"],
