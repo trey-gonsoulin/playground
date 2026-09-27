@@ -1537,7 +1537,8 @@ _FIELD_NOTES: dict[str, str] = {
     "placements, #68) and generic mobs named by their spirit-ash model label (#104)",
     "drops": "on an enemy doc: items this enemy drops (EMEVD awards + MSB death lots), "
     "merged over every encounter of the name; on a boss doc: the items awarded for that "
-    "one encounter",
+    "one encounter. Includes defeat rewards (remembrances, great runes) awarded when the "
+    "boss's defeat flag turns on, and every row of a chained item lot (#134)",
     "equipment": "on a humanoid enemy/NPC/invader doc: the gear it is equipped with, from "
     "its map placement's CharaInitParam loadout (#85). Groups: weapons, ashes_of_war, armor, "
     "spells, talismans, ammo (item doc names; e.g. Recusant Henricus: Great Mace + Ash of "
