@@ -198,7 +198,9 @@ def get_entity(
     separate docs linked by base_item, and the base doc's variants field summarizes
     them (name, affinity or rank, which fields differ, compact values). Enemy
     variants that share one display name (Rennala's two phases) are nested in the
-    enemy doc's variants instead.
+    enemy doc's variants instead. A multi-phase boss doc (Maliketh, Malenia, Elden
+    Beast, Hoarah Loux…) carries the whole fight in phases: each phase's character,
+    its own stats and HP, and the HP ratio its phase ends at.
 
     Historical names resolve too: an item renamed across patches is indexed under
     its current name, with the per-patch name kept in display_name. Looking one up

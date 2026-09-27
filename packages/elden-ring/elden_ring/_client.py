@@ -429,6 +429,20 @@ INDEX_MAPPING = {
                     "maps": {"type": "keyword"},
                 }
             },
+            # Multi-phase boss fights: one entry per fighting character (#132).
+            "phases": {
+                "properties": {
+                    "phase": {"type": "integer"},
+                    "name": {"type": "keyword"},
+                    "npc_id": {"type": "keyword"},
+                    "npc_param_id": {"type": "integer"},
+                    **_NPC_STATS,
+                    "hp_scaled": {"type": "integer"},
+                    "ends_at_hp_ratio": {"type": "float"},
+                    "hp_pool_shared_with": {"type": "keyword"},
+                    "heals_on_entry": {"type": "boolean"},
+                }
+            },
             # Humanoid enemy loadout (MSB CharaInitID -> CharaInitParam, #85) and
             # its reverse on item docs.
             "equipment": {
@@ -1662,7 +1676,8 @@ _FIELD_NOTES: dict[str, str] = {
     "NpcParam row is base HP times its SpEffect HP multipliers (the per-area scaling, plus "
     "e.g. x2 on field-boss versions of regular enemies), floored after each. First "
     "playthrough, solo: NG+ and multiplayer scaling are not applied. A phase-2 boss "
-    "sharing phase 1's character shows phase 1's HP. Absent = never placed",
+    "sharing phase 1's character shows phase 1's HP; see phases for per-phase HP. "
+    "Absent = never placed",
     "hp_scaled.min": "lowest in-game HP over the enemy's placements",
     "hp_scaled.max": "highest in-game HP over the enemy's placements (min = max when one "
     "encounter or all placements scale alike)",
@@ -1694,6 +1709,32 @@ _FIELD_NOTES: dict[str, str] = {
     "variants.hp_scaled": "in-game HP range over this block's placements (as hp_scaled)",
     "variants.maps": "MSB map ids of this block's placements (e.g. m12_01_00_00 for the "
     "Lake of Rot). DLC maps are omitted: their MSB file names are content hashes",
+    "phases": "multi-phase boss fight (#132), the same list on every phase's doc: one "
+    "entry per fighting character in phase order, from the map event scripts' boss "
+    "events, e.g. Beast Clergyman -> Maliketh, Radagon -> Elden Beast, Godfrey -> "
+    "Hoarah Loux, Malenia's two bars, Rennala's two phases, Fia's Champions -> Rogier -> "
+    "Lionel. Each entry has the enemy stat groups of that character's placed NpcParam "
+    "row (stats / defense / resistances / immune_to / traits / "
+    "weak_point_damage_multiplier) plus hp_scaled. Total HP to beat the fight: sum "
+    "hp_scaled x (1 - ends_at_hp_ratio) over the entries, counting a shared HP pool once "
+    "(skip entries with hp_pool_shared_with; the pool's own entry carries it). Absent = "
+    "one-phase fight, a duo (co-bosses on one bar event), or a hand-off the scripts "
+    "don't express as an HP check (Morgott)",
+    "phases.phase": "1-based phase number; co-bosses in one phase share it (Lionel and "
+    "two Fia's Champions)",
+    "phases.name": "health-bar name of this phase's character",
+    "phases.npc_id": "NpcName id shown on this phase's health bar",
+    "phases.npc_param_id": "NpcParam row of this phase's fighting character",
+    "phases.hp_scaled": "this character's in-game max HP (area scaling applied, as "
+    "hp_scaled)",
+    "phases.ends_at_hp_ratio": "HP ratio at which the fight moves to the next phase: "
+    "0.55 = at 55% HP left (Beast Clergyman), 0.0 = on death. Absent on the last phase or "
+    "when the hand-off waits on something other than this character's HP",
+    "phases.hp_pool_shared_with": "the phase whose HP pool this character's damage also "
+    "drains, so both bars are one pool (Godfrey's damage feeds Hoarah Loux's 21,903)",
+    "phases.heals_on_entry": "the phase starts with a scripted regeneration effect "
+    "(Malenia, Goddess of Rot). How far it heals isn't in the params or event scripts "
+    "(the wiki says 80%), so hp_scaled is the full max HP",
     "summon_stats": "on a spirit_ash doc: the summoned spirits' stats at +0, one entry "
     "per distinct spirit with count and the enemy stat groups (stats / defense / resistances "
     "/ immune_to / traits / weak_point_damage_multiplier), from BuddyParam -> NpcParam with "
