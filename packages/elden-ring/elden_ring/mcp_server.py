@@ -189,7 +189,8 @@ def search_entities(
       given_by           — NPCs whose dialogue gives this item (talk scripts, #23)
       starting_classes   — starting classes whose initial loadout includes it (#23)
       acquisition_types  — how it's obtained: merchant / enemy_drop / found_in_world /
-                           chest / given_by_npc / starting_equipment / keepsake / crafted
+                           chest / given_by_npc / starting_equipment / keepsake / crafted /
+                           gathered (gathering-node pickup, #142)
       crafted_from       — crafting recipe materials [{item, quantity}], with
                            crafted_yield and recipe_unlock (cookbooks) (#87)
       used_in / unlocks_recipes — on materials / cookbooks: the items they craft (#87)
