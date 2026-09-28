@@ -534,6 +534,17 @@ INDEX_MAPPING = {
             "sold_by": {"type": "keyword"},
             "given_by": {"type": "keyword"},
             "starting_classes": {"type": "keyword"},
+            # Crafting (#87).
+            "crafted_from": {
+                "properties": {
+                    "item": {"type": "keyword"},
+                    "quantity": {"type": "integer"},
+                }
+            },
+            "crafted_yield": {"type": "integer"},
+            "recipe_unlock": {"type": "keyword"},
+            "used_in": {"type": "keyword"},
+            "unlocks_recipes": {"type": "keyword"},
             "base_item": {"type": "keyword"},
             "text_differs": {"type": "boolean"},
             "text_added_lines": {"type": "text"},
@@ -1582,7 +1593,8 @@ _FIELD_NOTES: dict[str, str] = {
     "acquisition_types": "how the item is obtained, per-patch: merchant / enemy_drop / "
     "found_in_world / chest (a treasure-chest placement, #76) / given_by_npc (an NPC's talk "
     "script gives it, see given_by) / starting_equipment (a starting class's gear or item, "
-    "see starting_classes) / keepsake (on the character-creation keepsake menu) (#23)",
+    "see starting_classes) / keepsake (on the character-creation keepsake menu) (#23) / "
+    "crafted (has a crafting recipe, see crafted_from, #87)",
     "acquisition_sources": "named sources: merchant names, boss/named-enemy names (see "
     "dropped_by) and gift-giving NPC names (see given_by)",
     "given_by": "on an item doc: NPCs whose talk script gives the item (#23), named via the "
@@ -1593,6 +1605,16 @@ _FIELD_NOTES: dict[str, str] = {
     "patches' DLC talk scripts aren't extracted)",
     "starting_classes": "on an item doc: the starting classes whose initial loadout includes "
     "it (#23), e.g. Longsword: [Vagabond]; Memory of Grace: every class",
+    "crafted_from": "on a craftable consumable/ammo doc: the crafting recipe's materials as "
+    "[{item, quantity}] (ShopLineupParam_Recipe -> EquipMtrlSetParam, #87), e.g. Redmane "
+    "Fire Pot: Mushroom x2, Smoldering Butterfly, Old Fang. Filter crafted_from.item to find "
+    "what a material makes (or read used_in on the material)",
+    "crafted_yield": "on a craftable doc: how many one craft makes (arrows/bolts 5 or 10)",
+    "recipe_unlock": "on a craftable doc: the cookbook(s) whose pickup or purchase unlocks "
+    "the recipe (#87); absent when the recipe is known from the start (Fire Pot, Rowa Raisin)",
+    "used_in": "on a material doc: the items it is a crafting ingredient of (reverse of "
+    "crafted_from, #87)",
+    "unlocks_recipes": "on a cookbook doc: the items whose recipes it unlocks (#87)",
     "dropped_by": "enemies that drop this item: bosses/named enemies (map EMEVD + MSB "
     "placements, #68) and generic mobs named by their spirit-ash model label (#104)",
     "drops": "on an enemy doc: items this enemy drops (EMEVD awards + MSB death lots), "
@@ -1673,7 +1695,10 @@ _FIELD_NOTES: dict[str, str] = {
     "+25), only for stats that change with level; an absent stat keeps its +0 value. On a "
     "spirit_ash doc: upgrade_curve.summon_stats is a list aligned with summon_stats "
     "(upgrade_curve.summon_stats[0].stats.hp[10] = first spirit's +10 HP), plus "
-    "upgrade_curve.summon_count when the number of spirits grows (Giant Rat Ashes 3 -> 5)",
+    "upgrade_curve.summon_count when the number of spirits grows (Giant Rat Ashes 3 -> 5). "
+    "Weapons and spirit ashes also carry upgrade_curve.materials: the materials to reach "
+    "each level as [{item, quantity}] (index 0 is null; Dagger materials[25] = Ancient "
+    "Dragon Smithing Stone x1, Black Knife Tiche materials[1] = Ghost Glovewort [1]) (#87)",
     "ar_inputs": "not searchable and not returned by get_entity: a weapon's per-level "
     "attack / scaling / buildup and correction curves, the inputs calculate_attack_rating "
     "uses to compute attack rating and Arcane status buildup for given stats",
