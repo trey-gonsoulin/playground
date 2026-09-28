@@ -136,7 +136,9 @@ def search_entities(
                            gets its region appended: "Minor Erdtree (Caelid)".
                            To list what's in a place, search enemy / item docs with
                            search_entities_literal(pattern="Caelid",
-                           fields=["regions"]) or fields=["locations"] (a dungeon).
+                           fields=["regions"]) or fields=["locations"] (a dungeon);
+                           add "drop_regions" / "drop_locations" to include items
+                           that enemies there drop.
             Call list_entity_types() for the authoritative live list.
         patch_version: Filter to a specific game patch (e.g. "1.07.0"). Native data
             is extracted per-patch from that patch's regulation.bin, so this is the
@@ -192,6 +194,8 @@ def search_entities(
                            world_position or map-local position, in_chest; #76)
       regions / locations — map-menu regions (+ tabs) and dungeon location docs of
                            those placements (#140)
+      drop_regions / drop_locations — the same, for the dropped_by enemies'
+                           placements that carry the item (#141)
     Item variants (weapon affinities, talisman ranks, flask +N, altered armor) are their
     own docs and link to their base via base_item; the base doc's variants field
     summarizes the family. Talisman ranks also carry text_differs: True when their text

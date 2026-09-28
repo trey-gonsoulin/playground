@@ -482,6 +482,8 @@ INDEX_MAPPING = {
             # Placement region / dungeon location summaries (#140).
             "regions": {"type": "keyword"},
             "locations": {"type": "keyword"},
+            "drop_regions": {"type": "keyword"},
+            "drop_locations": {"type": "keyword"},
             # Humanoid enemy loadout (MSB CharaInitID -> CharaInitParam, #85) and
             # its reverse on item docs.
             "equipment": {
@@ -1862,11 +1864,19 @@ _FIELD_NOTES: dict[str, str] = {
     "placements (each placement's nearest grace) plus their tabs, so "
     "regions='Limgrave' also finds things in Stormhill and regions='Caelid' finds what "
     "is placed anywhere in Caelid. Every value is a location doc. Item regions cover "
-    "pickups only, not enemy drops",
+    "pickups only; enemy drops are in drop_regions",
     "locations": "on enemy and item docs (#140): the dungeon location docs its "
     "placements are in (catacombs, caves, tunnels, gaols, legacy dungeons: "
     "locations='Murkwater Catacombs'). Open-world landmarks (ruins, forts) have no "
-    "footprint, so open-world placements only get regions",
+    "footprint, so open-world placements only get regions. Item locations cover "
+    "pickups only; enemy drops are in drop_locations",
+    "drop_regions": "on item docs (#141): the regions (+ tabs) of the enemies in "
+    "dropped_by, counting only the placements that carry the item (their own death "
+    "lot or scripted award) when known, else every placement of that enemy. "
+    "drop_regions='Caelid' finds what enemies in Caelid drop; kept apart from the "
+    "pickup regions",
+    "drop_locations": "on item docs (#141): the dungeon location docs of those "
+    "dropping placements, e.g. drop_locations='Murkwater Catacombs'",
     "entity_id": "on a site_of_grace doc: the grace's MSB entity id (BonfireEntityId)",
     "unlock_flag": "on a site_of_grace doc: the event flag set when the grace is lit",
     "bosses": "on a site_of_grace doc: the boss docs whose nearest grace it is; on a "
