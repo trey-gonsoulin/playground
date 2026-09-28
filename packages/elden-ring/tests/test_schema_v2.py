@@ -162,6 +162,12 @@ def test_grouped_leaves_mapped():
         "entity_id": "long",
         "unlock_flag": "long",
         "bosses": "keyword",
+        "kind": "keyword",
+        "graces": "keyword",
+        "area_scaling.speffect_id": "long",
+        "area_scaling.placements": "integer",
+        "area_scaling.hp": "float",
+        "area_scaling.resistance": "float",
         "maps": "keyword",
         "equipment.weapons": "keyword",
         "equipment.ashes_of_war": "keyword",
@@ -348,6 +354,24 @@ def test_builder_doc_shapes_fully_mapped():
             "bosses": ["Hoarah Loux, Warrior"],
         },
         {"world_position": {"x": 10517.3, "y": 41.2, "z": 9828.7}},
+        {
+            "entity_type": "location",
+            "name": "Caelid",
+            "kind": "region",
+            "graces": ["Smoldering Church"],
+            "bosses": ["Starscourge Radahn"],
+            "area_scaling": [
+                {
+                    "speffect_id": 7070,
+                    "placements": 1052,
+                    "hp": 2.406,
+                    "stamina": 1.288,
+                    "attack": 1.831,
+                    "defense": 1.093,
+                    "resistance": 2.123,
+                }
+            ],
+        },
         {
             "placements": [
                 {
