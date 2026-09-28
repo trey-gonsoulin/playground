@@ -122,6 +122,16 @@ def search_entities(
                            unlock_flag, and bosses (boss docs whose nearest grace it
                            is). A name two graces share gets its region appended,
                            e.g. "Elden Throne (Leyndell, Ashen Capital)".
+            location     — one doc per named place (#77): the map menu's regions
+                           (kind region: Limgrave, Caelid; subregion: Stormhill) —
+                           the same values as region / parent_region elsewhere —
+                           and world-map markers (kind catacombs, cave, ruins,
+                           church, castle, legacy_dungeon, evergaol, …) with map,
+                           position / world_position and region. graces and bosses
+                           list what's inside; area_scaling gives the enemy scaling
+                           tiers there (hp/stamina/attack/defense/resistance
+                           multipliers, most common first). A repeated marker name
+                           gets its region appended: "Minor Erdtree (Caelid)".
             Call list_entity_types() for the authoritative live list.
         patch_version: Filter to a specific game patch (e.g. "1.07.0"). Native data
             is extracted per-patch from that patch's regulation.bin, so this is the

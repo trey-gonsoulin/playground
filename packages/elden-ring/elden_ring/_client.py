@@ -462,6 +462,19 @@ INDEX_MAPPING = {
             "entity_id": {"type": "long"},
             "unlock_flag": {"type": "long"},
             "bosses": {"type": "keyword"},
+            # Locations (map-menu regions + WorldMapPointParam markers, #77); name /
+            # region / parent_region / map / positions / bosses shared with graces.
+            "kind": {"type": "keyword"},
+            "graces": {"type": "keyword"},
+            "area_scaling": {
+                "properties": {
+                    "speffect_id": {"type": "long"},
+                    "placements": {"type": "integer"},
+                    **_props(
+                        "float", ("hp", "stamina", "attack", "defense", "resistance")
+                    ),
+                }
+            },
             # MSB placements of enemies and treasure pickups of items (#76): the
             # list is returned, never searched; maps is the filterable summary.
             "placements": {"type": "object", "enabled": False},
@@ -1787,19 +1800,42 @@ _FIELD_NOTES: dict[str, str] = {
     "boss_encounters": "on an enemy doc: the boss docs where it is fought (reverse of "
     "enemies)",
     "region": "on a site_of_grace doc: the grace's map-menu region (Stormhill, Liurnia "
-    "of the Lakes, Leyndell, Ashen Capital, Gravesite Plain); on a boss doc: the region "
-    "of the arena's nearest grace",
+    "of the Lakes, Leyndell, Ashen Capital, Gravesite Plain); on a boss doc and a "
+    "location marker doc: the region of its nearest grace. Every region value is also "
+    "a location doc",
     "parent_region": "on a site_of_grace doc: the map-menu tab its region sits under "
-    "(Stormhill and Weeping Peninsula -> Limgrave; Castle Ensis -> Gravesite Plain)",
+    "(Stormhill and Weeping Peninsula -> Limgrave; Castle Ensis -> Gravesite Plain); on "
+    "a location doc: the tab above its region (a subregion's own tab)",
+    "kind": "on a location doc (#77): region (a map-menu tab: Limgrave, Caelid, "
+    "Stormveil Castle, Gravesite Plain; also the world-map area labels such as Realm of "
+    "Shadow), subregion (a tab's sub-category: Stormhill, Weeping Peninsula, Leyndell, "
+    "Ashen Capital), or a marker kind from its world-map icon: catacombs, cave, tunnel, "
+    "ruins, church, shack, rise, evergaol, hero_grave, fort, castle, settlement, "
+    "legacy_dungeon, divine_tower, tower, minor_erdtree, miquellas_cross, gaol, forge, "
+    "well, mausoleum, colosseum, gate, grand_lift. Absent on markers whose icon has no "
+    "label (unique landmarks). A marker named like a region merges into the region doc",
+    "graces": "on a location doc: the site_of_grace docs in it (a region: graces in the "
+    "region or its subregions; a dungeon: graces in its map)",
+    "area_scaling": "on a location doc (#77): the enemy area-scaling tiers of the "
+    "enemies placed there, most placements first. Each: speffect_id (the NpcParam "
+    "SpecialEffectID3 SpEffect: 7000s base game, 20007000s DLC), placements (placed "
+    "enemies on that tier), and the multipliers hp, stamina, attack (all damage types), "
+    "defense (all types) and resistance (all statuses except death blight, which is "
+    "never scaled). A region counts placements by their nearest grace's region (a tab "
+    "sums its subregions); a dungeon counts its map's placements. The first tier is "
+    "the area's typical level (Caelid 7070: hp x2.406). Humanoid NPC tiers "
+    "(19351-19370) are left out; open-world landmarks use their region's tiers",
     "nearest_grace": "on a boss doc: the site_of_grace doc closest to the arena (world "
     "coordinates in the open world, same map otherwise); locates open-world bosses",
     "map": "MSB map id: a boss doc's arena, a site_of_grace doc's map (a dungeon grace "
-    "gives the dungeon's map even though its world-map marker is on the overworld). "
+    "gives the dungeon's map even though its world-map marker is on the overworld), a "
+    "location marker's map (a dungeon's own map, likewise). "
     "m10_00_00_00 Stormveil; open world m60_XX_YY_00 tiles, DLC m61",
-    "position": "on a site_of_grace doc outside the open world: its position in map's "
-    "local coordinates. Also the key used inside placements entries",
-    "world_position": "on a site_of_grace doc in the open world (and dungeon graces, "
-    "whose marker sits on the overworld): world coordinates, tile x 256 + local, so "
+    "position": "on a site_of_grace or location doc outside the open world: its "
+    "position in map's local coordinates. Also the key used inside placements entries",
+    "world_position": "on a site_of_grace or location doc in the open world (and "
+    "dungeon graces and markers, which sit on the overworld): world coordinates, tile "
+    "x 256 + local, so "
     "distances compare across tiles. The base map (m60) and the DLC map (m61) are "
     "separate frames. placements entries on open-world tiles use the same frame, so "
     "they compare with grace and boss positions",
@@ -1818,7 +1854,8 @@ _FIELD_NOTES: dict[str, str] = {
     "(m20-m28, m40-m45, m61) are resolved too",
     "entity_id": "on a site_of_grace doc: the grace's MSB entity id (BonfireEntityId)",
     "unlock_flag": "on a site_of_grace doc: the event flag set when the grace is lit",
-    "bosses": "on a site_of_grace doc: the boss docs whose nearest grace it is",
+    "bosses": "on a site_of_grace doc: the boss docs whose nearest grace it is; on a "
+    "location doc: the boss docs in it (by region, or a dungeon's map)",
     "arena_position": "on a boss doc: the arena's position in its map's local "
     "coordinates (GameAreaParam BossPos)",
     "runes": "on a boss doc: runes awarded for the kill (GameAreaParam "
