@@ -104,7 +104,9 @@ def search_entities(
                            war, armor, spells, talismans, ammo; #85); items carry the
                            reciprocal equipped_by. placements lists where each
                            instance stands (map + world_position in the open world,
-                           else map-local position; #76) and maps the distinct maps.
+                           else map-local position; #76) and maps the distinct maps;
+                           regions / locations name the map-menu regions (+ tabs)
+                           and dungeon location docs they fall in (#140).
                            Generic mobs are named per model from their spirit ash
                            (Godrick Soldier, Demi-Human, …; name_source="spirit_ash",
                            chr_models) — model-level labels, not individual characters.
@@ -132,6 +134,9 @@ def search_entities(
                            tiers there (hp/stamina/attack/defense/resistance
                            multipliers, most common first). A repeated marker name
                            gets its region appended: "Minor Erdtree (Caelid)".
+                           To list what's in a place, search enemy / item docs with
+                           search_entities_literal(pattern="Caelid",
+                           fields=["regions"]) or fields=["locations"] (a dungeon).
             Call list_entity_types() for the authoritative live list.
         patch_version: Filter to a specific game patch (e.g. "1.07.0"). Native data
             is extracted per-patch from that patch's regulation.bin, so this is the
@@ -185,6 +190,8 @@ def search_entities(
                            chest / given_by_npc / starting_equipment / keepsake
       placements / maps  — where it is picked up in the world (MSB treasure: map,
                            world_position or map-local position, in_chest; #76)
+      regions / locations — map-menu regions (+ tabs) and dungeon location docs of
+                           those placements (#140)
     Item variants (weapon affinities, talisman ranks, flask +N, altered armor) are their
     own docs and link to their base via base_item; the base doc's variants field
     summarizes the family. Talisman ranks also carry text_differs: True when their text
