@@ -184,6 +184,8 @@ def search_entities(
     full document of a specific named entity, or describe_fields() to see all
     queryable fields. Item documents may include cross-reference edge fields:
       sold_by            — merchant names that sell this item (per-patch)
+      shop_listings      — per shop row: vendor/price/currency/quantity/unlock_flag (#89;
+                           get_entity only, not searchable)
       dropped_by         — boss / named enemies that drop this item (EMEVD-derived, #68)
       equipped_by        — humanoid enemies/NPCs whose loadout includes it (#85)
       given_by           — NPCs whose dialogue gives this item (talk scripts, #23)

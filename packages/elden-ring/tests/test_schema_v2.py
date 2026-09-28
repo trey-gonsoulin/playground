@@ -189,6 +189,7 @@ def test_grouped_leaves_mapped():
 def test_upgrade_curve_not_indexed():
     # Per-level arrays are returned, never searched (#112).
     assert _PROPS["upgrade_curve"] == {"type": "object", "enabled": False}
+    assert _PROPS["shop_listings"] == {"type": "object", "enabled": False}  # #89
     assert _PROPS["poise_damage_chains"] == {"type": "object", "enabled": False}  # #119
     assert _PROPS["ar_inputs"] == {"type": "object", "enabled": False}  # #120
     assert _PROPS["placements"] == {"type": "object", "enabled": False}  # #76
