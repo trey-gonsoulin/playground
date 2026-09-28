@@ -186,7 +186,8 @@ def search_entities(
       sold_by            — merchant names that sell this item (per-patch)
       shop_listings      — per shop row: vendor/price/currency/quantity/unlock_flag (#89;
                            get_entity only, not searchable), unlocked_by /
-                           unlocked_by_defeating (the goods / bosses that unlock it, #144)
+                           unlocked_by_defeating (the goods / bosses that unlock it, #144),
+                           handed_to (the NPC the goods are given to)
       dropped_by         — boss / named enemies that drop this item (EMEVD-derived, #68)
       equipped_by        — humanoid enemies/NPCs whose loadout includes it (#85)
       given_by           — NPCs whose dialogue gives this item (talk scripts, #23)
