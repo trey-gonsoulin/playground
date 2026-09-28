@@ -191,7 +191,8 @@ def search_entities(
       acquisition_types  — how it's obtained: merchant / enemy_drop / found_in_world /
                            chest / given_by_npc / starting_equipment / keepsake
       placements / maps  — where it is picked up in the world (MSB treasure: map,
-                           world_position or map-local position, in_chest; #76)
+                           world_position or map-local position, in_chest; #76;
+                           gathering nodes flagged gathering: true, #135)
       regions / locations — map-menu regions (+ tabs) and dungeon location docs of
                            those placements (#140)
       drop_regions / drop_locations — the same, for the dropped_by enemies'
@@ -222,7 +223,10 @@ def search_entities(
 
 @mcp.tool(annotations=_READ_ONLY)
 def get_entity(
-    name: str, entity_type: str | None = None, include_variants: bool = False
+    name: str,
+    entity_type: str | None = None,
+    include_variants: bool = False,
+    include_placements: bool = False,
 ) -> dict | None:
     """Retrieve the full data document for a named Elden Ring entity.
 
@@ -237,6 +241,8 @@ def get_entity(
             plus every doc naming it in base_item). Works from the base (Halberd ->
             its 12 affinities) or a variant (Heavy Halberd -> Halberd + the other
             affinities); an entity outside a family gets an empty list.
+        include_placements: If True, return every entry of placements even when
+            there are more than 50 (see below).
 
     Named variants (weapon affinities, talisman ranks, flask +N, altered armor) are
     separate docs linked by base_item, and the base doc's variants field summarizes
@@ -255,9 +261,15 @@ def get_entity(
     newest document for the current name, with name_is_historical=true and
     queried_name set to your input. Use diff_entities to see the old patch's values.
 
+    placements (MSB world positions) are returned only when there are at most 50;
+    a longer list (common gathering materials have thousands of nodes, busy enemy
+    types hundreds) is replaced by placements_total, and maps / regions / locations
+    still say where. Pass include_placements=True for the full list.
+
     Returns the full document dict, or null if the entity is not in the index.
     """
-    return _os.get_entity(_os.get_client(), name, entity_type, include_variants)
+    doc = _os.get_entity(_os.get_client(), name, entity_type, include_variants)
+    return doc if include_placements else _os.trim_placements(doc)
 
 
 @mcp.tool(annotations=_READ_ONLY)
