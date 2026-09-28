@@ -1594,7 +1594,8 @@ _FIELD_NOTES: dict[str, str] = {
     "found_in_world / chest (a treasure-chest placement, #76) / given_by_npc (an NPC's talk "
     "script gives it, see given_by) / starting_equipment (a starting class's gear or item, "
     "see starting_classes) / keepsake (on the character-creation keepsake menu) (#23) / "
-    "crafted (has a crafting recipe, see crafted_from, #87)",
+    "crafted (has a crafting recipe, see crafted_from, #87) / gathered (a gathering-node "
+    "pickup such as a herb, butterfly or ore; placements with gathering, #142)",
     "acquisition_sources": "named sources: merchant names, boss/named-enemy names (see "
     "dropped_by) and gift-giving NPC names (see given_by)",
     "given_by": "on an item doc: NPCs whose talk script gives the item (#23), named via the "
