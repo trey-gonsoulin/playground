@@ -189,7 +189,10 @@ def search_entities(
       given_by           — NPCs whose dialogue gives this item (talk scripts, #23)
       starting_classes   — starting classes whose initial loadout includes it (#23)
       acquisition_types  — how it's obtained: merchant / enemy_drop / found_in_world /
-                           chest / given_by_npc / starting_equipment / keepsake
+                           chest / given_by_npc / starting_equipment / keepsake / crafted
+      crafted_from       — crafting recipe materials [{item, quantity}], with
+                           crafted_yield and recipe_unlock (cookbooks) (#87)
+      used_in / unlocks_recipes — on materials / cookbooks: the items they craft (#87)
       placements / maps  — where it is picked up in the world (MSB treasure: map,
                            world_position or map-local position, in_chest; #76;
                            gathering nodes flagged gathering: true, #135)
@@ -393,7 +396,8 @@ def describe_fields() -> dict:
     stats.hp, defense.fire, resistances.bleed, summon_stats.stats.hp). Weapons at max
     upgrade are under max_level; the per-level upgrade_curve comes back from
     get_entity. Spirit ashes carry their summons' +0 stats as summon_stats, +10 as
-    max_level.summon_stats, and every level in upgrade_curve.summon_stats. Weapons
+    max_level.summon_stats, and every level in upgrade_curve.summon_stats. Both carry
+    each level's upgrade cost in upgrade_curve.materials (#87). Weapons
     carry per-attack poise damage (poise_damage.two_handed.charged_r2, running,
     rolling, crouch and jumping attacks; one-handed powerstance, left-hand and
     mounted attacks such as poise_damage.one_handed.mounted_charged_r2; PvP under
