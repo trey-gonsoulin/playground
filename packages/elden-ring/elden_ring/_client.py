@@ -761,6 +761,29 @@ def _resolve_entity_name(
     return resolved[0]["name"] if resolved else None
 
 
+# get_entity returns placements only up to this many; common gathering materials
+# have thousands (Rowa Fruit ~3,700, #135), far too much for one tool response.
+PLACEMENTS_LIMIT = 50
+
+
+def trim_placements(doc: dict | None, limit: int = PLACEMENTS_LIMIT) -> dict | None:
+    """Drop a doc's ``placements`` list (and its variant_docs') when it is longer
+    than ``limit``, keeping the count as ``placements_total``; maps, regions and
+    locations still summarize where it is."""
+    if not doc:
+        return doc
+    pls = doc.get("placements")
+    if pls is not None and len(pls) > limit:
+        doc = {k: v for k, v in doc.items() if k != "placements"}
+        doc["placements_total"] = len(pls)
+    if doc.get("variant_docs"):
+        doc = {
+            **doc,
+            "variant_docs": [trim_placements(v, limit) for v in doc["variant_docs"]],
+        }
+    return doc
+
+
 def get_entity(
     client: OpenSearch,
     name: str,
@@ -1850,13 +1873,16 @@ _FIELD_NOTES: dict[str, str] = {
     "spirit-ash label), {map, world_position | position, entity_id}. Item: one entry "
     "per pickup (MSB treasure event: corpse, chest, or an enemy carrying it), {map, "
     "world_position | position, lot_id, in_chest}; in_chest is true only for "
-    "treasure chests (altar and tree pickups aren't chests); enemy drops are not "
-    "pickups (see "
-    "dropped_by). Open-world tiles (m60 base, m61 DLC, any tile size) give "
+    "treasure chests (altar and tree pickups aren't chests); plus one entry per "
+    "gathering node (an herb, flower, butterfly, mushroom or ore asset whose model "
+    "carries the pickup lot, #135), {map, world_position | position, lot_id, "
+    "gathering: true}, so common materials have thousands; enemy drops are not "
+    "pickups (see dropped_by). Open-world tiles (m60 base, m61 DLC, any tile size) give "
     "world_position; dungeons and legacy maps give map-local position. Each entry also "
     "carries region / parent_region (its nearest grace's, #140) and, in a dungeon map, "
     "location (the dungeon's location doc). Returned, not searchable; filter on maps, "
-    "regions or locations",
+    "regions or locations. get_entity returns the list only when it has at most 50 "
+    "entries, else placements_total (include_placements=True for all)",
     "maps": "on enemy and item docs (#76): the distinct MSB map ids of its placements, "
     "e.g. maps='m10_00_00_00' finds everything placed in Stormveil Castle. DLC maps "
     "(m20-m28, m40-m45, m61) are resolved too",
