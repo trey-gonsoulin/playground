@@ -398,7 +398,8 @@ def describe_fields() -> dict:
     upgrade are under max_level; the per-level upgrade_curve comes back from
     get_entity. Spirit ashes carry their summons' +0 stats as summon_stats, +10 as
     max_level.summon_stats, and every level in upgrade_curve.summon_stats. Both carry
-    each level's upgrade cost in upgrade_curve.materials (#87). Weapons
+    each level's upgrade cost in upgrade_curve.materials (#87) and
+    upgrade_curve.rune_cost (#143). Weapons
     carry per-attack poise damage (poise_damage.two_handed.charged_r2, running,
     rolling, crouch and jumping attacks; one-handed powerstance, left-hand and
     mounted attacks such as poise_damage.one_handed.mounted_charged_r2; PvP under

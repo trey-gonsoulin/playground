@@ -1699,7 +1699,11 @@ _FIELD_NOTES: dict[str, str] = {
     "upgrade_curve.summon_count when the number of spirits grows (Giant Rat Ashes 3 -> 5). "
     "Weapons and spirit ashes also carry upgrade_curve.materials: the materials to reach "
     "each level as [{item, quantity}] (index 0 is null; Dagger materials[25] = Ancient "
-    "Dragon Smithing Stone x1, Black Knife Tiche materials[1] = Ghost Glovewort [1]) (#87)",
+    "Dragon Smithing Stone x1, Black Knife Tiche materials[1] = Ghost Glovewort [1]) (#87), "
+    "and upgrade_curve.rune_cost: the runes to reach each level (index 0 is null; "
+    "ReinforcePrice x the level's rate, somber's last step x6 after x5; Longsword "
+    "rune_cost[25] = 1450, Moonveil rune_cost[10] = 2160, Black Knife Tiche "
+    "rune_cost[10] = 14000; absent when the price is 0, e.g. Giant Rat Ashes) (#143)",
     "ar_inputs": "not searchable and not returned by get_entity: a weapon's per-level "
     "attack / scaling / buildup and correction curves, the inputs calculate_attack_rating "
     "uses to compute attack rating and Arcane status buildup for given stats",
