@@ -479,6 +479,9 @@ INDEX_MAPPING = {
             # list is returned, never searched; maps is the filterable summary.
             "placements": {"type": "object", "enabled": False},
             "maps": {"type": "keyword"},
+            # Placement region / dungeon location summaries (#140).
+            "regions": {"type": "keyword"},
+            "locations": {"type": "keyword"},
             # Humanoid enemy loadout (MSB CharaInitID -> CharaInitParam, #85) and
             # its reverse on item docs.
             "equipment": {
@@ -1548,7 +1551,8 @@ _FIELD_NOTES: dict[str, str] = {
     "tags": "free-form keyword tags (spell school/role, weapon category, 'Talisman', etc.)",
     "location": "where a merchant is found; on a boss doc, the legacy dungeon or area "
     "whose map holds the arena (PlaceName, e.g. Stormfoot Catacombs); absent for "
-    "open-world bosses (see nearest_grace / region)",
+    "open-world bosses (see nearest_grace / region). Enemy and item placements name "
+    "their dungeon location doc instead (see locations)",
     "sold_by": "merchant names that sell this item, derived per-patch from ShopLineupParam",
     "acquisition_types": "how the item is obtained, per-patch: merchant / enemy_drop / "
     "found_in_world / chest (a treasure-chest placement, #76) / given_by_npc (an NPC's talk "
@@ -1802,7 +1806,7 @@ _FIELD_NOTES: dict[str, str] = {
     "region": "on a site_of_grace doc: the grace's map-menu region (Stormhill, Liurnia "
     "of the Lakes, Leyndell, Ashen Capital, Gravesite Plain); on a boss doc and a "
     "location marker doc: the region of its nearest grace. Every region value is also "
-    "a location doc",
+    "a location doc. Enemy and item docs carry it per placement; filter them on regions",
     "parent_region": "on a site_of_grace doc: the map-menu tab its region sits under "
     "(Stormhill and Weeping Peninsula -> Limgrave; Castle Ensis -> Gravesite Plain); on "
     "a location doc: the tab above its region (a subregion's own tab)",
@@ -1847,11 +1851,22 @@ _FIELD_NOTES: dict[str, str] = {
     "treasure chests (altar and tree pickups aren't chests); enemy drops are not "
     "pickups (see "
     "dropped_by). Open-world tiles (m60 base, m61 DLC, any tile size) give "
-    "world_position; dungeons and legacy maps give map-local position. Returned, not "
-    "searchable; filter on maps",
+    "world_position; dungeons and legacy maps give map-local position. Each entry also "
+    "carries region / parent_region (its nearest grace's, #140) and, in a dungeon map, "
+    "location (the dungeon's location doc). Returned, not searchable; filter on maps, "
+    "regions or locations",
     "maps": "on enemy and item docs (#76): the distinct MSB map ids of its placements, "
     "e.g. maps='m10_00_00_00' finds everything placed in Stormveil Castle. DLC maps "
     "(m20-m28, m40-m45, m61) are resolved too",
+    "regions": "on enemy and item docs (#140): the distinct map-menu regions of its "
+    "placements (each placement's nearest grace) plus their tabs, so "
+    "regions='Limgrave' also finds things in Stormhill and regions='Caelid' finds what "
+    "is placed anywhere in Caelid. Every value is a location doc. Item regions cover "
+    "pickups only, not enemy drops",
+    "locations": "on enemy and item docs (#140): the dungeon location docs its "
+    "placements are in (catacombs, caves, tunnels, gaols, legacy dungeons: "
+    "locations='Murkwater Catacombs'). Open-world landmarks (ruins, forts) have no "
+    "footprint, so open-world placements only get regions",
     "entity_id": "on a site_of_grace doc: the grace's MSB entity id (BonfireEntityId)",
     "unlock_flag": "on a site_of_grace doc: the event flag set when the grace is lit",
     "bosses": "on a site_of_grace doc: the boss docs whose nearest grace it is; on a "
