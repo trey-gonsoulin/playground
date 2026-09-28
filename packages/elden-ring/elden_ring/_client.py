@@ -532,6 +532,7 @@ INDEX_MAPPING = {
             "dropped_by": {"type": "keyword"},
             "drops": {"type": "keyword"},
             "sold_by": {"type": "keyword"},
+            "shop_listings": {"type": "object", "enabled": False},  # #89
             "given_by": {"type": "keyword"},
             "starting_classes": {"type": "keyword"},
             # Crafting (#87).
@@ -1590,6 +1591,14 @@ _FIELD_NOTES: dict[str, str] = {
     "open-world bosses (see nearest_grace / region). Enemy and item placements name "
     "their dungeon location doc instead (see locations)",
     "sold_by": "merchant names that sell this item, derived per-patch from ShopLineupParam",
+    "shop_listings": "not searchable; returned by get_entity. One entry per ShopLineupParam "
+    "row selling the item (#89): vendor, condition (the shop row's unlock label, e.g. a "
+    "scroll/prayerbook, quest step or nomadic merchant site), price, currency (runes / "
+    "Dragon Heart; else the raw cost_type, e.g. 2 on Seluvis's puppets), quantity (stock; "
+    "absent = unlimited), unlock_flag (the event flag that makes the row visible, e.g. a "
+    "bell bearing handed to the Twin Maiden Husks; absent = always sold) and materials "
+    "[{item, quantity}] for item costs (remembrance trades). E.g. Somber Smithing Stone [9]: "
+    "Twin Maiden Husks, 25000 runes, unlimited, unlock_flag 11109759",
     "acquisition_types": "how the item is obtained, per-patch: merchant / enemy_drop / "
     "found_in_world / chest (a treasure-chest placement, #76) / given_by_npc (an NPC's talk "
     "script gives it, see given_by) / starting_equipment (a starting class's gear or item, "
