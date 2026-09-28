@@ -171,6 +171,8 @@ def test_grouped_leaves_mapped():
         "maps": "keyword",
         "regions": "keyword",
         "locations": "keyword",
+        "drop_regions": "keyword",
+        "drop_locations": "keyword",
         "equipment.weapons": "keyword",
         "equipment.ashes_of_war": "keyword",
         "equipment.spells": "keyword",
@@ -395,6 +397,8 @@ def test_builder_doc_shapes_fully_mapped():
             "maps": ["m60_42_36_00", "m10_00_00_00"],
             "regions": ["Stormhill", "Limgrave", "Stormveil Castle"],
             "locations": ["Stormveil Castle"],
+            "drop_regions": ["Liurnia of the Lakes"],
+            "drop_locations": ["Cliffbottom Catacombs"],
         },
         {
             "base_item": None,
