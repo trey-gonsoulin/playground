@@ -185,7 +185,8 @@ def search_entities(
     queryable fields. Item documents may include cross-reference edge fields:
       sold_by            — merchant names that sell this item (per-patch)
       shop_listings      — per shop row: vendor/price/currency/quantity/unlock_flag (#89;
-                           get_entity only, not searchable)
+                           get_entity only, not searchable), unlocked_by /
+                           unlocked_by_defeating (the goods / bosses that unlock it, #144)
       dropped_by         — boss / named enemies that drop this item (EMEVD-derived, #68)
       equipped_by        — humanoid enemies/NPCs whose loadout includes it (#85)
       given_by           — NPCs whose dialogue gives this item (talk scripts, #23)
@@ -196,6 +197,8 @@ def search_entities(
       crafted_from       — crafting recipe materials [{item, quantity}], with
                            crafted_yield and recipe_unlock (cookbooks) (#87)
       used_in / unlocks_recipes — on materials / cookbooks: the items they craft (#87)
+      unlocks_shop_items — on bell bearings / scrolls / bosses: items whose shop rows
+                           they unlock (#144)
       placements / maps  — where it is picked up in the world (MSB treasure: map,
                            world_position or map-local position, in_chest; #76;
                            gathering nodes flagged gathering: true, #135)

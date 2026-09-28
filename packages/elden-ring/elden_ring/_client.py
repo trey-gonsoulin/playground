@@ -546,6 +546,7 @@ INDEX_MAPPING = {
             "recipe_unlock": {"type": "keyword"},
             "used_in": {"type": "keyword"},
             "unlocks_recipes": {"type": "keyword"},
+            "unlocks_shop_items": {"type": "keyword"},  # #144
             "base_item": {"type": "keyword"},
             "text_differs": {"type": "boolean"},
             "text_added_lines": {"type": "text"},
@@ -1597,10 +1598,15 @@ _FIELD_NOTES: dict[str, str] = {
     "Dragon Heart at Dragon Communion / Starlight Shards for Seluvis's puppets / Heart of "
     "Bayle at the Grand Altar; else the raw cost_type), quantity (stock; "
     "absent = unlimited), unlock_flag (the event flag that makes the row visible, e.g. a "
-    "bell bearing handed to the Twin Maiden Husks; absent = always sold) and materials "
+    "bell bearing handed to the Twin Maiden Husks; absent = always sold), unlocked_by (the "
+    "goods that set unlock_flag: handed over in the vendor's talk script — bell bearings, "
+    "scrolls, prayerbooks, quest items like Seluvis's Potion — or picked up, #144), "
+    "unlocked_by_defeating (bosses whose defeat sets it: Enia's remembrance-boss rows, "
+    "Dragon Communion's dragons, #144; a flag with neither is a quest step) and materials "
     "[{item, quantity}] for item costs (remembrance trades; some also charge runes, e.g. "
     "Grafted Dragon 2000 + Remembrance of the Grafted). E.g. Somber Smithing Stone [9]: "
-    "Twin Maiden Husks, 25000 runes, unlimited, unlock_flag 11109759",
+    "Twin Maiden Husks, 25000 runes, unlimited, unlock_flag 11109759, unlocked_by "
+    "[Somberstone Miner's Bell Bearing [5]]",
     "acquisition_types": "how the item is obtained, per-patch: merchant / enemy_drop / "
     "found_in_world / chest (a treasure-chest placement, #76) / given_by_npc (an NPC's talk "
     "script gives it, see given_by) / starting_equipment (a starting class's gear or item, "
@@ -1627,6 +1633,10 @@ _FIELD_NOTES: dict[str, str] = {
     "used_in": "on a material doc: the items it is a crafting ingredient of (reverse of "
     "crafted_from, #87)",
     "unlocks_recipes": "on a cookbook doc: the items whose recipes it unlocks (#87)",
+    "unlocks_shop_items": "on a goods doc (bell bearing, scroll, prayerbook, quest item) or "
+    "boss doc: the items whose shop rows it unlocks — the reverse of shop_listings "
+    "unlocked_by / unlocked_by_defeating (#144), e.g. Somberstone Miner's Bell Bearing [5]: "
+    "[Somber Smithing Stone [9]]",
     "dropped_by": "enemies that drop this item: bosses/named enemies (map EMEVD + MSB "
     "placements, #68) and generic mobs named by their spirit-ash model label (#104)",
     "drops": "on an enemy doc: items this enemy drops (EMEVD awards + MSB death lots), "
