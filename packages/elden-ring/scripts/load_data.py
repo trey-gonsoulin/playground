@@ -45,6 +45,8 @@ import requests
 from opensearchpy import OpenSearch, RequestsHttpConnection
 from opensearchpy.helpers import bulk, scan
 
+from elden_ring._client import INDEX, INDEX_MAPPING  # reuse index name + mapping
+
 # ---------------------------------------------------------------------------
 # OpenSearch client
 # ---------------------------------------------------------------------------
@@ -67,8 +69,6 @@ def _get_client() -> OpenSearch:
         timeout=60,
     )
 
-
-from elden_ring._client import INDEX, INDEX_MAPPING  # reuse index name + mapping
 
 # ---------------------------------------------------------------------------
 # erdb source
@@ -1025,13 +1025,15 @@ def load_fromsoft_fts(jp_fmgs: dict | None = None) -> list[dict]:
         lines_ja: list[str] = []
         for section in entry.get("sections", []):
             lines = [
-                l["text"] for l in section.get("lines", []) if l.get("text", "").strip()
+                line["text"]
+                for line in section.get("lines", [])
+                if line.get("text", "").strip()
             ]
             if lines:
                 section_texts.append("\n".join(lines))
             if talk_msg_jp:
-                for l in section.get("lines", []):
-                    jp_text = talk_msg_jp.get(str(l.get("id", "")), "")
+                for line in section.get("lines", []):
+                    jp_text = talk_msg_jp.get(str(line.get("id", "")), "")
                     if jp_text:
                         lines_ja.append(jp_text)
 
@@ -1299,7 +1301,7 @@ def load_discord_bot_enemies(jp_fmgs: dict | None = None) -> list[dict]:
 
         parts = []
         if locations:
-            parts.append("Locations: " + ", ".join(str(l) for l in locations))
+            parts.append("Locations: " + ", ".join(str(loc) for loc in locations))
         if drops:
             parts.append("Drops: " + ", ".join(str(d) for d in drops))
         if lore:
@@ -1317,7 +1319,7 @@ def load_discord_bot_enemies(jp_fmgs: dict | None = None) -> list[dict]:
                 "description": lore[:500] if lore else text_content[:500],
                 "text_content": text_content,
                 "tags": ["creature"],
-                "location": [str(l) for l in locations] if locations else None,
+                "location": [str(loc) for loc in locations] if locations else None,
             }
         )
 

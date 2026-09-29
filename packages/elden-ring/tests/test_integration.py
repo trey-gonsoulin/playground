@@ -26,7 +26,7 @@ if missing:
     )
 
 # Import after env-var check so the skip fires before any import side-effects.
-import elden_ring._client as _os
+import elden_ring._client as _os  # noqa: E402
 
 
 @pytest.fixture(scope="module")
