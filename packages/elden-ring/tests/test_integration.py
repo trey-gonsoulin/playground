@@ -273,10 +273,14 @@ def test_search_literal_collapse_variants(client):
 
         full = _os.search_literal(client, pattern=marker, patch_version="test")
         assert full["total"] == 4, full
-        for kw in ("collapse_variants", "collapse_affinity"):
-            collapsed = _os.search_literal(
-                client, pattern=marker, patch_version="test", **{kw: True}
-            )
+        for collapsed in (
+            _os.search_literal(
+                client, pattern=marker, patch_version="test", collapse_variants=True
+            ),
+            _os.search_literal(
+                client, pattern=marker, patch_version="test", collapse_affinity=True
+            ),
+        ):
             assert collapsed["total"] == 2, collapsed
             names = {r["name"] for r in collapsed["results"]}
             assert names == {"__test_aff_std__", "__test_aff_talisman__"}, names
@@ -710,7 +714,10 @@ def test_reload_prunes_stale_docs_in_scope(client):
     from pathlib import Path
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-    from load_data import load_documents, prune_stale
+    from load_data import (  # pyright: ignore[reportMissingImports]
+        load_documents,
+        prune_stale,
+    )
 
     def _d(entity_type, name, version="test-prune"):
         return {
@@ -1707,9 +1714,11 @@ def test_enemy_drops_and_dropped_by_searchable(client):
         client.index(index=_os.INDEX, id=item_id, body=item, refresh="wait_for")
 
         got_enemy = _os.get_entity(client, "__test_drop_boss__", entity_type="enemy")
+        assert got_enemy is not None
         assert got_enemy["drops"] == ["__test_drop_item__"]
 
         got_item = _os.get_entity(client, "__test_drop_item__", entity_type="weapon")
+        assert got_item is not None
         assert got_item["dropped_by"] == ["__test_drop_boss__"]
 
         # dropped_by is opt-in: naming it in a literal search finds the item by boss.
@@ -1782,6 +1791,7 @@ def test_get_entity_flags_historical_name(client, renamed_weapon):
     assert got["queried_name"] == "__test_canon_old__"
 
     current = _os.get_entity(client, "__test_canon__", entity_type="weapon")
+    assert current is not None
     assert "name_is_historical" not in current
     assert "queried_name" not in current
 
