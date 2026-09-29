@@ -377,6 +377,8 @@ INDEX_MAPPING = {
                 "properties": {
                     "weapon_class": {"type": "keyword"},
                     "hit_labels": {"type": "keyword"},  # #167
+                    "projectile_hit_labels": {"type": "keyword"},  # #171
+                    "projectile_hit_counts": {"type": "integer"},  # #168
                     **_props(
                         "float", ("weapon_poise", "max", "hits", "projectile_hits")
                     ),
@@ -1920,7 +1922,8 @@ _FIELD_NOTES: dict[str, str] = {
     "Unsheathe [15, 5, 30, 10] = FP light, no-FP light, FP heavy, no-FP heavy; see "
     "skill_poise_damage.hit_labels). Empty when the skill only fires projectiles",
     "skill_poise_damage.hit_labels": "one label per entry of hits (same order; pvp.hits "
-    "too; projectile_hits are unlabeled): 'FP' (skill used with enough FP) or 'no FP' "
+    "too; projectile_hits have projectile_hit_labels): 'FP' (skill used with enough FP) "
+    "or 'no FP' "
     "(the weaker version without), then the move when it isn't the skill's main swing: "
     "light / heavy (the R1 / R2 follow-up of a stance skill like Unsheathe, Square Off, "
     "Wild Strikes), follow-up / follow-up 2, early release / late release (a held skill "
@@ -1932,8 +1935,21 @@ _FIELD_NOTES: dict[str, str] = {
     "order, same units as hits. Weapon-scaled ones use the weapon's base poise (Moonveil "
     "Transient Moonlight waves [5, 7.5], Storm Assault's wind = the class base), "
     "spell-like ones a fixed value (Glintblade Phalanx 5 per blade on any weapon). "
-    "Absent when the skill fires none. A hit may land several times (4 phalanx blades, "
-    "repeated flames); the list doesn't count repeats",
+    "Absent when the skill fires none. How often each lands is in "
+    "projectile_hit_counts, which move fires it in projectile_hit_labels",
+    "skill_poise_damage.projectile_hit_counts": "one count per entry of projectile_hits "
+    "(same order): how many times that hit lands on one target in one use of the move, "
+    "from the bullet params: bullets fired together, repeat shots and spawned bullets "
+    "each count, but bullets sharing one hit list count once (Glintblade Phalanx 4 "
+    "blades x 5 = the wiki's 5x4; Waves of Darkness 3 waves; Blasphemous Blade Taker's "
+    "Flames 1 though it is 14 chained flames; Moonveil waves 1). Total projectile "
+    "poise of a move = sum of projectile_hits x counts. An upper bound where bullets "
+    "fan out (every bullet is assumed to reach the target; Flame Skewer's 5 flames). "
+    "0 = a later segment of a wave that already hit (Sacred Relic Sword). Where FP and "
+    "no-FP versions differ, the larger count",
+    "skill_poise_damage.projectile_hit_labels": "one label per entry of "
+    "projectile_hits (same order), like hit_labels: 'FP' / 'no FP' / 'FP/no FP' plus "
+    "the move that fires it (Moonveil Transient Moonlight ['FP light', 'FP heavy'])",
     "skill_poise_damage.pvp": "the same hits against players on the wiki's displayed "
     "scale (PvE x the hit's PvP rate x 10); only from 1.07",
     "skill_poise_damage.pvp.projectile_hits": "projectile_hits against players, like "
