@@ -363,6 +363,7 @@ INDEX_MAPPING = {
             "skill_poise_damage": {
                 "properties": {
                     "weapon_class": {"type": "keyword"},
+                    "hit_labels": {"type": "keyword"},  # #167
                     **_props(
                         "float", ("weapon_poise", "max", "hits", "projectile_hits")
                     ),
@@ -1908,9 +1909,16 @@ _FIELD_NOTES: dict[str, str] = {
     "(usually the FP'd heavy follow-up / charged version)",
     "skill_poise_damage.hits": "every distinct hit of the skill once, in animation order: "
     "FP and no-FP versions, light / heavy follow-ups and multi-hit parts (Uchigatana "
-    "Unsheathe [15, 5, 30, 10] = FP light, no-FP light, FP heavy, no-FP heavy). Hits are "
-    "unlabeled; which is which follows the skill's move list. Empty when the skill only "
-    "fires projectiles",
+    "Unsheathe [15, 5, 30, 10] = FP light, no-FP light, FP heavy, no-FP heavy; see "
+    "skill_poise_damage.hit_labels). Empty when the skill only fires projectiles",
+    "skill_poise_damage.hit_labels": "one label per entry of hits (same order; pvp.hits "
+    "too; projectile_hits are unlabeled): 'FP' (skill used with enough FP) or 'no FP' "
+    "(the weaker version without), then the move when it isn't the skill's main swing: "
+    "light / heavy (the R1 / R2 follow-up of a stance skill like Unsheathe, Square Off, "
+    "Wild Strikes), follow-up / follow-up 2, early release / late release (a held skill "
+    "let go), start / loop / loop end / end, roll, guard counter. 'FP/no FP' = the same "
+    "hit either way. From the game's behavior graph states (the no-FP state of every "
+    'move is its own animation). Filter e.g. hit_labels:"FP heavy"',
     "skill_poise_damage.projectile_hits": "the skill's projectile hits (waves, blades, "
     "flames, explosions and other spawned bullets), each distinct hit once in animation "
     "order, same units as hits. Weapon-scaled ones use the weapon's base poise (Moonveil "
