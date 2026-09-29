@@ -1798,7 +1798,8 @@ _FIELD_NOTES: dict[str, str] = {
     "Also on a boss/creature roster doc (name_source=npc_name) whose name a spirit ash shares, "
     "e.g. Crystalian: its field mobs' drops are merged into that doc (#106)",
     "effect": "readable effect text decoded from SpEffectParam, one phrase per effects "
-    "entry (e.g. Golden Vow: '+15% attack; -10% damage taken for 80s'). On talismans, "
+    "entry, each timed one stating its own duration (e.g. Golden Vow: '+15% attack for "
+    "80s; -10% damage taken for 80s'). On talismans, "
     "consumables, crystal tears, spells (#88), great runes (#156) and weapons, whose "
     "effect is the passive granted while held (#163: Blasphemous Blade '40 HP restored (on "
     "defeating an enemy); 4% max HP restored (on defeating an enemy)', Carian Regal "

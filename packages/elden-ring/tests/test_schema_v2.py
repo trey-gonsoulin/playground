@@ -360,7 +360,7 @@ def test_builder_doc_shapes_fully_mapped():
         },
         {"equipped_by": ["Recusant Henricus"]},
         {
-            "effect": "+15% attack; -10% damage taken for 80s",
+            "effect": "+15% attack for 80s; -10% damage taken for 80s",
             "effect_value": 15.0,
             "effect_duration": 80.0,
             "effects": [
