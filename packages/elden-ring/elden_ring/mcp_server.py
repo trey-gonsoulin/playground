@@ -71,7 +71,9 @@ def search_entities(
             spell        — sorceries and incantations with FP cost and requirements
             ash_of_war   — weapon skills / ashes of war with effect descriptions
             item         — talismans (with SpEffect-derived effect text) and equippables
-            ammo         — arrows, greatarrows, bolts, and ballista bolts
+            ammo         — arrows, greatarrows, bolts, and ballista bolts (attack
+                           by element, status_buildup / status_effects, and the
+                           shot's projectile flight + follow-up hits; #91)
             consumable   — usable items (throwables, buffs, online/multiplayer tools)
             key_item     — quest / story items (bell bearings, letters, whetblades, …)
             crafting_material — crafting ingredients (meat, fluids, plants, …)
