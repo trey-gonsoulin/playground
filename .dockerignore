@@ -1,0 +1,10 @@
+# Allowlist: images need only the workspace manifests and each package's source.
+*
+!pyproject.toml
+!uv.lock
+!packages/*/pyproject.toml
+!packages/*/Dockerfile
+!packages/elden-ring/elden_ring
+!packages/therapist-finder/therapist_finder
+!packages/ynab-mcp/ynab_mcp
+**/__pycache__
