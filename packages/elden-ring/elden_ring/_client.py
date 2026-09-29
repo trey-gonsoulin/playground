@@ -357,7 +357,8 @@ INDEX_MAPPING = {
             # The default skill's per-hit poise, from its TAE judges (#125).
             "skill_poise_damage": {
                 "properties": {
-                    **_props("float", ("max", "hits")),
+                    "weapon_class": {"type": "keyword"},
+                    **_props("float", ("weapon_poise", "max", "hits")),
                     "pvp": {"properties": _props("float", ("max", "hits"))},
                 }
             },
@@ -1814,10 +1815,20 @@ _FIELD_NOTES: dict[str, str] = {
     "animations fire: weapon base poise x each hit's rate, in the units of poise_damage "
     "and an enemy's stats.poise (Uchigatana Unsheathe max 30 = the heavy follow-up; "
     "Claymore Lion's Claw 33; Greatsword Stamp (Upward Cut) 36). Class and "
-    "weapon-unique skill rows apply (Moonveil Transient Moonlight 22.5). A different "
-    "Ash of War on the same weapon is not covered. Absent when the skill deals no "
+    "weapon-unique skill rows apply (Moonveil Transient Moonlight 22.5). On an "
+    "ash_of_war doc: a list with one entry per weapon class the ash mounts on "
+    "(weapon_class, weapon_poise, max, hits, pvp), e.g. Lion's Claw Straight Sword 30, "
+    "Greatsword 33, Colossal Sword 36, Hammer 39, Great Hammer 42 / 45; class override "
+    "rows apply (Wild Strikes light hits 100% on Curved Swords and Hammers vs 90%), "
+    "weapon-unique rows don't. Absent when the skill deals no "
     "melee hit (Quickstep, Parry, Endure, roars, bow/projectile skills: bullet hits are "
     "not included). Sort on skill_poise_damage.max for the heaviest-staggering skills",
+    "skill_poise_damage.weapon_class": "ash_of_war docs only: the weapon class this "
+    "entry is for (menu_category names, e.g. Katana, Colossal Weapon)",
+    "skill_poise_damage.weapon_poise": "ash_of_war docs only: the class's weapon base "
+    "poise the hits are computed from. A class whose ash-capable weapons have two bases "
+    "gets two entries (Great Hammer 7 / 7.5, Claw 3 / 4, Colossal Weapon 6 / 7.5 at "
+    "1.17)",
     "skill_poise_damage.max": "the skill's strongest single hit (usually the FP'd heavy "
     "follow-up / charged version)",
     "skill_poise_damage.hits": "every distinct hit of the skill once, in animation order: "
