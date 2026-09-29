@@ -84,7 +84,8 @@ def search_entities(
             crystal_tear — Wondrous Physick crystal tears
             spirit_ash   — summonable spirit ashes (base row per summon)
             remembrance  — boss remembrances traded at the Roundtable Hold
-            great_rune   — shardbearer Great Runes
+            great_rune   — shardbearer Great Runes; effect / effects decode the
+                           blessing, each conditioned 'requires Rune Arc' (#156)
             tool         — reusable crafting tools (cracked/ritual pots, perfume bottles)
             info         — informational items (letters, notes, memos)
             merchant     — NPC vendor inventories with item names and rune prices;

@@ -1713,30 +1713,31 @@ _FIELD_NOTES: dict[str, str] = {
     "e.g. Crystalian: its field mobs' drops are merged into that doc (#106)",
     "effect": "readable effect text decoded from SpEffectParam, one phrase per effects "
     "entry (e.g. Golden Vow: '+15% attack; -10% damage taken for 80s'). On talismans, "
-    "consumables, crystal tears and spells (#88); a spell's or throwable's includes what its "
-    "projectile inflicts on hit, worded by target (#160): 'enemy loses 1 HP every 0.1s', "
-    "'+100 frostbite buildup on enemy', 'cures poison on allies'; 'on self' is added only "
-    "when the same stat also lands on someone else (Frenzied Burst: '+90 madness buildup "
-    "on enemy; +20 madness buildup on self')",
+    "consumables, crystal tears, spells (#88) and great runes (#156); a spell's or "
+    "throwable's includes what its projectile inflicts on hit, worded by target (#160): "
+    "'enemy loses 1 HP every 0.1s', '+100 frostbite buildup on enemy', 'cures poison on "
+    "allies'; 'on self' is added only when the same stat also lands on someone else "
+    "(Frenzied Burst: '+90 madness buildup on enemy; +20 madness buildup on self')",
     "effect_value": "primary numeric magnitude of the effect (the first effects entry's value)",
     "effects": "structured effects decoded from SpEffectParam (#88), one entry per stat: "
     "stat (e.g. 'attack' = every element, 'physical damage taken', 'HP restored', 'max HP "
-    "restored', 'runes', 'immunity' / 'robustness' / 'focus' = both resistances of that "
-    "group, 'poison buildup', 'poison cured'), value (signed; % or points per unit, "
-    "absent for cure / inflict), unit ('%' or 'points'), pvp_value (the value against "
+    "restored', 'runes', 'all attributes', 'immunity' / 'robustness' / 'focus' = both "
+    "resistances of that group, 'poison buildup', 'poison cured', or a value-less state "
+    "such as Mohg's 'blessing of blood for summoned phantoms'), value (signed; % or points "
+    "per unit, absent for cure / inflict / state), unit ('%' or 'points'), pvp_value (the value against "
     "players when it differs, e.g. Exalted Flesh 20 / 15), condition (the attacks or state "
     "it's limited to: 'charged attacks', 'jump attacks', 'skills', 'at full HP', 'HP at or "
-    "below 20%', 'on hit', 'successive attacks'; stacking effects give one entry per tier, "
-    "'successive attacks, tier 1' … 'tier 3', each value the tier's total, e.g. Winged "
-    "Sword Insignia +3 / +5 / +10%; the bonus decays ~1.5s after the last hit), interval "
-    "(seconds between regen / drain ticks), duration (seconds; absent = instant or while "
-    "equipped), target (who it lands on, #160: 'self' = the user, 'enemy' = what the "
-    "projectile or buffed weapon hits, e.g. Black Flame Blade's burn, grease procs, "
-    "thrown-item buildup; 'ally' = allies only, e.g. Lord's Aid's second cure set; "
-    "'torrent' for raisins / horse effects), "
+    "below 20%', 'on hit', 'successive attacks', 'on defeating an enemy', 'requires Rune "
+    "Arc'; stacking effects give one entry per tier, 'successive attacks, tier 1' … 'tier "
+    "3', each value the tier's total, e.g. Winged Sword Insignia +3 / +5 / +10%; the bonus "
+    "decays ~1.5s after the last hit), interval (seconds between regen / drain ticks), "
+    "duration (seconds; absent = instant or while equipped), target (who it lands on, "
+    "#160: 'self' = the user, 'enemy' = what the projectile or buffed weapon hits, e.g. "
+    "Black Flame Blade's burn, grease procs, thrown-item buildup; 'ally' = allies only, "
+    "e.g. Lord's Aid's second cure set; 'torrent' for raisins / horse effects), "
     "scales_with ('faith' / 'intelligence' for heals that scale). Only confirmed fields are "
-    "decoded, so some effects are missing (great runes, spells whose "
-    "effect comes from a child projectile)",
+    "decoded, so some effects are missing (e.g. on-kill talisman heals, hyperarmor, "
+    "stealth, some trigger conditions)",
     "effect_duration": "longest effects duration in seconds (absent = instant or permanent)",
     "is_legendary": "part of a legendary set (achievement-tracked)",
     "infusable": "weapon can take an affinity/ash-of-war infusion",
