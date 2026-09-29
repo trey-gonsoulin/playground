@@ -443,6 +443,8 @@ def describe_fields() -> dict:
     each lands per use, #168) and .projectile_hit_labels (#171). Ammo carries
     its bow-skill shots (Mighty Shot, Barrage, Rain of Arrows...) in skill_shots
     (#151): per skill and hit, motion_values, poise_damage, hit_count, projectile.
+    Bows and bow Ashes of War carry their skill's skill_shots with the standard
+    ammo, named in skill_shots.ammo (#177).
 
     If this tool returns a connection error, call start_search_service() first.
 
