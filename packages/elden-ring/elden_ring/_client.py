@@ -1591,7 +1591,8 @@ _FIELD_NOTES: dict[str, str] = {
     "whose map holds the arena (PlaceName, e.g. Stormfoot Catacombs); absent for "
     "open-world bosses (see nearest_grace / region). Enemy and item placements name "
     "their dungeon location doc instead (see locations)",
-    "sold_by": "merchant names that sell this item, derived per-patch from ShopLineupParam",
+    "sold_by": "merchant names that sell this item, derived per-patch from ShopLineupParam "
+    "(includes Twin Maiden Husks for lineups they re-sell once given the bell bearing, #145)",
     "shop_listings": "not searchable; returned by get_entity. One entry per ShopLineupParam "
     "row selling the item (#89): vendor, condition (the shop row's unlock label, e.g. a "
     "scroll/prayerbook, quest step or nomadic merchant site), price, currency (runes / "
@@ -1605,7 +1606,11 @@ _FIELD_NOTES: dict[str, str] = {
     "Nepheli unlocks his Dolores puppet, given to the Dung Eater his Dung Eater puppet; "
     "Valkyrie's Prosthesis given to Millicent unlocks Gowry's Pest Threads), "
     "unlocked_by_defeating (bosses whose defeat sets it: Enia's remembrance-boss rows, "
-    "Dragon Communion's dragons, #144; a flag with neither is a quest step) and materials "
+    "Dragon Communion's dragons, #144; a flag with neither is a quest step), resold_from + "
+    "resale_flags on the Twin Maiden Husks' copies of another merchant's rows (#145: given "
+    "a merchant's bell bearing, the Husks sell that lineup; unlocked_by / handed_to then "
+    "cover both the bell bearing and the row's own unlock, e.g. Pest Threads resold from "
+    "Gowry needs Gowry's Bell Bearing and Valkyrie's Prosthesis) and materials "
     "[{item, quantity}] for item costs (remembrance trades; some also charge runes, e.g. "
     "Grafted Dragon 2000 + Remembrance of the Grafted). E.g. Somber Smithing Stone [9]: "
     "Twin Maiden Husks, 25000 runes, unlimited, unlock_flag 11109759, unlocked_by "
