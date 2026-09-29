@@ -1714,7 +1714,10 @@ _FIELD_NOTES: dict[str, str] = {
     "effect": "readable effect text decoded from SpEffectParam, one phrase per effects "
     "entry (e.g. Golden Vow: '+15% attack; -10% damage taken for 80s'). On talismans, "
     "consumables, crystal tears and spells (#88); a spell's or throwable's includes what its "
-    "projectile inflicts on hit (e.g. '+100 frostbite buildup')",
+    "projectile inflicts on hit, worded by target (#160): 'enemy loses 1 HP every 0.1s', "
+    "'+100 frostbite buildup on enemy', 'cures poison on allies'; 'on self' is added only "
+    "when the same stat also lands on someone else (Frenzied Burst: '+90 madness buildup "
+    "on enemy; +20 madness buildup on self')",
     "effect_value": "primary numeric magnitude of the effect (the first effects entry's value)",
     "effects": "structured effects decoded from SpEffectParam (#88), one entry per stat: "
     "stat (e.g. 'attack' = every element, 'physical damage taken', 'HP restored', 'max HP "
@@ -1724,7 +1727,10 @@ _FIELD_NOTES: dict[str, str] = {
     "players when it differs, e.g. Exalted Flesh 20 / 15), condition (the attacks or state "
     "it's limited to: 'charged attacks', 'jump attacks', 'skills', 'at full HP', 'HP at or "
     "below 20%', …), interval (seconds between regen / drain ticks), duration (seconds; "
-    "absent = instant or while equipped), target ('Torrent' for raisins / horse effects), "
+    "absent = instant or while equipped), target (who it lands on, #160: 'self' = the "
+    "user, 'enemy' = what the projectile or buffed weapon hits, e.g. Black Flame Blade's "
+    "burn, grease procs, thrown-item buildup; 'ally' = allies only, e.g. Lord's Aid's "
+    "second cure set; 'torrent' for raisins / horse effects), "
     "scales_with ('faith' / 'intelligence' for heals that scale). Only confirmed fields are "
     "decoded, so some effects are missing (stacking talismans, great runes, spells whose "
     "effect comes from a child projectile)",
