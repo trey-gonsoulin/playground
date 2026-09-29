@@ -1620,7 +1620,12 @@ _FIELD_NOTES: dict[str, str] = {
     "script gives it, see given_by) / starting_equipment (a starting class's gear or item, "
     "see starting_classes) / keepsake (on the character-creation keepsake menu) (#23) / "
     "crafted (has a crafting recipe, see crafted_from, #87) / gathered (a gathering-node "
-    "pickup such as a herb, butterfly or ore; placements with gathering, #142)",
+    "pickup such as a herb, butterfly or ore; placements with gathering, #142) / "
+    "quest_reward (a map event script awards it once a quest flag is set, e.g. Rogier's "
+    "Bell Bearing, the Volcano Manor rewards; #137) / invader_drop (awarded for defeating "
+    "an NPC invader, e.g. Hoslow's Petal Whip, Millicent's Prosthesis; #138). Scripted "
+    "awards that wait only on an interaction (paintings, Great Rune restoration) carry "
+    "neither",
     "acquisition_sources": "named sources: merchant names, boss/named-enemy names (see "
     "dropped_by) and gift-giving NPC names (see given_by)",
     "given_by": "on an item doc: NPCs whose talk script gives the item (#23), named via the "
