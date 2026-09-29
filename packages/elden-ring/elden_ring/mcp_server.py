@@ -64,6 +64,8 @@ def search_entities(
             - Merchant queries: "who sells Stonesword Key", "Patches inventory"
             - NPC location: "where is Ranni", "Millicent questline"
             - Lore: "Ranni lore", "Marika dialogue", "Elden Ring story"
+            Matches the in-game effect / info lines too (effect_text, info_text,
+            EN + JP; #90), e.g. "boosts Crystalian sorcery", "found near churches".
         entity_type: Narrow to one category. Loaded types (all first-party native
             extraction from the game's own params/FMGs):
             weapon       — all weapons with stats, scaling, and requirements
@@ -96,8 +98,10 @@ def search_entities(
                            Tip 4", "Map Event 80810"); tags give the kind:
                            action_button (interaction prompts: "Touch grace"),
                            map_event (area/event banners: "Summoned Blaidd…"),
-                           tutorial and loading_tip (display_name = title)
-            enemy        — bosses, creatures, and named enemies (from the NpcName roster)
+                           tutorial and loading_tip (display_name = title),
+                           item_dialog (item-use confirmations: "Use Stonesword
+                           Key?"; #90)
+            enemy      — bosses, creatures, and named enemies (from the NpcName roster)
                            with EN + JP names (name_ja); most also carry NpcParam
                            HP/stamina/poise/elemental defenses, status resistances +
                            immune_to, and traits (dragon, undead, …; #84), plus an
@@ -553,9 +557,10 @@ def search_entities_literal(
             patterns=["象っ", "象ら", "象り", "象る"] returns all entities matching
             any inflection as a single deduplicated total. Combines with pattern if
             both are provided.
-        fields: Which fields to search. Defaults to the seven text fields: name,
-            display_name, description, text_content, name_ja, description_ja,
-            text_content_ja. Japanese fields named here are routed to the subfield for
+        fields: Which fields to search. Defaults to the eleven text fields: name,
+            display_name, description, text_content, effect_text, info_text, name_ja,
+            description_ja, text_content_ja, effect_text_ja, info_text_ja (the
+            effect/info lines are #90). Japanese fields named here are routed to the subfield for
             the active mode (.morph when use_kuromoji=True, .lemma when
             use_lemmatize=True), so an explicit fields list composes correctly with
             those modes. The acquisition keyword fields (sold_by, acquisition_sources,
