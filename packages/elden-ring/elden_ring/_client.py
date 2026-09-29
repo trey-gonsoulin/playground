@@ -354,6 +354,13 @@ INDEX_MAPPING = {
                 "properties": {**_POISE_HANDS, "pvp": {"properties": _POISE_HANDS}}
             },
             "poise_damage_chains": {"type": "object", "enabled": False},
+            # The default skill's per-hit poise, from its TAE judges (#125).
+            "skill_poise_damage": {
+                "properties": {
+                    **_props("float", ("max", "hits")),
+                    "pvp": {"properties": _props("float", ("max", "hits"))},
+                }
+            },
             # Weapon stats at its max upgrade (+25, somber +10) in the +0 shape, and
             # the per-level curve as non-indexed arrays (#112); spirit-ash summons
             # at +10 (#117).
@@ -1791,7 +1798,7 @@ _FIELD_NOTES: dict[str, str] = {
     "values are in the same units as an enemy's stats.poise (Greatsword 2H charged R2 "
     "39.6; Dagger 1H jumping_r2 12); upgrades never change them. An attack a weapon "
     "lacks is absent (staves/seals/shields have no running/rolling/crouch rows). Ash of "
-    "War / weapon skill attacks are not included. Full hit chains in "
+    "War / weapon skill hits are in skill_poise_damage. Full hit chains in "
     "poise_damage_chains. Omitted on bows/crossbows/ballistas (the shot's poise damage "
     "comes from the ammo)",
     "poise_damage.pvp": "the same attacks against players, on the wiki's displayed-poise "
@@ -1802,6 +1809,23 @@ _FIELD_NOTES: dict[str, str] = {
     "126]. Jumping chains hold the jump's two hit rows: equal on most weapons, a "
     "stronger second hit on some two-handed jumps (Hookclaws two_handed.jumping_r1 "
     "[2.7, 5.4], Twinblade [3.25, 5])",
+    "skill_poise_damage": "poise (stance) damage of the weapon's DEFAULT skill "
+    "(default_ash_of_war; a unique weapon's fixed skill), from the judges the skill's "
+    "animations fire: weapon base poise x each hit's rate, in the units of poise_damage "
+    "and an enemy's stats.poise (Uchigatana Unsheathe max 30 = the heavy follow-up; "
+    "Claymore Lion's Claw 33; Greatsword Stamp (Upward Cut) 36). Class and "
+    "weapon-unique skill rows apply (Moonveil Transient Moonlight 22.5). A different "
+    "Ash of War on the same weapon is not covered. Absent when the skill deals no "
+    "melee hit (Quickstep, Parry, Endure, roars, bow/projectile skills: bullet hits are "
+    "not included). Sort on skill_poise_damage.max for the heaviest-staggering skills",
+    "skill_poise_damage.max": "the skill's strongest single hit (usually the FP'd heavy "
+    "follow-up / charged version)",
+    "skill_poise_damage.hits": "every distinct hit of the skill once, in animation order: "
+    "FP and no-FP versions, light / heavy follow-ups and multi-hit parts (Uchigatana "
+    "Unsheathe [15, 5, 30, 10] = FP light, no-FP light, FP heavy, no-FP heavy). Hits are "
+    "unlabeled; which is which follows the skill's move list",
+    "skill_poise_damage.pvp": "the same hits against players on the wiki's displayed "
+    "scale (PvE x the hit's PvP rate x 10); only from 1.07",
     "reinforce_type_id": "weapon's ReinforceParamWeapon type (the upgrade path; affinity "
     "types are 100-offset), kept for traceability",
     "max_level": "weapon stats at its max upgrade, in the same shape as the +0 fields "

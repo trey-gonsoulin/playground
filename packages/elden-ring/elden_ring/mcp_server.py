@@ -425,6 +425,8 @@ def describe_fields() -> dict:
     rolling, crouch and jumping attacks; one-handed powerstance, left-hand and
     mounted attacks such as poise_damage.one_handed.mounted_charged_r2; PvP under
     poise_damage.pvp); full hit chains come back from get_entity as poise_damage_chains.
+    Weapons also carry their default skill's per-hit poise (skill_poise_damage.max,
+    .hits, .pvp; #125).
 
     If this tool returns a connection error, call start_search_service() first.
 
