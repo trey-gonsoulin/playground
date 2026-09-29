@@ -354,12 +354,19 @@ INDEX_MAPPING = {
                 "properties": {**_POISE_HANDS, "pvp": {"properties": _POISE_HANDS}}
             },
             "poise_damage_chains": {"type": "object", "enabled": False},
-            # The default skill's per-hit poise, from its TAE judges (#125).
+            # The default skill's per-hit poise, from its TAE judges (#125);
+            # projectile (bullet) hits separately (#166).
             "skill_poise_damage": {
                 "properties": {
                     "weapon_class": {"type": "keyword"},
-                    **_props("float", ("weapon_poise", "max", "hits")),
-                    "pvp": {"properties": _props("float", ("max", "hits"))},
+                    **_props(
+                        "float", ("weapon_poise", "max", "hits", "projectile_hits")
+                    ),
+                    "pvp": {
+                        "properties": _props(
+                            "float", ("max", "hits", "projectile_hits")
+                        )
+                    },
                 }
             },
             # Weapon stats at its max upgrade (+25, somber +10) in the +0 shape, and
@@ -1812,7 +1819,9 @@ _FIELD_NOTES: dict[str, str] = {
     "[2.7, 5.4], Twinblade [3.25, 5])",
     "skill_poise_damage": "poise (stance) damage of the weapon's DEFAULT skill "
     "(default_ash_of_war; a unique weapon's fixed skill), from the judges the skill's "
-    "animations fire: weapon base poise x each hit's rate, in the units of poise_damage "
+    "animations fire: weapon base poise x each hit's rate, plus the hit's flat poise "
+    "where it has one (spell-like hits: Carian Greatsword 20 / 35 charged, Ground Slam, "
+    "roars 6), in the units of poise_damage "
     "and an enemy's stats.poise (Uchigatana Unsheathe max 30 = the heavy follow-up; "
     "Claymore Lion's Claw 33; Greatsword Stamp (Upward Cut) 36). Class and "
     "weapon-unique skill rows apply (Moonveil Transient Moonlight 22.5). On an "
@@ -1820,23 +1829,34 @@ _FIELD_NOTES: dict[str, str] = {
     "(weapon_class, weapon_poise, max, hits, pvp), e.g. Lion's Claw Straight Sword 30, "
     "Greatsword 33, Colossal Sword 36, Hammer 39, Great Hammer 42 / 45; class override "
     "rows apply (Wild Strikes light hits 100% on Curved Swords and Hammers vs 90%), "
-    "weapon-unique rows don't. Absent when the skill deals no "
-    "melee hit (Quickstep, Parry, Endure, roars, bow/projectile skills: bullet hits are "
-    "not included). Sort on skill_poise_damage.max for the heaviest-staggering skills",
+    "weapon-unique rows don't. Projectile hits are listed separately in "
+    "projectile_hits. Absent when the skill hits nothing (Quickstep, Parry, Endure) "
+    "and on bow skills (the shot's poise comes from the ammo). Sort on "
+    "skill_poise_damage.max for the heaviest-staggering skills",
     "skill_poise_damage.weapon_class": "ash_of_war docs only: the weapon class this "
     "entry is for (menu_category names, e.g. Katana, Colossal Weapon)",
     "skill_poise_damage.weapon_poise": "ash_of_war docs only: the class's weapon base "
     "poise the hits are computed from. A class whose ash-capable weapons have two bases "
     "gets two entries (Great Hammer 7 / 7.5, Claw 3 / 4, Colossal Weapon 6 / 7.5 at "
     "1.17)",
-    "skill_poise_damage.max": "the skill's strongest single hit (usually the FP'd heavy "
-    "follow-up / charged version)",
+    "skill_poise_damage.max": "the skill's strongest single hit, melee or projectile "
+    "(usually the FP'd heavy follow-up / charged version)",
     "skill_poise_damage.hits": "every distinct hit of the skill once, in animation order: "
     "FP and no-FP versions, light / heavy follow-ups and multi-hit parts (Uchigatana "
     "Unsheathe [15, 5, 30, 10] = FP light, no-FP light, FP heavy, no-FP heavy). Hits are "
-    "unlabeled; which is which follows the skill's move list",
+    "unlabeled; which is which follows the skill's move list. Empty when the skill only "
+    "fires projectiles",
+    "skill_poise_damage.projectile_hits": "the skill's projectile hits (waves, blades, "
+    "flames, explosions and other spawned bullets), each distinct hit once in animation "
+    "order, same units as hits. Weapon-scaled ones use the weapon's base poise (Moonveil "
+    "Transient Moonlight waves [5, 7.5], Storm Assault's wind = the class base), "
+    "spell-like ones a fixed value (Glintblade Phalanx 5 per blade on any weapon). "
+    "Absent when the skill fires none. A hit may land several times (4 phalanx blades, "
+    "repeated flames); the list doesn't count repeats",
     "skill_poise_damage.pvp": "the same hits against players on the wiki's displayed "
     "scale (PvE x the hit's PvP rate x 10); only from 1.07",
+    "skill_poise_damage.pvp.projectile_hits": "projectile_hits against players, like "
+    "skill_poise_damage.pvp",
     "reinforce_type_id": "weapon's ReinforceParamWeapon type (the upgrade path; affinity "
     "types are 100-offset), kept for traceability",
     "max_level": "weapon stats at its max upgrade, in the same shape as the +0 fields "
