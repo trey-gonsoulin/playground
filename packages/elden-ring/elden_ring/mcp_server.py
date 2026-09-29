@@ -329,17 +329,22 @@ def calculate_attack_rating(
       and ballistae are always two-handed;
     - poison, bleed, sleep and madness buildup scale with Arcane (not two-handed
       Str); rot, frost and death blight don't scale;
-    - staves and seals also return spell_scaling per damage type.
+    - staves and seals also return spell_scaling per damage type;
+    - thrown consumables (Fire Pot, Kukri, Poisonbone Dart) scale their flat hit
+      power and buildup the same way through a hidden weapon row, at level 0 with
+      no requirements (Fire Pot 230 fire -> 284 at 10 Str / 10 Dex).
     Values are floored per type like the in-game menu. Not modeled: buffs,
     talismans, great runes, enemy defense.
 
     If this tool returns a connection error, call start_search_service() first.
 
     Args:
-        weapon: Weapon name, e.g. "Uchigatana" or "Blood Uchigatana".
+        weapon: Weapon name, e.g. "Uchigatana" or "Blood Uchigatana", or a thrown
+            consumable, e.g. "Fire Pot".
         str, dex, int, fai, arc: Character attributes, 1-99 (default 10).
         level: Upgrade level; defaults to the weapon's max (+25, somber +10).
-        two_handed: Wield two-handed (Str x 1.5).
+        two_handed: Wield two-handed (Str x 1.5). Ignored for consumables, which
+            aren't wielded (the result then carries a note saying so).
         affinity: Optional affinity prefix for infusable weapons, e.g. "Heavy",
             "Blood", "Occult"; same as passing "Heavy Halberd" as weapon.
         patch_version: Compute with that patch's data (e.g. "1.07.0", resolved to
