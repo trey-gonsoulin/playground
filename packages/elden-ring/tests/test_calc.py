@@ -93,3 +93,57 @@ def test_catalyst_spell_scaling():
     assert r["spell_scaling"]["fire"] == 100
     r = attack_rating(inputs, {"int": 20}, _TENS, 0, False)
     assert r["spell_scaling"]["magic"] == 60
+
+
+# CalcCorrectGraph 4 (throwable damage) and 10 (throwable status), 1.17.
+_G4 = [[1, 0, 1], [20, 40, 1], [50, 80, 1], [80, 95, 1], [99, 100, 1]]
+_G10 = [[1, 0, 1], [15, 10, 1], [30, 50, 1], [50, 60, 1], [99, 70, 1]]
+
+
+def test_thrown_consumable_matches_wiki():
+    """#178: a thrown item's flat power scales through its virtual weapon (Fire Pot:
+    230 fire, Str 100 / Dex 25 on graph 4), matching the wiki's AR table."""
+    fire_pot = {
+        "attack": {"fire": [230.0]},
+        "scaling": {"str": [100.0], "dex": [25.0]},
+        "correct": {"fire": ["str", "dex"]},
+        "graph_ids": {"fire": 4},
+        "graphs": {"4": _G4},
+    }
+    for s, d, wiki in ((10, 10, 284), (20, 10, 332), (50, 10, 424), (99, 99, 517)):
+        r = attack_rating(fire_pot, {}, {**_TENS, "str": s, "dex": d}, 0, False)
+        assert r["attack_power"]["fire"]["total"] == wiki, (s, d, r)
+    # Poison Spraymist: 26 poison, Arc 65 on graph 10 -> wiki 27 at 10, 36 at 60.
+    spraymist = {
+        "scaling": {"arc": [65.0]},
+        "status": {"poison": [26]},
+        "graph_ids": {"poison": 10},
+        "graphs": {"10": _G10},
+    }
+    for arc, wiki in ((10, 27), (60, 36)):
+        r = attack_rating(spraymist, {}, {**_TENS, "arc": arc}, 0, False)
+        assert r["status_buildup"]["poison"]["total"] == wiki, (arc, r)
+
+
+def test_calculate_attack_rating_falls_back_to_consumable(monkeypatch):
+    """A name that isn't a weapon resolves as a thrown consumable (#178)."""
+    from elden_ring import _client
+
+    seen = {}
+
+    def resolve(client, name, entity_type=None):
+        return "Fire Pot" if entity_type == "consumable" else None
+
+    class Client:
+        def search(self, index, body):
+            seen["filter"] = body["query"]["bool"]["filter"]
+            doc = {"name": "Fire Pot", "ar_inputs": {"attack": {"fire": [230.0]}}}
+            return {"hits": {"hits": [{"_source": doc}]}}
+
+    monkeypatch.setattr(_client, "_resolve_entity_name", resolve)
+    monkeypatch.setattr(_client, "_affinity_variant", lambda *a: None)
+    monkeypatch.setattr(_client, "_entity_versions", lambda c, t: ["1.17.0"])
+    r = _client.calculate_attack_rating(Client(), "Fire Pot", dict(_TENS))
+    assert {"term": {"entity_type": "consumable"}} in seen["filter"]
+    assert r["weapon"] == "Fire Pot" and r["max_level"] == 0, r
+    assert r["attack_power"]["fire"]["total"] == 230, r
