@@ -10,6 +10,7 @@ def test_skill_shots_mapped():
     assert _SHOTS["skill"] == {"type": "keyword"}
     assert _SHOTS["hit_label"] == {"type": "keyword"}
     assert _SHOTS["hit_count"] == {"type": "integer"}
+    assert _SHOTS["hit_count_max"] == {"type": "integer"}  # #176
     assert _SHOTS["poise_damage"] == {"type": "float"}
     for key in ("physical", "magic", "fire", "lightning", "holy"):
         assert _SHOTS["motion_values"]["properties"][key] == {"type": "integer"}, key
@@ -29,5 +30,7 @@ def test_rain_hit_count_and_bow_summary_documented():
     note = _FIELD_NOTES["skill_shots"]
     assert "Rain of Arrows 6" in note and "Radahn's Rain 8" in note
     assert "lower bound" not in note
+    assert "hit_count_max" in note and "Rain of Arrows 7" in note
+    assert "Kick" not in note  # skill-less crossbows / ballistae (SwordArts 4990)
     assert "Ash of War: Barrage" in note and "skill_shots.ammo" in note
     assert "Great Arrow" in _FIELD_NOTES["skill_shots.ammo"]

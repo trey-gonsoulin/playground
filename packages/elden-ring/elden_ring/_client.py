@@ -375,6 +375,7 @@ INDEX_MAPPING = {
                     "skill": {"type": "keyword"},
                     "hit_label": {"type": "keyword"},
                     "hit_count": {"type": "integer"},
+                    "hit_count_max": {"type": "integer"},  # #176
                     "poise_damage": {"type": "float"},
                     "motion_values": {"properties": _props("integer", _DAMAGE_TYPES)},
                     "projectile": {
@@ -1915,17 +1916,19 @@ _FIELD_NOTES: dict[str, str] = {
     "skill_poise_damage.projectile_hit_counts (Repeating Fire 12, Fan Shot 8). Rain "
     "of Arrows 6 / Radahn's Rain 8 (#176): the volley's arrows share one hit list, so "
     "an arrow lands only after the last hit's 0.1 s record expires, every second "
-    "arrow (Golem's arrows' 0.15 s record: every third, 4). An estimate, not a fixed "
-    "count: the arrows drop at random 0.06-0.07 s (Radahn's Rain 0.08-0.09 s) "
-    "intervals, so a volley can land one more (7 / 9), and on a small target some "
-    "arrows miss. projectile = that hit's bullet flight, as in projectile (Mighty "
+    "arrow (Golem's arrows' 0.15 s record: every third, 4). For these volleys "
+    "hit_count is an estimate, with the arrows dropping at their longest random "
+    "interval (0.07 s; Radahn's Rain 0.09 s), and hit_count_max the upper bound when "
+    "they drop at the shortest (0.06 s / 0.08 s): Rain of Arrows 7 (Golem's 5), "
+    "Radahn's Rain 9. hit_count_max is present only when it differs from hit_count. "
+    "On a small target some arrows miss, so fewer land. projectile = that hit's bullet flight, as in projectile (Mighty "
     "Shot speed 60 vs 40; Sky Shot range 99999 = no drop). Bows (their own skill) "
     "and bow Ashes of War carry the same entries for the standard ammo their weapon "
     "classes fire, named in skill_shots.ammo (#177): Ash of War: Barrage on Arrow; "
     "Ash of War: Rain of Arrows on Arrow and Great Arrow; Lion Greatbow's Radahn's "
     "Rain on Great Arrow; Repeating Crossbow's Repeating Fire on Bolt. Other ammo "
     "changes the numbers (Golem's Great Arrow's base poise 10 vs 7), so see the ammo "
-    "docs for those. Bows whose skill fires no shot (crossbows' Kick) have none. "
+    "docs for those. Crossbows and ballistae without a named skill have none. "
     "Skill shots come from the current-patch animations, so older patches list the "
     "skills with their own param values",
     "skill_shots.ammo": "bows and bow Ashes of War (#177): the standard ammo the "
