@@ -68,13 +68,15 @@ def search_entities(
             extraction from the game's own params/FMGs):
             weapon       — all weapons with stats, scaling, and requirements
             armor        — all armor pieces with weight, defense, and negation values
-            spell        — sorceries and incantations with FP cost and requirements
+            spell        — sorceries and incantations with FP cost, requirements and
+                           decoded effects (buffs, heals, on-hit buildup; #88)
             ash_of_war   — weapon skills / ashes of war with effect descriptions
-            item         — talismans (with SpEffect-derived effect text) and equippables
+            item         — talismans (with SpEffect-derived effect / effects) and equippables
             ammo         — arrows, greatarrows, bolts, and ballista bolts (attack
                            by element, status_buildup / status_effects, and the
                            shot's projectile flight + follow-up hits; #91)
-            consumable   — usable items (throwables, buffs, online/multiplayer tools)
+            consumable   — usable items (throwables, buffs, online/multiplayer tools);
+                           effect / effects decode what using one does (#88)
             key_item     — quest / story items (bell bearings, letters, whetblades, …)
             crafting_material — crafting ingredients (meat, fluids, plants, …)
             upgrade_material  — smithing stones, somber stones, golden seeds, sacred tears

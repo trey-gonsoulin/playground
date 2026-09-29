@@ -576,6 +576,21 @@ INDEX_MAPPING = {
             "is_legendary": {"type": "boolean"},
             "effect": {"type": "text"},
             "effect_value": {"type": "float"},
+            # Structured SpEffect decoding (#88).
+            "effects": {
+                "properties": {
+                    "stat": {"type": "keyword"},
+                    "value": {"type": "float"},
+                    "unit": {"type": "keyword"},
+                    "pvp_value": {"type": "float"},
+                    "condition": {"type": "keyword"},
+                    "interval": {"type": "float"},
+                    "duration": {"type": "float"},
+                    "target": {"type": "keyword"},
+                    "scales_with": {"type": "keyword"},
+                }
+            },
+            "effect_duration": {"type": "float"},
             "infusable": {"type": "boolean"},
             "default_ash_of_war": {"type": "keyword"},
             "depicted_in_talisman": {"type": "keyword"},
@@ -1692,8 +1707,24 @@ _FIELD_NOTES: dict[str, str] = {
     "chr_models": "on a spirit_ash enemy doc: the chr model ids the label covers (e.g. c4311). "
     "Also on a boss/creature roster doc (name_source=npc_name) whose name a spirit ash shares, "
     "e.g. Crystalian: its field mobs' drops are merged into that doc (#106)",
-    "effect": "talisman/item effect text derived from SpEffectParam (native)",
-    "effect_value": "primary numeric magnitude of the effect",
+    "effect": "readable effect text decoded from SpEffectParam, one phrase per effects "
+    "entry (e.g. Golden Vow: '+15% attack; -10% damage taken for 80s'). On talismans, "
+    "consumables, crystal tears and spells (#88); a spell's or throwable's includes what its "
+    "projectile inflicts on hit (e.g. '+100 frostbite buildup')",
+    "effect_value": "primary numeric magnitude of the effect (the first effects entry's value)",
+    "effects": "structured effects decoded from SpEffectParam (#88), one entry per stat: "
+    "stat (e.g. 'attack' = every element, 'physical damage taken', 'HP restored', 'max HP "
+    "restored', 'runes', 'immunity' / 'robustness' / 'focus' = both resistances of that "
+    "group, 'poison buildup', 'poison cured'), value (signed; % or points per unit, "
+    "absent for cure / inflict), unit ('%' or 'points'), pvp_value (the value against "
+    "players when it differs, e.g. Exalted Flesh 20 / 15), condition (the attacks or state "
+    "it's limited to: 'charged attacks', 'jump attacks', 'skills', 'at full HP', 'HP at or "
+    "below 20%', …), interval (seconds between regen / drain ticks), duration (seconds; "
+    "absent = instant or while equipped), target ('Torrent' for raisins / horse effects), "
+    "scales_with ('faith' / 'intelligence' for heals that scale). Only confirmed fields are "
+    "decoded, so some effects are missing (stacking talismans, great runes, spells whose "
+    "effect comes from a child projectile)",
+    "effect_duration": "longest effects duration in seconds (absent = instant or permanent)",
     "is_legendary": "part of a legendary set (achievement-tracked)",
     "infusable": "weapon can take an affinity/ash-of-war infusion",
     "default_ash_of_war": "the skill a weapon ships with (from SwordArtsParam)",
