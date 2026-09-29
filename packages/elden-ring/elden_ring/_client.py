@@ -1523,7 +1523,12 @@ def calculate_attack_rating(
     if not 0 <= level <= max_level:
         return {"error": f"level must be 0-{max_level} for '{canonical}'"}
     full = {s: stats.get(s, 10) for s in STATS}
-    return {
+    notes = []
+    if two_handed and entity_type == "consumable":
+        # consumables are thrown/used, not wielded: no two-handing Str bonus
+        two_handed = False
+        notes.append("two_handed ignored: consumables are not wielded")
+    result = {
         "weapon": canonical,
         "patch_version": version,
         "level": level,
@@ -1533,6 +1538,9 @@ def calculate_attack_rating(
         "requirements": doc.get("requirements"),
         **attack_rating(inputs, doc.get("requirements") or {}, full, level, two_handed),
     }
+    if notes:
+        result["notes"] = notes
+    return result
 
 
 def text_changed_between(
@@ -1890,8 +1898,10 @@ _FIELD_NOTES: dict[str, str] = {
     "Ammo carries every element it deals (Fire Arrow physical 15 + fire 95). Thrown "
     "consumables (#150: darts, knives, pots, stones) carry their hit's flat base power "
     "before stat scaling, e.g. Throwing Dagger physical 67, Fire Pot fire 230 (its "
-    "burst); their stat scaling is in scaling, and calculate_attack_rating applies it "
-    "(#178)",
+    "burst). Most also carry stat scaling in scaling, which calculate_attack_rating "
+    "applies (#178). Freezing Pot, Roped Freezing Pot and the Hefty Freezing / Oil / "
+    "Rot Pots have no hidden weapon row (VirtualWeaponID -1), so per the data they "
+    "deal flat damage with no scaling",
     "projectile": "ammo standard-shot flight, from its Bullet param (#91; bow skills "
     "like Mighty Shot use other bullets, see skill_shots): speed / max_speed (m/s), range (metres "
     "flown before the shot starts to drop: Fletched bone arrows 30 vs 10), gravity "
@@ -1936,10 +1946,12 @@ _FIELD_NOTES: dict[str, str] = {
     "frostbite / sleep / madness / death_blight (the in-game Guard 'Resist' line)",
     "scaling": "weapon attribute scaling at +0 by stat (str/dex/int/fai/arc), affinity "
     "multiplier applied; scaling.<stat>.grade is the in-game letter (S>=175 A>=140 B>=90 "
-    "C>=60 D>=25 E>=1), scaling.<stat>.value the number it is graded from. Thrown "
-    "consumables carry it too, from the hidden weapon row their throw scales with "
-    "(#178; the game shows no letters for them): Kukri Str A / Dex S / Arc C, Fire Pot "
-    "Str B / Dex D (Str A / Dex C at 1.02, when it dealt fire 122)",
+    "C>=60 D>=25 E>=1), scaling.<stat>.value the number it is graded from. "
+    "Consumables whose effect is a stat-scaled bullet carry it too, from the hidden "
+    "weapon row that bullet scales with (#178; the game shows no letters for them): "
+    "thrown items like Kukri Str A / Dex S / Arc C and Fire Pot Str B / Dex D (Str A / "
+    "Dex C at 1.02, when it dealt fire 122), and non-thrown ones like Lamenter's Mask, "
+    "Innard Meat, Spritestone and Glinting Nail",
     "damage_types": "weapon/ammo physical damage type(s) as shown in game: Standard, "
     "Strike, Slash, Pierce (main type first, e.g. Halberd [Standard, Pierce]). Omitted on "
     "bows/crossbows/ballistas, whose damage type comes from the ammo",
