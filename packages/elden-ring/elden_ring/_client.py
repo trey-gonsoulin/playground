@@ -1694,7 +1694,9 @@ _FIELD_NOTES: dict[str, str] = {
     "ammo's WeaponEffect lines ('Causes blood loss buildup', 'Boosts Crystalian sorcery'; "
     "the buildup number is in status_buildup), a talisman's AccessoryInfo ('Raises maximum "
     "HP'), a spell's GoodsInfo, a crystal tear's GoodsInfo2 ('Temporarily raises max HP'). "
-    "In-game wording, unlike effect which is decoded from SpEffectParam",
+    "In-game wording, unlike effect which is decoded from SpEffectParam and carries the "
+    "numbers (Crystal Staff: 'Boosts Crystalian sorcery' here, '+10% attack (Crystalian "
+    "sorceries)' in effect, #163)",
     "effect_text_ja": "Japanese effect_text; .ja/.morph/.lemma subfields drive JP search modes",
     "info_text": "the one-line info blurb from the item's Info FMG (#90): armor "
     "(ProtectorInfo, 'Helm worn by Kaiden sellswords'), ammo (WeaponInfo), a crafting "
@@ -1786,7 +1788,12 @@ _FIELD_NOTES: dict[str, str] = {
     "e.g. Crystalian: its field mobs' drops are merged into that doc (#106)",
     "effect": "readable effect text decoded from SpEffectParam, one phrase per effects "
     "entry (e.g. Golden Vow: '+15% attack; -10% damage taken for 80s'). On talismans, "
-    "consumables, crystal tears, spells (#88) and great runes (#156); a spell's or "
+    "consumables, crystal tears, spells (#88), great runes (#156) and weapons, whose "
+    "effect is the passive granted while held (#163: Blasphemous Blade '40 HP restored (on "
+    "defeating an enemy); 4% max HP restored (on defeating an enemy)', Carian Regal "
+    "Scepter '+10% attack (full moon sorceries)', Icon Shield '3 HP restored every 1s'; "
+    "every affinity of a weapon shares it; the game's own wording is effect_text); a "
+    "spell's or "
     "throwable's includes what its projectile inflicts on hit, worded by target (#160): "
     "'enemy loses 1 HP every 0.1s', '+100 frostbite buildup on enemy', 'cures poison on "
     "allies'; 'on self' is added only when the same stat also lands on someone else "
@@ -1802,6 +1809,8 @@ _FIELD_NOTES: dict[str, str] = {
     "it's limited to: 'charged attacks', 'jump attacks', 'skills', 'at full HP', 'HP at or "
     "below 20%', 'on hit', 'successive attacks', 'on defeating an enemy' (on-kill talismans "
     "such as Taker's Cameo), 'vs undead' (healing incantations' damage to undead enemies), "
+    "a spell school for catalyst boosts ('Glintblade sorceries', 'Dragon Cult "
+    "incantations'), one ammo for bow boosts ('Radahn's Spear', 'Golden Arrow'), "
     "'requires Rune Arc'; stacking effects give one entry per tier, 'successive attacks, tier 1' … 'tier "
     "3', each value the tier's total, e.g. Winged Sword Insignia +3 / +5 / +10%; the bonus "
     "decays ~1.5s after the last hit), interval (seconds between regen / drain ticks), "
