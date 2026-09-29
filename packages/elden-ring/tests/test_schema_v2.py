@@ -80,6 +80,11 @@ def test_grouped_leaves_mapped():
         "max_level.summon_stats.stats.hp": "integer",
         "max_level.summon_stats.resistances.sleep": "integer",
         "max_level.summon_stats.damage_multiplier": "float",
+        "summon_stats.attacks.behavior_variation": "integer",
+        "summon_stats.attacks.attack_power.holy": "integer",
+        "summon_stats.attacks.status_buildup.bleed": "integer",
+        "summon_stats.attacks.status_effects": "keyword",
+        "max_level.summon_stats.attacks.attack_power.physical": "integer",
         "poise_damage.one_handed.r1": "float",
         "poise_damage.two_handed.guard_counter": "float",
         "poise_damage.pvp.two_handed.charged_r2": "float",
@@ -491,6 +496,15 @@ def test_builder_doc_shapes_fully_mapped():
                     "traits": [],
                     "weak_point_damage_multiplier": 1.5,
                     "damage_multiplier": 1.0,
+                    "attacks": {
+                        "behavior_variation": 53100,
+                        "count": 68,
+                        "damage_types": ["Slash", "Pierce"],
+                        "elements": ["physical", "holy"],
+                        "attack_power": {"physical": 140, "holy": 180},
+                        "status_buildup": {"bleed": 50, "madness": 105},
+                        "status_effects": ["bleed", "madness"],
+                    },
                 }
             ],
             "max_level": {
@@ -505,10 +519,18 @@ def test_builder_doc_shapes_fully_mapped():
                         "immune_to": ["bleed"],
                         "traits": [],
                         "damage_multiplier": 3.796,
+                        "attacks": {"attack_power": {"physical": 531, "holy": 683}},
                     }
                 ],
             },
-            "upgrade_curve": {"summon_stats": [{"stats": {"hp": [500, 3711]}}]},
+            "upgrade_curve": {
+                "summon_stats": [
+                    {
+                        "stats": {"hp": [500, 3711]},
+                        "attacks": {"attack_power": {"physical": [140, 531]}},
+                    }
+                ]
+            },
         },
     ]
     for doc in docs:

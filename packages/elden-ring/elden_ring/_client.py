@@ -227,11 +227,24 @@ _NPC_STATS = {
     "weak_point_damage_multiplier": {"type": "float"},
 }
 
+# Attack profile over an NpcParam row's move table (#81), shared by enemy docs and
+# spirit-ash summon_stats (#124).
+_NPC_ATTACKS = {
+    "behavior_variation": {"type": "integer"},
+    "count": {"type": "integer"},
+    "damage_types": {"type": "keyword"},
+    "elements": {"type": "keyword"},
+    "attack_power": {"properties": _props("integer", _DAMAGE_TYPES)},
+    "status_buildup": {"properties": _props("integer", _STATUSES)},
+    "status_effects": {"type": "keyword"},
+}
+
 # One spirit-ash summon entry (#86) at a given upgrade level (#117).
 _SUMMON_STATS = {
     "count": {"type": "integer"},
     **_NPC_STATS,
     "damage_multiplier": {"type": "float"},
+    "attacks": {"properties": _NPC_ATTACKS},
 }
 
 
@@ -402,16 +415,7 @@ INDEX_MAPPING = {
             **_NPC_STATS,
             # Enemy attack profile over its model family's move table (#81).
             "attacks": {
-                "properties": {
-                    "behavior_variation": {"type": "integer"},
-                    "count": {"type": "integer"},
-                    "damage_types": {"type": "keyword"},
-                    "elements": {"type": "keyword"},
-                    "attack_power": {"properties": _props("integer", _DAMAGE_TYPES)},
-                    "status_buildup": {"properties": _props("integer", _STATUSES)},
-                    "status_effects": {"type": "keyword"},
-                    "shared_with": {"type": "keyword"},
-                }
+                "properties": {**_NPC_ATTACKS, "shared_with": {"type": "keyword"}}
             },
             # Grab subset of that move table, joined to ThrowParam (#82).
             "grabs": {
@@ -1947,7 +1951,8 @@ _FIELD_NOTES: dict[str, str] = {
     "+25), only for stats that change with level; an absent stat keeps its +0 value. On a "
     "spirit_ash doc: upgrade_curve.summon_stats is a list aligned with summon_stats "
     "(upgrade_curve.summon_stats[0].stats.hp[10] = first spirit's +10 HP), plus "
-    "upgrade_curve.summon_count when the number of spirits grows (Giant Rat Ashes 3 -> 5). "
+    "upgrade_curve.summon_count when the number of spirits grows (Giant Rat Ashes 3 -> 5); "
+    "a spirit's per-level attacks.attack_power is there too (#124). "
     "Weapons and spirit ashes also carry upgrade_curve.materials: the materials to reach "
     "each level as [{item, quantity}] (index 0 is null; Dagger materials[25] = Ancient "
     "Dragon Smithing Stone x1, Black Knife Tiche materials[1] = Ghost Glovewort [1]) (#87), "
@@ -2206,11 +2211,22 @@ _FIELD_NOTES: dict[str, str] = {
     "/ immune_to / traits / weak_point_damage_multiplier), from BuddyParam -> NpcParam with "
     "the summon's upgrade-level SpEffect applied (at +0 most base-game spirits get double "
     "status resistance). A filter like summon_stats.stats.hp matches if any spirit matches. "
-    "No attack power: summon damage lives per attack, not on the NpcParam row "
-    "(damage_multiplier scales it). Mimic Tear also lists its player-copy row. +10 in "
-    "max_level, every level in upgrade_curve",
+    "Each spirit also has an attacks profile (summon_stats.attacks). Mimic Tear also "
+    "lists its player-copy row. +10 in max_level, every level in upgrade_curve",
     "summon_stats.damage_multiplier": "spirit's outgoing damage multiplier at that upgrade "
     "level (1.0 at +0, ~3.8 at +10 for most base-game spirits)",
+    "summon_stats.attacks": "spirit's attack profile, in the enemy attacks shape "
+    "(behavior_variation / count / damage_types / elements / attack_power / "
+    "status_buildup / status_effects; no shared_with) (#124). Spirits share their field "
+    "enemy's move table (Lone Wolf Ashes = the Lone Wolf's), narrowed to the moves the "
+    "spirit's animations fire, so AI-only sibling moves can remain. attack_power is "
+    "scaled by that level's damage_multiplier (Black Knife Tiche holy 250 at +0, 949 at "
+    "+10 in max_level.summon_stats.attacks); status_buildup is not scaled by upgrades. "
+    "Per-level attack_power is in upgrade_curve.summon_stats[i].attacks.attack_power. "
+    "DLC spirits keep their whole model-family table (no DLC animation data for those "
+    "models). Absent on player-copy and human spirits (Mimic Tear's copy, the Puppets, "
+    "Jolán and Anna): they fight with equipped weapons. Mimic Tear's first entry is "
+    "its Silver Tear form",
     "summon_count": "on a spirit_ash doc: total spirits summoned at +0 (e.g. Lone Wolf "
     "Ashes 3); max_level.summon_count at +10",
 }
