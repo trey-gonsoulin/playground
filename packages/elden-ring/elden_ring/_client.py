@@ -1726,13 +1726,16 @@ _FIELD_NOTES: dict[str, str] = {
     "absent for cure / inflict), unit ('%' or 'points'), pvp_value (the value against "
     "players when it differs, e.g. Exalted Flesh 20 / 15), condition (the attacks or state "
     "it's limited to: 'charged attacks', 'jump attacks', 'skills', 'at full HP', 'HP at or "
-    "below 20%', …), interval (seconds between regen / drain ticks), duration (seconds; "
-    "absent = instant or while equipped), target (who it lands on, #160: 'self' = the "
-    "user, 'enemy' = what the projectile or buffed weapon hits, e.g. Black Flame Blade's "
-    "burn, grease procs, thrown-item buildup; 'ally' = allies only, e.g. Lord's Aid's "
-    "second cure set; 'torrent' for raisins / horse effects), "
+    "below 20%', 'on hit', 'successive attacks'; stacking effects give one entry per tier, "
+    "'successive attacks, tier 1' … 'tier 3', each value the tier's total, e.g. Winged "
+    "Sword Insignia +3 / +5 / +10%; the bonus decays ~1.5s after the last hit), interval "
+    "(seconds between regen / drain ticks), duration (seconds; absent = instant or while "
+    "equipped), target (who it lands on, #160: 'self' = the user, 'enemy' = what the "
+    "projectile or buffed weapon hits, e.g. Black Flame Blade's burn, grease procs, "
+    "thrown-item buildup; 'ally' = allies only, e.g. Lord's Aid's second cure set; "
+    "'torrent' for raisins / horse effects), "
     "scales_with ('faith' / 'intelligence' for heals that scale). Only confirmed fields are "
-    "decoded, so some effects are missing (stacking talismans, great runes, spells whose "
+    "decoded, so some effects are missing (great runes, spells whose "
     "effect comes from a child projectile)",
     "effect_duration": "longest effects duration in seconds (absent = instant or permanent)",
     "is_legendary": "part of a legendary set (achievement-tracked)",
