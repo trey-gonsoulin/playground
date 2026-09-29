@@ -1837,9 +1837,13 @@ _FIELD_NOTES: dict[str, str] = {
     "#160: 'self' = the user, 'enemy' = what the projectile or buffed weapon hits, e.g. "
     "Black Flame Blade's burn, grease procs, thrown-item buildup; 'ally' = allies only, "
     "e.g. Lord's Aid's second cure set; 'torrent' for raisins / horse effects), "
-    "scales_with ('faith' / 'intelligence' for heals that scale). Only confirmed fields are "
-    "decoded, so some effects are missing (e.g. hyperarmor, "
-    "stealth)",
+    "scales_with ('faith' / 'intelligence' for heals that scale). Stealth and stagger "
+    "(#159): 'visibility to enemies' (how easily enemies spot you: Mimic's Veil -50%, "
+    "Unseen Form -60%), 'sound heard by enemies' (Assassin's Approach -100%), and the "
+    "value-less 'no stagger from minimal and small hits' (Baldachin's Blessing) / "
+    "'... medium and large hits or pushback' (Leaden Hardtear, Ironjar Aromatic). Only "
+    "confirmed fields are decoded, so some effects are missing (e.g. casting "
+    "hyperarmor, which is animation data, not a SpEffect)",
     "effect_duration": "longest effects duration in seconds (absent = instant or permanent)",
     "is_legendary": "part of a legendary set (achievement-tracked)",
     "infusable": "weapon can take an affinity/ash-of-war infusion",
@@ -1849,7 +1853,10 @@ _FIELD_NOTES: dict[str, str] = {
     "attack_power": "weapon/ammo attack power at +0 by damage type, as shown in game "
     "(affinity multiplier applied). Weapons also carry stamina (damage dealt to the "
     "target's stamina) and critical (critical-hit multiplier, 100 = base; daggers 130). "
-    "Ammo carries every element it deals (Fire Arrow physical 15 + fire 95)",
+    "Ammo carries every element it deals (Fire Arrow physical 15 + fire 95). Thrown "
+    "consumables (#150: darts, knives, pots, stones) carry their hit's flat base power "
+    "before stat scaling, e.g. Throwing Dagger physical 67, Fire Pot fire 230 (its "
+    "burst)",
     "projectile": "ammo standard-shot flight, from its Bullet param (#91; bow skills "
     "like Mighty Shot use other bullets): speed / max_speed (m/s), range (metres "
     "flown before the shot starts to drop: Fletched bone arrows 30 vs 10), gravity "
@@ -1860,10 +1867,15 @@ _FIELD_NOTES: dict[str, str] = {
     "follow_up_motion_values lists each follow-up hit's motion value (#152): the % of "
     "the bow's attack rating it deals per element, identical hits merged with a count "
     "(Lightning Greatbolt: 1 strike at 100 then 5 at 30). Combining these with a bow's "
-    "AR is calculator work, not precomputed",
-    "status_effects": "ammo: statuses a shot inflicts, from the ammo's and its bullets' "
-    "on-hit SpEffects including damage-over-time chains (Rotbone Arrow: scarlet_rot); "
-    "the buildup amount is in status_buildup",
+    "AR is calculator work, not precomputed. Thrown consumables (#150) carry it too: "
+    "the thrown item's flight, follow_up_hits = the other hits one throw lands on a "
+    "target (Fan Daggers' 4 extra blades, Lightning Pot's strike after the pot; an "
+    "upper bound) with their follow_up_attack_power; no motion values (thrown items "
+    "deal flat power)",
+    "status_effects": "ammo and thrown consumables (#150): statuses a shot or throw "
+    "inflicts, from the item's and its bullets' on-hit SpEffects including "
+    "damage-over-time chains (Rotbone Arrow: scarlet_rot, Kukri: bleed); the ammo "
+    "buildup amount is in status_buildup, a consumable's in effects",
     "guard": "weapon block stats at +0, affinity multiplier applied: guarded damage "
     "negation % by type (physical/magic/fire/lightning/holy), boost (guard boost) and "
     "resistances (guarded status resistance by status)",
