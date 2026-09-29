@@ -92,6 +92,11 @@ def search_entities(
                            search by item name to find who sells it, or by merchant
                            name / location to get their full stock
             npc_dialogue — individual spoken lines from the TalkMsg text (searchable by quote)
+            game_text    — other in-game text lines (#98), one doc per FMG id ("Loading
+                           Tip 4", "Map Event 80810"); tags give the kind:
+                           action_button (interaction prompts: "Touch grace"),
+                           map_event (area/event banners: "Summoned Blaidd…"),
+                           tutorial and loading_tip (display_name = title)
             enemy        — bosses, creatures, and named enemies (from the NpcName roster)
                            with EN + JP names (name_ja); most also carry NpcParam
                            HP/stamina/poise/elemental defenses, status resistances +
@@ -667,7 +672,7 @@ def text_changed_between(
 
     Args:
         entity_type: Entity category to scan (weapon, armor, spell, item, ash_of_war,
-            merchant, npc_dialogue).
+            merchant, npc_dialogue, game_text).
         field: Field to compare, e.g. "description", "description_ja", "text_content",
             "location", "effect", "display_name" (per-patch FMG name — use this to find
             weapons renamed across patches). Any indexed field works, including a grouped
