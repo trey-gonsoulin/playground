@@ -342,6 +342,10 @@ INDEX_MAPPING = {
                     "follow_up_attack_power": {
                         "properties": _props("integer", _DAMAGE_TYPES)
                     },
+                    # Motion-value % per element per distinct follow-up hit (#152).
+                    "follow_up_motion_values": {
+                        "properties": _props("integer", ("count", *_DAMAGE_TYPES))
+                    },
                 }
             },
             "status_effects": {"type": "keyword"},
@@ -1740,7 +1744,11 @@ _FIELD_NOTES: dict[str, str] = {
     "(drop after range), lifetime (s), hit_radius (m). follow_up_hits counts the extra "
     "hits it spawns on impact (explosions, shockwaves, lightning strikes: Golem's Great "
     "Arrow, Explosive Bolt, Lightning Greatbolt), follow_up_attack_power their flat "
-    "added power by element (Explosive Greatbolt fire 180) on top of the ammo's own",
+    "added power by element (Explosive Greatbolt fire 180) on top of the ammo's own. "
+    "follow_up_motion_values lists each follow-up hit's motion value (#152): the % of "
+    "the bow's attack rating it deals per element, identical hits merged with a count "
+    "(Lightning Greatbolt: 1 strike at 100 then 5 at 30). Combining these with a bow's "
+    "AR is calculator work, not precomputed",
     "status_effects": "ammo: statuses a shot inflicts, from the ammo's and its bullets' "
     "on-hit SpEffects including damage-over-time chains (Rotbone Arrow: scarlet_rot); "
     "the buildup amount is in status_buildup",

@@ -74,7 +74,8 @@ def search_entities(
             item         — talismans (with SpEffect-derived effect / effects) and equippables
             ammo         — arrows, greatarrows, bolts, and ballista bolts (attack
                            by element, status_buildup / status_effects, and the
-                           shot's projectile flight + follow-up hits; #91)
+                           shot's projectile flight + follow-up hits and their
+                           motion values; #91, #152)
             consumable   — usable items (throwables, buffs, online/multiplayer tools);
                            effect / effects decode what using one does (#88)
             key_item     — quest / story items (bell bearings, letters, whetblades, …)
