@@ -323,6 +323,28 @@ INDEX_MAPPING = {
             **_WEAPON_STATS,
             # Weapon/ammo physical damage type(s), main first (#116).
             "damage_types": {"type": "keyword"},
+            # Ammo standard-shot flight + follow-up hits and on-hit statuses, from
+            # its Bullet chain (#91).
+            "projectile": {
+                "properties": {
+                    **_props(
+                        "float",
+                        (
+                            "speed",
+                            "max_speed",
+                            "range",
+                            "gravity",
+                            "lifetime",
+                            "hit_radius",
+                        ),
+                    ),
+                    "follow_up_hits": {"type": "integer"},
+                    "follow_up_attack_power": {
+                        "properties": _props("integer", _DAMAGE_TYPES)
+                    },
+                }
+            },
+            "status_effects": {"type": "keyword"},
             # Per-attack poise damage, first hit; chains stored, not indexed (#119).
             "poise_damage": {
                 "properties": {**_POISE_HANDS, "pvp": {"properties": _POISE_HANDS}}
@@ -1679,7 +1701,18 @@ _FIELD_NOTES: dict[str, str] = {
     "depicted_in_talisman": "weapon depicted in this talisman (lore cross-reference)",
     "attack_power": "weapon/ammo attack power at +0 by damage type, as shown in game "
     "(affinity multiplier applied). Weapons also carry stamina (damage dealt to the "
-    "target's stamina) and critical (critical-hit multiplier, 100 = base; daggers 130)",
+    "target's stamina) and critical (critical-hit multiplier, 100 = base; daggers 130). "
+    "Ammo carries every element it deals (Fire Arrow physical 15 + fire 95)",
+    "projectile": "ammo standard-shot flight, from its Bullet param (#91; bow skills "
+    "like Mighty Shot use other bullets): speed / max_speed (m/s), range (metres "
+    "flown before the shot starts to drop: Fletched bone arrows 30 vs 10), gravity "
+    "(drop after range), lifetime (s), hit_radius (m). follow_up_hits counts the extra "
+    "hits it spawns on impact (explosions, shockwaves, lightning strikes: Golem's Great "
+    "Arrow, Explosive Bolt, Lightning Greatbolt), follow_up_attack_power their flat "
+    "added power by element (Explosive Greatbolt fire 180) on top of the ammo's own",
+    "status_effects": "ammo: statuses a shot inflicts, from the ammo's and its bullets' "
+    "on-hit SpEffects including damage-over-time chains (Rotbone Arrow: scarlet_rot); "
+    "the buildup amount is in status_buildup",
     "guard": "weapon block stats at +0, affinity multiplier applied: guarded damage "
     "negation % by type (physical/magic/fire/lightning/holy), boost (guard boost) and "
     "resistances (guarded status resistance by status)",
