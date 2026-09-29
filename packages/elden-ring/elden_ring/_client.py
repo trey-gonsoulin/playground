@@ -1812,8 +1812,9 @@ _FIELD_NOTES: dict[str, str] = {
     "(Frenzied Burst: '+90 madness buildup on enemy; +20 madness buildup on self')",
     "effect_value": "primary numeric magnitude of the effect (the first effects entry's value)",
     "effects": "structured effects decoded from SpEffectParam (#88), one entry per stat: "
-    "stat (e.g. 'attack' = every element, 'physical damage taken', 'HP restored', 'max HP "
-    "restored', 'runes', 'all attributes', 'immunity' / 'robustness' / 'focus' = both "
+    "stat (e.g. 'attack' = every element, 'physical damage taken', 'damage taken while "
+    "guarding' (a cut that applies only when blocking, #173: Ancient Dragon's Blessing's "
+    "-20%, Shield Grease), 'HP restored', 'max HP restored', 'runes', 'all attributes', 'immunity' / 'robustness' / 'focus' = both "
     "resistances of that group, 'poison buildup', 'poison cured', or a value-less state "
     "such as Mohg's 'blessing of blood for summoned phantoms'), value (signed; % or points "
     "per unit, absent for cure / inflict / state), unit ('%' or 'points'), pvp_value (the value against "
@@ -1830,7 +1831,8 @@ _FIELD_NOTES: dict[str, str] = {
     "incantations'), one ammo for bow boosts ('Radahn's Spear', 'Golden Arrow'), "
     "'requires Rune Arc'; stacking effects give one entry per tier, 'successive attacks, tier 1' … 'tier "
     "3', each value the tier's total, e.g. Winged Sword Insignia +3 / +5 / +10%; the bonus "
-    "decays ~1.5s after the last hit), interval (seconds between regen / drain ticks), "
+    "decays ~1.5s after the last hit), interval (seconds between regen / drain ticks, "
+    "e.g. Bloodsucking Cracked Tear's 20 HP every 1s, #174), "
     "duration (seconds; absent = instant or while equipped; an on-hit proc of a timed "
     "buff takes the buff's duration, e.g. a grease's buildup lasts the grease's 60s), "
     "target (who it lands on, "
