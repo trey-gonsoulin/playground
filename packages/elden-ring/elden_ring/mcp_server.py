@@ -66,7 +66,9 @@ def search_entities(
             - Lore: "Ranni lore", "Marika dialogue", "Elden Ring story"
         entity_type: Narrow to one category. Loaded types (all first-party native
             extraction from the game's own params/FMGs):
-            weapon       — all weapons with stats, scaling, and requirements
+            weapon       — all weapons with stats, scaling, and requirements;
+                           effect / effects decode passives while held (on-kill
+                           heals, catalyst spell-school boosts, regen; #163)
             armor        — all armor pieces with weight, defense, and negation values
             spell        — sorceries and incantations with FP cost, requirements and
                            decoded effects (buffs, heals, on-hit buildup; #88)
