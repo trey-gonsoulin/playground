@@ -1694,7 +1694,9 @@ _FIELD_NOTES: dict[str, str] = {
     "ammo's WeaponEffect lines ('Causes blood loss buildup', 'Boosts Crystalian sorcery'; "
     "the buildup number is in status_buildup), a talisman's AccessoryInfo ('Raises maximum "
     "HP'), a spell's GoodsInfo, a crystal tear's GoodsInfo2 ('Temporarily raises max HP'). "
-    "In-game wording, unlike effect which is decoded from SpEffectParam",
+    "In-game wording, unlike effect which is decoded from SpEffectParam and carries the "
+    "numbers (Crystal Staff: 'Boosts Crystalian sorcery' here, '+10% attack (Crystalian "
+    "sorceries)' in effect, #163)",
     "effect_text_ja": "Japanese effect_text; .ja/.morph/.lemma subfields drive JP search modes",
     "info_text": "the one-line info blurb from the item's Info FMG (#90): armor "
     "(ProtectorInfo, 'Helm worn by Kaiden sellswords'), ammo (WeaponInfo), a crafting "
@@ -1790,7 +1792,8 @@ _FIELD_NOTES: dict[str, str] = {
     "effect is the passive granted while held (#163: Blasphemous Blade '40 HP restored (on "
     "defeating an enemy); 4% max HP restored (on defeating an enemy)', Carian Regal "
     "Scepter '+10% attack (full moon sorceries)', Icon Shield '3 HP restored every 1s'; "
-    "every affinity of a weapon shares it); a spell's or "
+    "every affinity of a weapon shares it; the game's own wording is effect_text); a "
+    "spell's or "
     "throwable's includes what its projectile inflicts on hit, worded by target (#160): "
     "'enemy loses 1 HP every 0.1s', '+100 frostbite buildup on enemy', 'cures poison on "
     "allies'; 'on self' is added only when the same stat also lands on someone else "
