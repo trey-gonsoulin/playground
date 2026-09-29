@@ -45,10 +45,17 @@ const COMMON = `
 - Cross-check values against the Fextralife wiki (WebFetch) where it has numbers.
 
 ## Memory
-Read ${MEMORY}/MEMORY.md, then the memory files the issue context names, plus feedback-single-version-build-inputs.md, feedback-soulstruct-param-todict-defaults.md, feedback-soulstruct-er-tooltips-ds1.md and feedback-new-field-mapping-before-test-index.md. Don't edit memory.
+The memory index (MEMORY.md) is already in your context, so don't re-read it. Read only the memory files the issue context names, one Read each (not cat of several), in ${MEMORY}/. Standing rules from the rest of memory:
+- soulstruct \`row.to_dict()\` omits default-valued fields: read possibly-default fields by attribute (\`getattr(row, PascalName, default)\`).
+- soulstruct ER field names/tooltips are often Dark Souls carry-overs: derive a field's meaning from cross-param evidence before naming it.
+- load_params silently skips version-mismatched params on old patches, so check the 1.02.1 build for any param you newly depend on.
+- The index mapping is \`dynamic: strict\`: every new leaf needs an INDEX_MAPPING entry.
+Don't edit memory.
 
-## Working style
-- Lean context: trim tool output (head/grep), write big probe output to files and print only summaries, and read large files in parts.
+## Working style (every tool result stays in context and is re-read on every later turn, so keep them small)
+- Code: er_native/extract.py is ~290 KB. Never Read it whole or in big chunks: \`grep -n\` for the function, then Read with offset/limit (≤150 lines). Don't re-read code you already have or just edited.
+- Probes: write scripts to files, send full output to a file, and print at most ~40 lines (counts plus a few examples). Summarise spot-build diffs as per-field counts plus ≤10 examples, never whole docs.
+- Wiki checks: WebFetch with a narrow prompt asking for just the numbers you need.
 - Sandbox: chained \`cd … && git …\`, shell for-loops, heredocs and \`VAR=… cmd\` prefixes can be refused. Put probe scripts in files, run plain commands, and use \`git -C <path>\`.
 - The user pre-approved this work: don't enter plan mode or ask questions. Make sensible design calls and record them. Any change to user-visible wording (e.g. an existing \`effect\` string) or a naming choice the user might care about goes in \`user_visible_changes\` / \`decisions\` with needs_user=true. Follow the binding user decisions in the issue context exactly.
 `.trim()
@@ -89,10 +96,10 @@ ${g.context || '(none)'}
 1. Read the issue(s) (\`gh issue view <N> --repo ${REPO} --comments\`) and the diffs: \`git -C ${ERDB} diff main...origin/${branchOf(g)}\` and \`git -C ${PLAYGROUND} diff main...origin/${branchOf(g)}\` (fetch first).
 2. Does the change do what the issue asks, and follow every binding user decision in the context?
 3. Rerun the tests in the implementer's worktrees (paths in the report). Don't edit them.
-4. Verify the spot-build claims: rerun its diff or rebuild 1.17 with \`bash ${SPOT_BUILD} <erdb worktree> 1.17.0 <abs out>\` into ${SCRATCH}/r${g.key}/. Confirm that only the intended fields changed, and independently check 2–3 values against the params or the wiki.
+4. Verify the spot-build claims: diff the implementer's baseline/after builds (paths in the report) yourself, or rebuild 1.17 with \`bash ${SPOT_BUILD} <erdb worktree> 1.17.0 <abs out>\` into ${SCRATCH}/r${g.key}/ if they're missing. Confirm that only the intended fields changed, and independently check 2–3 values against the params or the wiki.
 5. Mapping: is every new field mapped with a sensible type, and are the field notes accurate?
 6. Look for regressions in unrelated docs, unreported changes to user-visible wording, and code that silently skips cases.
-Do NOT commit, push, or edit either branch. Use lean context: trim output and keep probe output in files.
+Do NOT commit, push, or edit either branch. Lean context: read diffs per file (\`git diff … -- <path>\`), Read extract.py only with offset/limit, keep probe output in files and print ≤40 lines.
 `.trim()
 
 const fixPrompt = (g, r, rv) => `
@@ -123,6 +130,7 @@ const REPORT = {
     tests: { type: 'string', description: 'commands run and results' },
     spot_build: { type: 'object', required: ['summary'], properties: {
       docs_changed_117: { type: 'integer' }, docs_changed_102: { type: 'integer' },
+      files: { type: 'string', description: 'absolute paths of the baseline and after builds (1.17 + 1.02)' },
       summary: { type: 'string', description: 'fields changed, examples checked against the wiki' } } },
     user_visible_changes: { type: 'array', description: 'changed wording of existing text fields, before -> after',
       items: { type: 'object', required: ['item', 'before', 'after'], properties: { item: STR, before: STR, after: STR } } },
@@ -147,13 +155,27 @@ const REVIEW = {
   },
 }
 
+// er-worker (.claude/agents/er-worker.md) is general-purpose with only the tools this work uses, which
+// trims the fixed prompt every turn re-reads. It registers at session start, so fall back if it's missing.
+let AGENT_TYPE = 'er-worker'
+const run = async (prompt, opts) => {
+  try {
+    return await agent(prompt, { ...opts, agentType: AGENT_TYPE })
+  } catch (e) {
+    if (AGENT_TYPE === 'general-purpose') throw e
+    log(`agent type ${AGENT_TYPE} unavailable (${e.message || e}); using general-purpose`)
+    AGENT_TYPE = 'general-purpose'
+    return agent(prompt, { ...opts, agentType: AGENT_TYPE })
+  }
+}
+
 log(`Implementing ${GROUPS.length} group(s): ${GROUPS.map(refs).join(' | ')}`)
 
 const results = await pipeline(
   GROUPS,
-  g => agent(implPrompt(g), { label: `impl:${g.key}`, phase: 'Implement', isolation: 'worktree', agentType: 'general-purpose', schema: REPORT }),
+  g => run(implPrompt(g), { label: `impl:${g.key}`, phase: 'Implement', isolation: 'worktree', schema: REPORT }),
   (report, g) => report
-    ? agent(reviewPrompt(g, report), { label: `review:${g.key}`, phase: 'Review', agentType: 'general-purpose', schema: REVIEW })
+    ? run(reviewPrompt(g, report), { label: `review:${g.key}`, phase: 'Review', schema: REVIEW })
         .then(review => ({ report, review }))
     : null,
   async (r, g) => {
@@ -161,9 +183,9 @@ const results = await pipeline(
     const blocking = (r.review?.problems || []).filter(p => p.severity === 'blocking')
     if (r.review?.verdict !== 'fix' || !blocking.length) return { group: g, ...r }
     log(`${refs(g)}: ${blocking.length} blocking review problem(s), running one fix round`)
-    const fixed = await agent(fixPrompt(g, r.report, r.review), { label: `fix:${g.key}`, phase: 'Fix', agentType: 'general-purpose', schema: REPORT })
+    const fixed = await run(fixPrompt(g, r.report, r.review), { label: `fix:${g.key}`, phase: 'Fix', schema: REPORT })
     if (!fixed) return { group: g, ...r, fix_failed: true }
-    const rereview = await agent(reviewPrompt(g, fixed), { label: `re-review:${g.key}`, phase: 'Fix', agentType: 'general-purpose', schema: REVIEW })
+    const rereview = await run(reviewPrompt(g, fixed), { label: `re-review:${g.key}`, phase: 'Fix', schema: REVIEW })
     return { group: g, report: fixed, review: rereview, first_review: r.review, fixed: true }
   },
 )
