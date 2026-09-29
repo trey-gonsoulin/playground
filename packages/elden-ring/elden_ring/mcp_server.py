@@ -195,7 +195,9 @@ def search_entities(
       starting_classes   — starting classes whose initial loadout includes it (#23)
       acquisition_types  — how it's obtained: merchant / enemy_drop / found_in_world /
                            chest / given_by_npc / starting_equipment / keepsake / crafted /
-                           gathered (gathering-node pickup, #142)
+                           gathered (gathering-node pickup, #142) /
+                           quest_reward (scripted quest award, #137) /
+                           invader_drop (defeating an NPC invader, #138)
       crafted_from       — crafting recipe materials [{item, quantity}], with
                            crafted_yield and recipe_unlock (cookbooks) (#87)
       used_in / unlocks_recipes — on materials / cookbooks: the items they craft (#87)
