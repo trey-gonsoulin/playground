@@ -1600,7 +1600,8 @@ def list_entity_types(client: OpenSearch) -> list[str]:
 # (stats.hp); self-describing leaves (attack_power.fire, requirements.str) get no note.
 _FIELD_NOTES: dict[str, str] = {
     "entity_type": "category filter: weapon, armor, spell, item, ash_of_war, merchant, "
-    "enemy, boss (one doc per boss encounter, #79), npc_dialogue",
+    "enemy, boss (one doc per boss encounter, #79), npc_dialogue, game_text "
+    "(prompts, map banners, tutorials, loading tips; #98)",
     "patch_version": "real game patch the doc was extracted from (native is per-patch); use with diff_entities",
     "source": "internal game-data origin — the param table or FMG the doc was built from "
     "(EquipParamWeapon, EquipParamProtector, Magic, EquipParamAccessory, EquipParamGem, "
@@ -1627,7 +1628,8 @@ _FIELD_NOTES: dict[str, str] = {
     "ignored). False = only magnitude wording changed",
     "text_added_lines": "the variant's text lines (EN + JP) with no counterpart in base_item, "
     "e.g. 「伝説のタリスマン」のひとつ on Erdtree's Favor +2",
-    "tags": "free-form keyword tags (spell school/role, weapon category, 'Talisman', etc.)",
+    "tags": "free-form keyword tags (spell school/role, weapon category, 'Talisman', etc.); "
+    "on game_text the kind: action_button, map_event, tutorial, loading_tip",
     "location": "where a merchant is found; on a boss doc, the legacy dungeon or area "
     "whose map holds the arena (PlaceName, e.g. Stormfoot Catacombs); absent for "
     "open-world bosses (see nearest_grace / region). Enemy and item placements name "
