@@ -2301,8 +2301,11 @@ _FIELD_NOTES: dict[str, str] = {
     "scaled by that level's damage_multiplier (Black Knife Tiche holy 250 at +0, 949 at "
     "+10 in max_level.summon_stats.attacks); status_buildup is not scaled by upgrades. "
     "Per-level attack_power is in upgrade_curve.summon_stats[i].attacks.attack_power. "
-    "DLC spirits keep their whole model-family table (no DLC animation data for those "
-    "models). Absent on player-copy and human spirits (Mimic Tear's copy, the Puppets, "
+    "A spirit that spawns as a specific enemy variant keeps that variant's moves even "
+    "when the field enemy doc (one representative row) lacks them: Gravebird Ashes is the "
+    "spectral-ring / poison-tail Gravebird (holy + poison), the Gravebird doc the plain "
+    "one. Fingercreeper Ashes keeps its whole model-family table (no animation data "
+    "for that model). Absent on player-copy and human spirits (Mimic Tear's copy, the Puppets, "
     "Jolán and Anna): they fight with equipped weapons. Mimic Tear's first entry is "
     "its Silver Tear form",
     "summon_count": "on a spirit_ash doc: total spirits summoned at +0 (e.g. Lone Wolf "
