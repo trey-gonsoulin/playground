@@ -1,7 +1,7 @@
 """Schema v2 checks (#115): grouped stat objects, keyword cleanup, strict mapping.
 No OpenSearch needed."""
 
-from elden_ring._client import _flatten, INDEX_MAPPING
+from elden_ring._client import _FIELD_NOTES, _flatten, INDEX_MAPPING
 
 _PROPS = INDEX_MAPPING["mappings"]["properties"]
 
@@ -356,6 +356,14 @@ def test_builder_doc_shapes_fully_mapped():
                     "scales_with": "faith",
                 },
                 {"stat": "poison cured", "target": "enemy"},
+                # Stacking talisman tier (#155): tiers ride in condition.
+                {
+                    "stat": "attack",
+                    "value": 3.0,
+                    "unit": "%",
+                    "condition": "successive attacks, tier 1",
+                    "target": "self",
+                },
             ],
         },
         {
@@ -504,3 +512,10 @@ def test_flatten_to_dotted_leaves():
         "tags": ["Halberd"],
     }
     assert _flatten({"scaling": {"str": {"grade": "D"}}}) == {"scaling.str.grade": "D"}
+
+
+def test_effects_note_documents_stacking_tiers():
+    # #155: stacking talismans decode, one effects entry per tier.
+    note = _FIELD_NOTES["effects"]
+    assert "successive attacks, tier 1" in note and "on hit" in note
+    assert "stacking talismans" not in note
