@@ -1701,8 +1701,12 @@ _FIELD_NOTES: dict[str, str] = {
     "effect_text_ja": "Japanese effect_text; .ja/.morph/.lemma subfields drive JP search modes",
     "info_text": "the one-line info blurb from the item's Info FMG (#90): armor "
     "(ProtectorInfo, 'Helm worn by Kaiden sellswords'), ammo (WeaponInfo), a crafting "
-    "material's gathering hint ('Found near churches and similar') and a spirit ash's "
-    "summoned-spirit label (GoodsInfo2)",
+    "material's gathering hint ('Found near churches and similar'), a spirit ash's "
+    "summoned-spirit label (GoodsInfo2), and an Ash of War's in-game 'Usable on …' line "
+    "(EquipParamGem.mountWepTextId → GR_MenuText 63xxx, menu line wraps joined; #169): "
+    "'Usable on swords (colossal weapons excepted)'. The game's own summary of the "
+    "classes; skill_poise_damage[].weapon_class lists them one by one from the "
+    "canMountWep flags",
     "info_text_ja": "Japanese info_text; .ja/.morph/.lemma subfields drive JP search modes",
     "location": "where a merchant is found; on a boss doc, the legacy dungeon or area "
     "whose map holds the arena (PlaceName, e.g. Stormfoot Catacombs); absent for "

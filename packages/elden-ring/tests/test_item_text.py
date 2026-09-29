@@ -46,6 +46,7 @@ def test_field_notes():
     assert "WeaponEffect" in _FIELD_NOTES["effect_text"]
     assert "status_buildup" in _FIELD_NOTES["effect_text"]
     assert "ProtectorInfo" in _FIELD_NOTES["info_text"]
+    assert "mountWepTextId" in _FIELD_NOTES["info_text"]  # Ash of War (#169)
     assert "item_dialog" in _FIELD_NOTES["tags"]
     for f in _NEW:
         assert f"{f}_ja" in _FIELD_NOTES

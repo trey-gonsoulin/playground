@@ -65,7 +65,8 @@ def search_entities(
             - NPC location: "where is Ranni", "Millicent questline"
             - Lore: "Ranni lore", "Marika dialogue", "Elden Ring story"
             Matches the in-game effect / info lines too (effect_text, info_text,
-            EN + JP; #90), e.g. "boosts Crystalian sorcery", "found near churches".
+            EN + JP; #90), e.g. "boosts Crystalian sorcery", "found near churches",
+            and an Ash of War's "Usable on …" line (#169).
         entity_type: Narrow to one category. Loaded types (all first-party native
             extraction from the game's own params/FMGs):
             weapon       — all weapons with stats, scaling, and requirements;
