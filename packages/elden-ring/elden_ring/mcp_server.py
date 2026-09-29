@@ -434,7 +434,8 @@ def describe_fields() -> dict:
     poise_damage.pvp); full hit chains come back from get_entity as poise_damage_chains.
     Weapons also carry their default skill's per-hit poise (skill_poise_damage.max,
     .hits, .pvp; #125), each hit labeled in .hit_labels (FP / no FP, light / heavy;
-    #167).
+    #167); projectile hits in .projectile_hits with .projectile_hit_counts (times
+    each lands per use, #168) and .projectile_hit_labels (#171).
 
     If this tool returns a connection error, call start_search_service() first.
 
