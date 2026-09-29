@@ -1729,8 +1729,9 @@ _FIELD_NOTES: dict[str, str] = {
     "per unit, absent for cure / inflict / state), unit ('%' or 'points'), pvp_value (the value against "
     "players when it differs, e.g. Exalted Flesh 20 / 15), condition (the attacks or state "
     "it's limited to: 'charged attacks', 'jump attacks', 'skills', 'at full HP', 'HP at or "
-    "below 20%', 'on hit', 'successive attacks', 'on defeating an enemy', 'requires Rune "
-    "Arc'; stacking effects give one entry per tier, 'successive attacks, tier 1' … 'tier "
+    "below 20%', 'on hit', 'successive attacks', 'on defeating an enemy' (on-kill talismans "
+    "such as Taker's Cameo), 'vs undead' (healing incantations' damage to undead enemies), "
+    "'requires Rune Arc'; stacking effects give one entry per tier, 'successive attacks, tier 1' … 'tier "
     "3', each value the tier's total, e.g. Winged Sword Insignia +3 / +5 / +10%; the bonus "
     "decays ~1.5s after the last hit), interval (seconds between regen / drain ticks), "
     "duration (seconds; absent = instant or while equipped), target (who it lands on, "
@@ -1738,7 +1739,7 @@ _FIELD_NOTES: dict[str, str] = {
     "Black Flame Blade's burn, grease procs, thrown-item buildup; 'ally' = allies only, "
     "e.g. Lord's Aid's second cure set; 'torrent' for raisins / horse effects), "
     "scales_with ('faith' / 'intelligence' for heals that scale). Only confirmed fields are "
-    "decoded, so some effects are missing (e.g. on-kill talisman heals, hyperarmor, "
+    "decoded, so some effects are missing (e.g. hyperarmor, "
     "stealth, some trigger conditions)",
     "effect_duration": "longest effects duration in seconds (absent = instant or permanent)",
     "is_legendary": "part of a legendary set (achievement-tracked)",
