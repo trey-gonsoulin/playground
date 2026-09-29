@@ -1853,10 +1853,13 @@ _FIELD_NOTES: dict[str, str] = {
     "weak_point_damage_multiplier": "enemy damage multiplier on hits to weak body parts",
     "attacks": "enemy attack profile (#81), aggregated over the move table of its NpcParam "
     "BehaviorVariationID (BehaviorParam -> AtkParam_Npc / Bullet -> on-hit SpEffect). A table "
-    "belongs to a whole model family, so this is a SUPERSET of what this enemy uses; "
-    "shared_with names the other enemies on the same table (Commander Niall lists "
-    "Commander O'Neil's scarlet rot). Moves have no names in the data, so there is no "
-    "per-move list. Absent on humanoid NPCs/invaders, which fight with equipped weapons",
+    "belongs to a whole model family; the profile keeps only the moves this enemy's "
+    "animations can fire (#123): unused rows and moves gated to another variant's "
+    "SpEffect state are dropped (Commander Niall loses O'Neil's scarlet rot and keeps "
+    "frostbite). Moves the AI alone chooses between stay, so a shared table can still "
+    "carry a sibling's move (every soldier doc lists the Frenzied soldiers' madness). "
+    "Moves have no names in the data, so there is no per-move list. Absent on humanoid "
+    "NPCs/invaders, which fight with equipped weapons",
     "attacks.attack_power": "max base attack power per element across the table (before "
     "per-area scaling; includes grabs and set-piece attacks)",
     "attacks.elements": "elements any move deals: physical / magic / fire / lightning / holy",
@@ -1867,12 +1870,12 @@ _FIELD_NOTES: dict[str, str] = {
     "effects with no per-hit value (Mohg's bloodflame bleed); filter here for 'which "
     "enemies inflict X'",
     "attacks.shared_with": "other enemies sharing this move table; non-empty means the "
-    "profile may include their moves",
-    "attacks.count": "distinct attack + projectile rows reached from the table",
+    "profile may still include a move only their AI uses",
+    "attacks.count": "distinct attack + projectile rows this enemy's moves reach",
     "attacks.behavior_variation": "NpcParam BehaviorVariationID (the move table id)",
     "grabs": "enemy grab attacks on the player (#82): the moves of the same move table as "
     "attacks whose catch hit starts a ThrowParam grab, plus the hits dealt during the "
-    "throw. Like attacks, a model-family SUPERSET (see attacks.shared_with). Absent = "
+    "throw, narrowed the same way (see attacks.shared_with). Absent = "
     "no grab. Filter exists:grabs for 'which enemies can grab you'",
     "grabs.count": "distinct grabs (ThrowParam rows for this enemy's model)",
     "grabs.attack_power": "max base attack power per element across grab hits (before "

@@ -101,8 +101,9 @@ def search_entities(
                            with EN + JP names (name_ja); most also carry NpcParam
                            HP/stamina/poise/elemental defenses, status resistances +
                            immune_to, and traits (dragon, undead, …; #84), plus an
-                           attacks profile (elements, damage types, status effects,
-                           shared_with for model-family move tables; #81) and a
+                           attacks profile (elements, damage types, status effects
+                           of the moves its animations fire; shared_with for
+                           model-family move tables; #81, #123) and a
                            grabs profile for enemies that can grab you (#82), a
                            team_type (+ team label; same value = allies) and an ai
                            perception profile (sight/smell/leash ranges; #83). Enemies
