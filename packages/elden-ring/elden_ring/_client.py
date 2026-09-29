@@ -366,6 +366,29 @@ INDEX_MAPPING = {
                 }
             },
             "status_effects": {"type": "keyword"},
+            # Ammo: bow-skill shots fired with it, one per skill x hit row (#151).
+            "skill_shots": {
+                "properties": {
+                    "skill": {"type": "keyword"},
+                    "hit_label": {"type": "keyword"},
+                    "hit_count": {"type": "integer"},
+                    "poise_damage": {"type": "float"},
+                    "motion_values": {"properties": _props("integer", _DAMAGE_TYPES)},
+                    "projectile": {
+                        "properties": _props(
+                            "float",
+                            (
+                                "speed",
+                                "max_speed",
+                                "range",
+                                "gravity",
+                                "lifetime",
+                                "hit_radius",
+                            ),
+                        )
+                    },
+                }
+            },
             # Per-attack poise damage, first hit; chains stored, not indexed (#119).
             "poise_damage": {
                 "properties": {**_POISE_HANDS, "pvp": {"properties": _POISE_HANDS}}
@@ -1851,7 +1874,7 @@ _FIELD_NOTES: dict[str, str] = {
     "target's stamina) and critical (critical-hit multiplier, 100 = base; daggers 130). "
     "Ammo carries every element it deals (Fire Arrow physical 15 + fire 95)",
     "projectile": "ammo standard-shot flight, from its Bullet param (#91; bow skills "
-    "like Mighty Shot use other bullets): speed / max_speed (m/s), range (metres "
+    "like Mighty Shot use other bullets, see skill_shots): speed / max_speed (m/s), range (metres "
     "flown before the shot starts to drop: Fletched bone arrows 30 vs 10), gravity "
     "(drop after range), lifetime (s), hit_radius (m). follow_up_hits counts the extra "
     "hits it spawns on impact (explosions, shockwaves, lightning strikes: Golem's Great "
@@ -1861,6 +1884,20 @@ _FIELD_NOTES: dict[str, str] = {
     "the bow's attack rating it deals per element, identical hits merged with a count "
     "(Lightning Greatbolt: 1 strike at 100 then 5 at 30). Combining these with a bow's "
     "AR is calculator work, not precomputed",
+    "skill_shots": "ammo: the bow/crossbow skills' shots with this ammo (#151), one "
+    "entry per skill and hit (FP and no-FP shots are separate hits, hit_label 'FP "
+    "light' / 'no FP light'; Golem's Great Arrow adds its explosion), only for skills "
+    "whose weapons fire this ammo type (Mighty Shot on arrows, Radahn's Rain on great "
+    "arrows, Repeating Fire on bolts). motion_values = % of the bow's attack rating "
+    "per element (Mighty Shot 153, Barrage 80 / no FP 40, Rain of Arrows 70; the "
+    "standard shot is 100). poise_damage = the ammo's base poise x the hit's poise % "
+    "(Arrow: Mighty Shot 6 vs 2 for a normal shot; Stormwing Bone Arrow 15). "
+    "hit_count = hits on one target per use, like "
+    "skill_poise_damage.projectile_hit_counts (Repeating Fire 12, Fan Shot 8); a lower "
+    "bound for Rain of Arrows / Radahn's Rain, whose arrows share one hit list. "
+    "projectile = that hit's bullet flight, as in projectile (Mighty Shot speed 60 vs "
+    "40; Sky Shot range 99999 = no drop). Skill shots come from the current-patch "
+    "animations, so older patches list the skills with their own param values",
     "status_effects": "ammo: statuses a shot inflicts, from the ammo's and its bullets' "
     "on-hit SpEffects including damage-over-time chains (Rotbone Arrow: scarlet_rot); "
     "the buildup amount is in status_buildup",
