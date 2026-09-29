@@ -366,12 +366,16 @@ INDEX_MAPPING = {
                 }
             },
             "status_effects": {"type": "keyword"},
-            # Ammo: bow-skill shots fired with it, one per skill x hit row (#151).
+            # Ammo: bow-skill shots fired with it, one per skill x hit row (#151);
+            # bows and bow Ashes of War: their skill's shots with the standard
+            # ammo, named in `ammo` (#177).
             "skill_shots": {
                 "properties": {
+                    "ammo": {"type": "keyword"},  # #177
                     "skill": {"type": "keyword"},
                     "hit_label": {"type": "keyword"},
                     "hit_count": {"type": "integer"},
+                    "hit_count_max": {"type": "integer"},  # #176
                     "poise_damage": {"type": "float"},
                     "motion_values": {"properties": _props("integer", _DAMAGE_TYPES)},
                     "projectile": {
@@ -1929,11 +1933,27 @@ _FIELD_NOTES: dict[str, str] = {
     "(Arrow: Mighty Shot 6 vs 2 for a normal shot; Stormwing Bone Arrow 15; Rain of "
     "Arrows' no-FP hit really out-poises its FP hit, 100% vs 30%). "
     "hit_count = hits on one target per use, like "
-    "skill_poise_damage.projectile_hit_counts (Repeating Fire 12, Fan Shot 8); a lower "
-    "bound for Rain of Arrows / Radahn's Rain, whose arrows share one hit list. "
-    "projectile = that hit's bullet flight, as in projectile (Mighty Shot speed 60 vs "
-    "40; Sky Shot range 99999 = no drop). Skill shots come from the current-patch "
-    "animations, so older patches list the skills with their own param values",
+    "skill_poise_damage.projectile_hit_counts (Repeating Fire 12, Fan Shot 8). Rain "
+    "of Arrows 6 / Radahn's Rain 8 (#176): the volley's arrows share one hit list, so "
+    "an arrow lands only after the last hit's 0.1 s record expires, every second "
+    "arrow (Golem's arrows' 0.15 s record: every third, 4). For these volleys "
+    "hit_count is an estimate, with the arrows dropping at their longest random "
+    "interval (0.07 s; Radahn's Rain 0.09 s), and hit_count_max the upper bound when "
+    "they drop at the shortest (0.06 s / 0.08 s): Rain of Arrows 7 (Golem's 5), "
+    "Radahn's Rain 9. hit_count_max is present only when it differs from hit_count. "
+    "On a small target some arrows miss, so fewer land. projectile = that hit's bullet flight, as in projectile (Mighty "
+    "Shot speed 60 vs 40; Sky Shot range 99999 = no drop). Bows (their own skill) "
+    "and bow Ashes of War carry the same entries for the standard ammo their weapon "
+    "classes fire, named in skill_shots.ammo (#177): Ash of War: Barrage on Arrow; "
+    "Ash of War: Rain of Arrows on Arrow and Great Arrow; Lion Greatbow's Radahn's "
+    "Rain on Great Arrow; Repeating Crossbow's Repeating Fire on Bolt. Other ammo "
+    "changes the numbers (Golem's Great Arrow's base poise 10 vs 7), so see the ammo "
+    "docs for those. Crossbows and ballistae without a named skill have none. "
+    "Skill shots come from the current-patch animations, so older patches list the "
+    "skills with their own param values",
+    "skill_shots.ammo": "bows and bow Ashes of War (#177): the standard ammo the "
+    "entry's numbers are for (Arrow, Great Arrow, Bolt, Ballista Bolt); absent on "
+    "ammo docs, whose entries are for the ammo itself",
     "status_effects": "ammo and thrown consumables (#150): statuses a shot or throw "
     "inflicts, from the item's and its bullets' on-hit SpEffects including "
     "damage-over-time chains (Rotbone Arrow: scarlet_rot, Kukri: bleed); the ammo "
