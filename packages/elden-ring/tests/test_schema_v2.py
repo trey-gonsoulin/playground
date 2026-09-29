@@ -200,6 +200,8 @@ def test_upgrade_curve_not_indexed():
     assert _PROPS["poise_damage_chains"] == {"type": "object", "enabled": False}  # #119
     assert _mapped("skill_poise_damage.max")["type"] == "float"  # #125
     assert _mapped("skill_poise_damage.pvp.hits")["type"] == "float"
+    assert _mapped("skill_poise_damage.projectile_hits")["type"] == "float"  # #166
+    assert _mapped("skill_poise_damage.pvp.projectile_hits")["type"] == "float"
     assert _PROPS["ar_inputs"] == {"type": "object", "enabled": False}  # #120
     assert _PROPS["placements"] == {"type": "object", "enabled": False}  # #76
 
@@ -239,7 +241,12 @@ def test_builder_doc_shapes_fully_mapped():
             "skill_poise_damage": {
                 "max": 30.0,
                 "hits": [15.0, 5.0, 30.0, 10.0],
-                "pvp": {"max": 810.0, "hits": [405.0, 135.0, 810.0, 270.0]},
+                "projectile_hits": [5.0],
+                "pvp": {
+                    "max": 810.0,
+                    "hits": [405.0, 135.0, 810.0, 270.0],
+                    "projectile_hits": [135.0],
+                },
             },
             "max_level": {
                 "level": 25,
