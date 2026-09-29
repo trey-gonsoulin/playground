@@ -1709,20 +1709,21 @@ _FIELD_NOTES: dict[str, str] = {
     "e.g. Crystalian: its field mobs' drops are merged into that doc (#106)",
     "effect": "readable effect text decoded from SpEffectParam, one phrase per effects "
     "entry (e.g. Golden Vow: '+15% attack; -10% damage taken for 80s'). On talismans, "
-    "consumables, crystal tears and spells (#88); a spell's or throwable's includes what its "
+    "consumables, crystal tears, spells (#88) and great runes (#156); a spell's or throwable's includes what its "
     "projectile inflicts on hit (e.g. '+100 frostbite buildup')",
     "effect_value": "primary numeric magnitude of the effect (the first effects entry's value)",
     "effects": "structured effects decoded from SpEffectParam (#88), one entry per stat: "
     "stat (e.g. 'attack' = every element, 'physical damage taken', 'HP restored', 'max HP "
-    "restored', 'runes', 'immunity' / 'robustness' / 'focus' = both resistances of that "
-    "group, 'poison buildup', 'poison cured'), value (signed; % or points per unit, "
-    "absent for cure / inflict), unit ('%' or 'points'), pvp_value (the value against "
+    "restored', 'runes', 'all attributes', 'immunity' / 'robustness' / 'focus' = both "
+    "resistances of that group, 'poison buildup', 'poison cured', or a value-less state "
+    "such as Mohg's 'blessing of blood for summoned phantoms'), value (signed; % or points "
+    "per unit, absent for cure / inflict / state), unit ('%' or 'points'), pvp_value (the value against "
     "players when it differs, e.g. Exalted Flesh 20 / 15), condition (the attacks or state "
     "it's limited to: 'charged attacks', 'jump attacks', 'skills', 'at full HP', 'HP at or "
-    "below 20%', …), interval (seconds between regen / drain ticks), duration (seconds; "
+    "below 20%', 'on defeating an enemy', 'requires Rune Arc', …), interval (seconds between regen / drain ticks), duration (seconds; "
     "absent = instant or while equipped), target ('Torrent' for raisins / horse effects), "
     "scales_with ('faith' / 'intelligence' for heals that scale). Only confirmed fields are "
-    "decoded, so some effects are missing (stacking talismans, great runes, spells whose "
+    "decoded, so some effects are missing (stacking talismans, spells whose "
     "effect comes from a child projectile)",
     "effect_duration": "longest effects duration in seconds (absent = instant or permanent)",
     "is_legendary": "part of a legendary set (achievement-tracked)",
