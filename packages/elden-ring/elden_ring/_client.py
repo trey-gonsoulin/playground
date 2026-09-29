@@ -1461,24 +1461,31 @@ def calculate_attack_rating(
     patch_version: str | None = None,
 ) -> dict:
     """Attack rating / status buildup / spell scaling of one weapon for character
-    ``stats`` at ``level`` (default max), from its doc's ar_inputs (#120)."""
+    ``stats`` at ``level`` (default max), from its doc's ar_inputs (#120). A name
+    that isn't a weapon falls back to a thrown consumable (#178: Fire Pot, Kukri),
+    whose ar_inputs have a single level scaled by its virtual weapon."""
     bad = {s: v for s, v in stats.items() if not 1 <= v <= 99}
     if bad:
         return {"error": f"stats must be 1-99: {bad}"}
     name = weapon
     if affinity and affinity != "Standard" and not weapon.startswith(f"{affinity} "):
         name = f"{affinity} {weapon}"
+    entity_type = "weapon"
     canonical = _resolve_entity_name(client, name, "weapon")
+    if canonical is None and not affinity:
+        canonical = _resolve_entity_name(client, weapon, "consumable")
+        if canonical is not None:
+            entity_type = "consumable"
     if canonical is None and affinity:
         canonical = _affinity_variant(client, weapon, affinity)
     elif canonical is None and " " in weapon:  # "Heavy Scavenger's Curved Sword"
         canonical = _affinity_variant(client, *reversed(weapon.split(" ", 1)))
     if canonical is None:
         return {"error": f"weapon '{name}' not found"}
-    versions = _entity_versions(client, "weapon")
+    versions = _entity_versions(client, entity_type)
     version = _resolve_asof(patch_version, versions) if patch_version else versions[-1]
     if version is None:
-        return {"error": f"no weapon data at or before '{patch_version}'"}
+        return {"error": f"no {entity_type} data at or before '{patch_version}'"}
     resp = client.search(
         index=INDEX,
         body={
@@ -1487,7 +1494,7 @@ def calculate_attack_rating(
                 "bool": {
                     "filter": [
                         {"term": {"name.keyword": canonical}},
-                        {"term": {"entity_type": "weapon"}},
+                        {"term": {"entity_type": entity_type}},
                         {"term": {"patch_version": version}},
                     ]
                 }
@@ -1504,6 +1511,8 @@ def calculate_attack_rating(
         for k in ("attack", "scaling", "status")
         for arr in (inputs.get(k) or {}).values()
     ]
+    if not per_level and entity_type == "consumable":
+        return {"error": f"'{canonical}' has no stat-scaled thrown attack in {version}"}
     if not per_level:
         return {
             "error": f"no attack-rating data for '{canonical}' in {version} (its "
@@ -1881,7 +1890,8 @@ _FIELD_NOTES: dict[str, str] = {
     "Ammo carries every element it deals (Fire Arrow physical 15 + fire 95). Thrown "
     "consumables (#150: darts, knives, pots, stones) carry their hit's flat base power "
     "before stat scaling, e.g. Throwing Dagger physical 67, Fire Pot fire 230 (its "
-    "burst)",
+    "burst); their stat scaling is in scaling, and calculate_attack_rating applies it "
+    "(#178)",
     "projectile": "ammo standard-shot flight, from its Bullet param (#91; bow skills "
     "like Mighty Shot use other bullets, see skill_shots): speed / max_speed (m/s), range (metres "
     "flown before the shot starts to drop: Fletched bone arrows 30 vs 10), gravity "
@@ -1926,7 +1936,10 @@ _FIELD_NOTES: dict[str, str] = {
     "frostbite / sleep / madness / death_blight (the in-game Guard 'Resist' line)",
     "scaling": "weapon attribute scaling at +0 by stat (str/dex/int/fai/arc), affinity "
     "multiplier applied; scaling.<stat>.grade is the in-game letter (S>=175 A>=140 B>=90 "
-    "C>=60 D>=25 E>=1), scaling.<stat>.value the number it is graded from",
+    "C>=60 D>=25 E>=1), scaling.<stat>.value the number it is graded from. Thrown "
+    "consumables carry it too, from the hidden weapon row their throw scales with "
+    "(#178; the game shows no letters for them): Kukri Str A / Dex S / Arc C, Fire Pot "
+    "Str B / Dex D (Str A / Dex C at 1.02, when it dealt fire 122)",
     "damage_types": "weapon/ammo physical damage type(s) as shown in game: Standard, "
     "Strike, Slash, Pierce (main type first, e.g. Halberd [Standard, Pierce]). Omitted on "
     "bows/crossbows/ballistas, whose damage type comes from the ammo",
@@ -2040,7 +2053,8 @@ _FIELD_NOTES: dict[str, str] = {
     "rune_cost[10] = 14000; absent when the price is 0, e.g. Giant Rat Ashes) (#143)",
     "ar_inputs": "not searchable and not returned by get_entity: a weapon's per-level "
     "attack / scaling / buildup and correction curves, the inputs calculate_attack_rating "
-    "uses to compute attack rating and Arcane status buildup for given stats",
+    "uses to compute attack rating and Arcane status buildup for given stats; thrown "
+    "consumables have one level (their flat power and buildup, #178)",
     "requirements": "attribute requirements by stat (weapons: str/dex/int/fai/arc; spells: "
     "int/fai)",
     "negation": "armor damage negation % by type: physical, strike, slash, pierce (physical "
