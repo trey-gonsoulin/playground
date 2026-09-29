@@ -352,10 +352,10 @@ def test_builder_doc_shapes_fully_mapped():
                     "unit": "points",
                     "interval": 1.0,
                     "condition": "at full HP",
-                    "target": "Torrent",
+                    "target": "torrent",
                     "scales_with": "faith",
                 },
-                {"stat": "poison cured"},
+                {"stat": "poison cured", "target": "enemy"},
             ],
         },
         {
