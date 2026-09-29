@@ -343,7 +343,8 @@ def calculate_attack_rating(
             consumable, e.g. "Fire Pot".
         str, dex, int, fai, arc: Character attributes, 1-99 (default 10).
         level: Upgrade level; defaults to the weapon's max (+25, somber +10).
-        two_handed: Wield two-handed (Str x 1.5).
+        two_handed: Wield two-handed (Str x 1.5). Ignored for consumables, which
+            aren't wielded (the result then carries a note saying so).
         affinity: Optional affinity prefix for infusable weapons, e.g. "Heavy",
             "Blood", "Occult"; same as passing "Heavy Halberd" as weapon.
         patch_version: Compute with that patch's data (e.g. "1.07.0", resolved to

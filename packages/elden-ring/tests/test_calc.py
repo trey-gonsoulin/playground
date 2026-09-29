@@ -147,3 +147,38 @@ def test_calculate_attack_rating_falls_back_to_consumable(monkeypatch):
     assert {"term": {"entity_type": "consumable"}} in seen["filter"]
     assert r["weapon"] == "Fire Pot" and r["max_level"] == 0, r
     assert r["attack_power"]["fire"]["total"] == 230, r
+
+
+def test_calculate_attack_rating_ignores_two_handed_for_consumable(monkeypatch):
+    """Consumables aren't wielded: two_handed=True must not apply Str x1.5 (#178)."""
+    from elden_ring import _client
+
+    fire_pot = {
+        "attack": {"fire": [230.0]},
+        "scaling": {"str": [100.0], "dex": [25.0]},
+        "correct": {"fire": ["str", "dex"]},
+        "graph_ids": {"fire": 4},
+        "graphs": {"4": _G4},
+    }
+
+    class Client:
+        def search(self, index, body):
+            doc = {"name": "Fire Pot", "ar_inputs": fire_pot}
+            return {"hits": {"hits": [{"_source": doc}]}}
+
+    monkeypatch.setattr(
+        _client,
+        "_resolve_entity_name",
+        lambda c, n, t=None: "Fire Pot" if t == "consumable" else None,
+    )
+    monkeypatch.setattr(_client, "_affinity_variant", lambda *a: None)
+    monkeypatch.setattr(_client, "_entity_versions", lambda c, t: ["1.17.0"])
+    stats = {**_TENS, "str": 20}
+    one = _client.calculate_attack_rating(Client(), "Fire Pot", dict(stats))
+    two = _client.calculate_attack_rating(
+        Client(), "Fire Pot", dict(stats), two_handed=True
+    )
+    assert two["attack_power"] == one["attack_power"], (one, two)
+    assert two["attack_power"]["fire"]["total"] == 332, two  # wiki, 20 Str / 10 Dex
+    assert two["two_handed"] is False and "notes" not in one, two
+    assert any("two_handed ignored" in n for n in two["notes"]), two
