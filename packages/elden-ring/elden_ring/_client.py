@@ -316,6 +316,10 @@ INDEX_MAPPING = {
             "availability": {"type": "keyword"},
             "description": {"type": "text"},
             "text_content": {"type": "text"},
+            # Item effect / info FMG lines (#90): WeaponEffect, AccessoryInfo,
+            # GoodsInfo(2), ProtectorInfo, WeaponInfo.
+            "effect_text": {"type": "text"},
+            "info_text": {"type": "text"},
             "tags": {"type": "keyword"},
             "location": {"type": "text", "fields": {"keyword": {"type": "keyword"}}},
             "weight": {"type": "float"},
@@ -561,6 +565,22 @@ INDEX_MAPPING = {
                     "lemma": {"type": "text", "analyzer": "kuromoji_lemmatizer"},
                 },
             },
+            "effect_text_ja": {
+                "type": "text",
+                "fields": {
+                    "ja": {"type": "text", "analyzer": "kuromoji_analyzer"},
+                    "morph": {"type": "text", "analyzer": "kuromoji_segmenter"},
+                    "lemma": {"type": "text", "analyzer": "kuromoji_lemmatizer"},
+                },
+            },
+            "info_text_ja": {
+                "type": "text",
+                "fields": {
+                    "ja": {"type": "text", "analyzer": "kuromoji_analyzer"},
+                    "morph": {"type": "text", "analyzer": "kuromoji_segmenter"},
+                    "lemma": {"type": "text", "analyzer": "kuromoji_lemmatizer"},
+                },
+            },
             "acquisition_types": {"type": "keyword"},
             "acquisition_sources": {"type": "keyword"},
             "dropped_by": {"type": "keyword"},
@@ -721,6 +741,12 @@ def search(
                                 "text_content",
                                 "text_content_ja",
                                 "text_content_ja.ja",
+                                "effect_text",
+                                "effect_text_ja",
+                                "effect_text_ja.ja",
+                                "info_text",
+                                "info_text_ja",
+                                "info_text_ja.ja",
                                 "location^1.5",
                                 "tags^2",
                             ],
@@ -1096,9 +1122,13 @@ _LITERAL_FIELDS = [
     "display_name",
     "description",
     "text_content",
+    "effect_text",
+    "info_text",
     "name_ja",
     "description_ja",
     "text_content_ja",
+    "effect_text_ja",
+    "info_text_ja",
 ]
 # Same as above but Japanese fields routed through the segmentation-only .morph
 # subfield so phrase queries respect kuromoji morpheme boundaries.
@@ -1107,9 +1137,13 @@ _LITERAL_FIELDS_MORPH = [
     "display_name",
     "description",
     "text_content",
+    "effect_text",
+    "info_text",
     "name_ja.morph",
     "description_ja.morph",
     "text_content_ja.morph",
+    "effect_text_ja.morph",
+    "info_text_ja.morph",
 ]
 # Same as above but Japanese fields routed through the lemmatizing .lemma
 # subfield (kuromoji_baseform only) so a baseform query matches all inflections.
@@ -1118,12 +1152,22 @@ _LITERAL_FIELDS_LEMMA = [
     "display_name",
     "description",
     "text_content",
+    "effect_text",
+    "info_text",
     "name_ja.lemma",
     "description_ja.lemma",
     "text_content_ja.lemma",
+    "effect_text_ja.lemma",
+    "info_text_ja.lemma",
 ]
 # Japanese text fields whose analyzer lives on a subfield, not the base field.
-_JP_BASE_FIELDS = {"name_ja", "description_ja", "text_content_ja"}
+_JP_BASE_FIELDS = {
+    "name_ja",
+    "description_ja",
+    "text_content_ja",
+    "effect_text_ja",
+    "info_text_ja",
+}
 _JP_SUBFIELD_SUFFIXES = (".lemma", ".morph", ".ja")
 
 
@@ -1194,7 +1238,8 @@ def search_literal(
     expected baseform before querying. use_lemmatize takes precedence over use_kuromoji.
 
     An explicit fields list composes with both modes: Japanese fields named there
-    (name_ja, description_ja, text_content_ja) are routed to the matching .lemma/.morph
+    (name_ja, description_ja, text_content_ja, effect_text_ja, info_text_ja) are routed
+    to the matching .lemma/.morph
     subfield automatically, so fields=["description_ja"] with use_lemmatize=True searches
     description_ja.lemma. Without this, an explicit field would search the surface form and
     silently defeat the analyzer.
@@ -1609,7 +1654,7 @@ def list_entity_types(client: OpenSearch) -> list[str]:
 _FIELD_NOTES: dict[str, str] = {
     "entity_type": "category filter: weapon, armor, spell, item, ash_of_war, merchant, "
     "enemy, boss (one doc per boss encounter, #79), npc_dialogue, game_text "
-    "(prompts, map banners, tutorials, loading tips; #98)",
+    "(prompts, map banners, tutorials, loading tips, #98; item-use dialogs, #90)",
     "patch_version": "real game patch the doc was extracted from (native is per-patch); use with diff_entities",
     "source": "internal game-data origin — the param table or FMG the doc was built from "
     "(EquipParamWeapon, EquipParamProtector, Magic, EquipParamAccessory, EquipParamGem, "
@@ -1637,7 +1682,18 @@ _FIELD_NOTES: dict[str, str] = {
     "text_added_lines": "the variant's text lines (EN + JP) with no counterpart in base_item, "
     "e.g. 「伝説のタリスマン」のひとつ on Erdtree's Favor +2",
     "tags": "free-form keyword tags (spell school/role, weapon category, 'Talisman', etc.); "
-    "on game_text the kind: action_button, map_event, tutorial, loading_tip",
+    "on game_text the kind: action_button, map_event, tutorial, loading_tip, item_dialog",
+    "effect_text": "the game's own short effect lines for an item (list, #90): a weapon's or "
+    "ammo's WeaponEffect lines ('Causes blood loss buildup', 'Boosts Crystalian sorcery'; "
+    "the buildup number is in status_buildup), a talisman's AccessoryInfo ('Raises maximum "
+    "HP'), a spell's GoodsInfo, a crystal tear's GoodsInfo2 ('Temporarily raises max HP'). "
+    "In-game wording, unlike effect which is decoded from SpEffectParam",
+    "effect_text_ja": "Japanese effect_text; .ja/.morph/.lemma subfields drive JP search modes",
+    "info_text": "the one-line info blurb from the item's Info FMG (#90): armor "
+    "(ProtectorInfo, 'Helm worn by Kaiden sellswords'), ammo (WeaponInfo), a crafting "
+    "material's gathering hint ('Found near churches and similar') and a spirit ash's "
+    "summoned-spirit label (GoodsInfo2)",
+    "info_text_ja": "Japanese info_text; .ja/.morph/.lemma subfields drive JP search modes",
     "location": "where a merchant is found; on a boss doc, the legacy dungeon or area "
     "whose map holds the arena (PlaceName, e.g. Stormfoot Catacombs); absent for "
     "open-world bosses (see nearest_grace / region). Enemy and item placements name "
