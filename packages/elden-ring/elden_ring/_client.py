@@ -1820,18 +1820,25 @@ _FIELD_NOTES: dict[str, str] = {
     "it's limited to: 'charged attacks', 'jump attacks', 'skills', 'at full HP', 'HP at or "
     "below 20%', 'on hit', 'successive attacks', 'on defeating an enemy' (on-kill talismans "
     "such as Taker's Cameo), 'vs undead' (healing incantations' damage to undead enemies), "
+    "'when blood loss / poison or rot / sleep / madness occurs within 7m' (#170: Exultation "
+    "talismans, St. Trina's Smile, Poisoned / Madding Hand, Sacred Bloody Flesh; poison and "
+    "rot share one trigger; the range is the game's status burst radius), 'until hit' "
+    "(removed by the next hit: Opaline Bubbletear, Uplifting Aromatic), 'when hit by "
+    "non-physical damage' (Crimsonwhorl Bubbletear's heal, #158), "
     "a spell school for catalyst boosts ('Glintblade sorceries', 'Dragon Cult "
     "incantations'), one ammo for bow boosts ('Radahn's Spear', 'Golden Arrow'), "
     "'requires Rune Arc'; stacking effects give one entry per tier, 'successive attacks, tier 1' … 'tier "
     "3', each value the tier's total, e.g. Winged Sword Insignia +3 / +5 / +10%; the bonus "
     "decays ~1.5s after the last hit), interval (seconds between regen / drain ticks), "
-    "duration (seconds; absent = instant or while equipped), target (who it lands on, "
+    "duration (seconds; absent = instant or while equipped; an on-hit proc of a timed "
+    "buff takes the buff's duration, e.g. a grease's buildup lasts the grease's 60s), "
+    "target (who it lands on, "
     "#160: 'self' = the user, 'enemy' = what the projectile or buffed weapon hits, e.g. "
     "Black Flame Blade's burn, grease procs, thrown-item buildup; 'ally' = allies only, "
     "e.g. Lord's Aid's second cure set; 'torrent' for raisins / horse effects), "
     "scales_with ('faith' / 'intelligence' for heals that scale). Only confirmed fields are "
     "decoded, so some effects are missing (e.g. hyperarmor, "
-    "stealth, some trigger conditions)",
+    "stealth)",
     "effect_duration": "longest effects duration in seconds (absent = instant or permanent)",
     "is_legendary": "part of a legendary set (achievement-tracked)",
     "infusable": "weapon can take an affinity/ash-of-war infusion",
