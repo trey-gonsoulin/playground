@@ -141,6 +141,16 @@ def search_entities(
                            defeated character; a name several encounters share gets
                            the place appended, e.g. "Night's Cavalry (Gate Town
                            Bridge)" — search entity_type="boss" by name to list them.
+                           cutscenes lists the encounter's cutscene docs ({id, kind}).
+            cutscene     — one doc per realtime cutscene scene (#92), named
+                           "Cutscene <id>": trigger_kind (boss_intro, boss_defeat,
+                           ending, item, scripted), the boss it belongs to, map,
+                           trigger_flags / trigger_items (e.g. the Dectus medallion
+                           halves), is_ending / unskippable, and its subtitles (EN +
+                           subtitles_ja, in playback order; talk_ids join the
+                           npc_dialogue lines). label is native (boss + kind, or the
+                           first line); there are no hand-written scene names or
+                           speakers. Search a quote to find the scene it's spoken in.
             site_of_grace — one doc per named Site of Grace (#78, BonfireWarpParam):
                            region + parent_region (the map-menu grouping), map,
                            position (map-local) or world_position (open world),
