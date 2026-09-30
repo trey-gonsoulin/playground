@@ -2351,7 +2351,8 @@ _FIELD_NOTES: dict[str, str] = {
     "MSB entity that triggers it (the waygate or stone asset the prompt is on, or a "
     "region/character the script checks), grace its nearest site_of_grace, region / "
     "parent_region that grace's, location the dungeon location doc (or, for an "
-    "evergaol, the evergaol). A scripted warp with no placed trigger (a trap chest, "
+    "evergaol, the evergaol, with both ends taking the grace and region nearest "
+    "its marker). A scripted warp with no placed trigger (a trap chest, "
     "a quest step in common scripts) has only the map of its script, or nothing; "
     "on an open-world tile its region is then that of the tile's only world-map "
     "landmark, which also names the warp (Dragon-Burnt Ruins -> Sellia Crystal "
@@ -2377,8 +2378,9 @@ _FIELD_NOTES: dict[str, str] = {
     "from here (the destination's grace, else dungeon location, map name or region), "
     "e.g. The Four Belfries -> Dragon Temple, Worshippers' Woods, Chapel of "
     "Anticipation. A location matches warps whose start is in it (location, region "
-    "or tab). Return-to-entrance warps (both ends in one place) are left out; the "
-    "warp docs themselves have the details",
+    "or parent_region). Warps with both ends in one place (return to entrance, in "
+    "and out of an evergaol) are left out; the warp docs themselves have the "
+    "details",
     "warps_from": "on site_of_grace and location docs (#94): the places whose warps "
     "arrive here (reverse of warps_to)",
     "entity_id": "on a site_of_grace doc: the grace's MSB entity id (BonfireEntityId)",
