@@ -597,6 +597,16 @@ INDEX_MAPPING = {
                     ),
                 }
             },
+            # Open-world landmark MSB MapPoint volumes (#80): returned, never searched.
+            "footprint": {"type": "object", "enabled": False},
+            # NPC-invasion map instances (Ceremony rows) in a location (#96).
+            "invasion_instances": {
+                "properties": {
+                    "ceremony": {"type": "integer"},
+                    "hosts": {"type": "keyword"},
+                    "invader_flag": {"type": "long"},
+                }
+            },
             # MSB placements of enemies and treasure pickups of items (#76): the
             # list is returned, never searched; maps is the filterable summary.
             "placements": {"type": "object", "enabled": False},
@@ -615,7 +625,7 @@ INDEX_MAPPING = {
             "prompt": {"type": "keyword"},
             "gate_flag": {"type": "long"},
             "event_id": {"type": "long"},
-            "cutscene_id": {"type": "long"},
+            "cutscene_id": {"type": "long"},  # also on cutscene docs (#92)
             "warps_to": {"type": "keyword"},
             "warps_from": {"type": "keyword"},
             # Humanoid enemy loadout (MSB CharaInitID -> CharaInitParam, #85) and
@@ -639,7 +649,6 @@ INDEX_MAPPING = {
             "summon_stats": {"properties": _SUMMON_STATS},
             # Realtime cutscenes (EMEVD plays + MQB subtitles, #92); map / tags
             # shared, and the back-reference on boss docs.
-            "cutscene_id": {"type": "long"},
             "variant_ids": {"type": "long"},
             "asset": {"type": "keyword"},
             "label": {"type": "text"},
@@ -2380,7 +2389,8 @@ _FIELD_NOTES: dict[str, str] = {
     "cutscene_id": "on a cutscene doc (#92): the scene's cutscene id (AABBNNNN; the doc "
     "name is 'Cutscene <id>'), the one its map scripts play. Scene ids differing only in "
     "the last digit (a …0 / …1 pair, Melina's eight 60420000-60420007 meetings) are "
-    "one doc; the others are in variant_ids",
+    "one doc; the others are in variant_ids. On a warp doc of kind cutscene (#94): the "
+    "cutscene that plays before the warp (PlayCutsceneToPlayerAndWarp)",
     "variant_ids": "on a cutscene doc: the other cutscene ids folded into this scene",
     "asset": "on a cutscene doc: the cutscenebnd asset name (s10_00_0010 for "
     "10000010); absent when the current game files hold no such asset (15000020)",
@@ -2390,13 +2400,14 @@ _FIELD_NOTES: dict[str, str] = {
     "trigger_kind": "on a cutscene doc: how its map scripts trigger it. boss_intro (in "
     "a boss's 28xx fight-event block, before the fight), boss_defeat (waits on / sets "
     "a boss's defeat flag), ending (cutscene flag 64 or an ending-choice flag "
-    "9400-9409; keeps the Elden Beast boss link), item (gated on holding a key item: "
-    "the Dectus / Rold / Haligtree lifts), scripted (anything else: quest steps, area "
+    "9400-9409; keeps the Elden Beast boss link), item (gated on holding an item: the "
+    "medallions of the Dectus / Rold / Haligtree lifts, but also e.g. any Flask of "
+    "Crimson Tears or Messmer's Kindling), scripted (anything else: quest steps, area "
     "arrivals)",
     "boss": "on a cutscene doc: the boss doc the scene introduces or follows (see "
     "trigger_kind); the boss doc lists it back under cutscenes",
     "trigger_flags": "on a cutscene doc: the event flags its script waits to be on",
-    "trigger_items": "on a cutscene doc: the key items the player must hold (Dectus "
+    "trigger_items": "on a cutscene doc: the items the player must hold (Dectus "
     "Medallion (Left) / (Right) for the Grand Lift of Dectus)",
     "warp_region": "on a cutscene doc: the MSB region entity the player is moved to "
     "after the scene (…AndWarp plays)",
@@ -2442,7 +2453,19 @@ _FIELD_NOTES: dict[str, str] = {
     "never scaled). A region counts placements by their nearest grace's region (a tab "
     "sums its subregions); a dungeon counts its map's placements. The first tier is "
     "the area's typical level (Caelid 7070: hp x2.406). Humanoid NPC tiers "
-    "(19351-19370) are left out; open-world landmarks use their region's tiers",
+    "(19351-19370) are left out. An open-world landmark (ruins, fort, church) counts "
+    "the enemies inside its MSB footprint (#80); one without a footprint has none",
+    "footprint": "on an open-world landmark location doc (#80): the MSB MapPoint "
+    "volumes that outline it, the same shapes placements are matched against. Each: "
+    "{shape (box | cylinder | sphere), map, world_position (the base centre, same frame "
+    "as placements), rotation_y (degrees), width / depth / height | radius (metres)}; "
+    "a composite landmark lists every part. Returned, not searchable",
+    "invasion_instances": "on a location doc (#96): the NPC-invasion versions of the "
+    "map there (the game's Ceremony instances: a Volcano Manor request, a Bloody "
+    "Finger or quest invasion). Each: {ceremony (the instance id, 20-50), hosts (the "
+    "enemy docs that exist only in that instance, the host first), invader_flag (the "
+    "event flag set when the invader is beaten)}. Sellen / Jerren and Millicent's "
+    "help / betray choices are two instances of one map",
     "nearest_grace": "on a boss doc: the site_of_grace doc closest to the arena (world "
     "coordinates in the open world, same map otherwise); locates open-world bosses",
     "map": "MSB map id: a boss doc's arena, a site_of_grace doc's map (a dungeon grace "
@@ -2474,7 +2497,18 @@ _FIELD_NOTES: dict[str, str] = {
     "alone keep the variant map id, and which world state a variant is isn't in the "
     "data. Each entry also "
     "carries region / parent_region (its nearest grace's, #140) and, in a dungeon map, "
-    "location (the dungeon's location doc). Returned, not searchable; filter on maps, "
+    "location (the dungeon's location doc). On open-world tiles, area is the game's "
+    "own region map at that spot (#80: the map-name texture, or a map-name volume "
+    "that renames the spot on entry), which can differ from the nearest grace's region "
+    "at borders (Stormhill vs Limgrave) and in stacked DLC areas (Rauh Base vs Scadu "
+    "Altus); location is the landmark whose MSB footprint holds it (Castle Morne, "
+    "Caria Manor). In other maps, subarea is the map-name banner of the volume holding "
+    "it when that differs from its location and region (Ainsel River Main, Nokron, "
+    "Eternal City). An enemy that exists only in an NPC-invasion instance of the map "
+    "carries world_state {kind: 'npc_invasion', ceremony, host, invader_flag} (#96; "
+    "Old Knight Istvan, Millicent): it is absent from the normal world, where "
+    "host is the instance's invader (see the location's invasion_instances). "
+    "Returned, not searchable; filter on maps, "
     "regions or locations. get_entity returns the list only when it has at most 50 "
     "entries, else placements_total (include_placements=True for all)",
     "maps": "on enemy and item docs (#76): the distinct MSB map ids of its placements, "
@@ -2487,8 +2521,8 @@ _FIELD_NOTES: dict[str, str] = {
     "pickups only; enemy drops are in drop_regions",
     "locations": "on enemy and item docs (#140): the dungeon location docs its "
     "placements are in (catacombs, caves, tunnels, gaols, legacy dungeons: "
-    "locations='Murkwater Catacombs'). Open-world landmarks (ruins, forts) have no "
-    "footprint, so open-world placements only get regions. Item locations cover "
+    "locations='Murkwater Catacombs') and the open-world landmarks whose MSB footprint "
+    "holds them (#80: locations='Castle Morne'). Item locations cover "
     "pickups only; enemy drops are in drop_locations. On a quest doc (#95): every "
     "step's locations (regions and dungeons), in step order",
     "drop_regions": "on item docs (#141): the regions (+ tabs) of the enemies in "
@@ -2496,8 +2530,8 @@ _FIELD_NOTES: dict[str, str] = {
     "lot or scripted award) when known, else every placement of that enemy. "
     "drop_regions='Caelid' finds what enemies in Caelid drop; kept apart from the "
     "pickup regions",
-    "drop_locations": "on item docs (#141): the dungeon location docs of those "
-    "dropping placements, e.g. drop_locations='Murkwater Catacombs'",
+    "drop_locations": "on item docs (#141): the dungeon and landmark (#80) location "
+    "docs of those dropping placements, e.g. drop_locations='Murkwater Catacombs'",
     "from": "on a warp doc (#94): where the warp starts. {map, world_position | "
     "position, grace, region, parent_region, location, entity_id}: entity_id is the "
     "MSB entity that triggers it (the waygate or stone asset the prompt is on, or a "
@@ -2524,8 +2558,6 @@ _FIELD_NOTES: dict[str, str] = {
     "common template for templated warps (90005605 waygate, 90005645/46 return to "
     "entrance, 90005880 evergaol exit, 90005881 evergaol enter), else the map "
     "script's own event",
-    "cutscene_id": "on a warp doc of kind cutscene (#94): the cutscene that plays "
-    "before the warp (PlayCutsceneToPlayerAndWarp)",
     "warps_to": "on site_of_grace and location docs (#94): the places warps lead to "
     "from here (the destination's grace, else dungeon location, map name or region), "
     "e.g. The Four Belfries -> Dragon Temple, Worshippers' Woods, Chapel of "
