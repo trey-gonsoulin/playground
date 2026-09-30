@@ -2321,7 +2321,8 @@ _FIELD_NOTES: dict[str, str] = {
     "bosses": "on a site_of_grace doc: the boss docs whose nearest grace it is; on a "
     "location doc: the boss docs in it (by region, or a dungeon's map)",
     "arena_position": "on a boss doc: the arena's position in its map's local "
-    "coordinates (GameAreaParam BossPos)",
+    "coordinates (GameAreaParam BossPos; the boss's MSB placement when the param's "
+    "BossMap is another map, e.g. Base Serpent Messmer's stale Haligtree row)",
     "runes": "on a boss doc: runes awarded for the kill (GameAreaParam "
     "SingleplayerSoulReward, before rune-gain buffs)",
     "banner": "on a boss doc: the defeat banner, i.e. the boss tier: Enemy Felled "
