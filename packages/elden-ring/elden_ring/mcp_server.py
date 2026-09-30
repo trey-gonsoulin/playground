@@ -181,6 +181,17 @@ def search_entities(
                            Named "from → to" by nearest grace, e.g. "The Four
                            Belfries → Dragon Temple"; evergaols "Stormhill Evergaol
                            (enter)"; a warp with no placed trigger "<to> (<kind>)".
+            quest        — one doc per NPC questline (#95): the NPC's 20-flag event
+                           block (flag_block; slots +0..+4 life state, +5..+19
+                           phases) read from the event scripts. steps are phase
+                           transitions (phase_flag, order, entered_from, the
+                           locations whose scripts check the phase, and when: the
+                           conditions — boss_defeated, talk, invasion, item_pickup,
+                           item_held, another NPC's quest_phase / life_state, or a
+                           raw flag named only by the maps that set it). outcomes
+                           are life-state changes (hostile / dead). Phases are
+                           positional (order + location), not labelled; e.g.
+                           search entity_type="quest", query="Millicent".
             Call list_entity_types() for the authoritative live list.
         patch_version: Filter to a specific game patch (e.g. "1.07.0"). Native data
             is extracted per-patch from that patch's regulation.bin, so this is the
