@@ -2403,7 +2403,9 @@ _FIELD_NOTES: dict[str, str] = {
     "npc": "on a quest doc (#95): the NPC owning the flag block, named after the "
     "character its death / turned-hostile events bind, else the NPC whose talk scripts "
     "check the block most. An NPC with several blocks gets the flag range appended to "
-    "the doc name, e.g. 'Moore (4380–4399)'",
+    "the doc name, e.g. 'Moore (4380–4399)'. A different character sharing the NPC "
+    "number keeps its own name (Lightseeker Hyetta, not Irina of Morne). availability "
+    "is 'cut' when the NPC's enemy doc is cut (Asimi, Silver Tear)",
     "npc_names": "on a quest doc: every NpcName persona of that NPC "
     "(['Heartbroken Maiden', 'Roderika', 'Roderika, Spirit Tuner'])",
     "flag_block": "on a quest doc: the NPC's 20 event flags [first, last]; +0..+4 are "
@@ -2412,8 +2414,10 @@ _FIELD_NOTES: dict[str, str] = {
     "one of its steps or outcomes",
     "steps": "on a quest doc: one entry per scripted phase transition (a phase set "
     "under different conditions has several entries), from the event scripts read "
-    "guard-aware (gotos not followed, templated sets not instantiated). A phase no "
-    "parsed event sets (usually the first) is listed bare. Phases have no names: "
+    "guard-aware (gotos not followed, templated sets not instantiated). A set gated on "
+    "a template argument (e.g. the Church of Vows absolution reset) is left out, since "
+    "its trigger is unknown. A phase that other scripts check but no parsed event "
+    "sets (usually the first) is listed bare. Phases have no names: "
     "meaning is positional (order + locations + when)",
     "steps.phase_flag": "the phase's event flag (in flag_block)",
     "steps.order": "1-based depth of the phase in the transition chain (the longest "
@@ -2432,7 +2436,8 @@ _FIELD_NOTES: dict[str, str] = {
     "outcomes": "on a quest doc: life-state changes: flag + slot (0-4) + life_state "
     "(hostile for +1/+2, dead for +3: labelled from the death / SetTeamType events "
     "that set them; +0/+4 unlabelled), with when (as steps.when) or trigger (death / "
-    "attacked: the shared common event that sets it)",
+    "attacked: the shared common event that sets it). Resets gated on a template "
+    "argument (the absolution at the Church of Vows) are left out",
     "outcomes.trigger": "death (set when the character dies) or attacked (set when "
     "attacking the NPC turns it hostile)",
 }
