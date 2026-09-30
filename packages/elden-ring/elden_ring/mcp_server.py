@@ -118,7 +118,9 @@ def search_entities(
                            drops list (items they drop, from map EMEVD scripts, #68, incl.
                            boss rewards such as remembrances and great runes, #134); the
                            dropped item's own doc carries the reciprocal dropped_by.
-                           boss_encounters names the boss docs where it is fought.
+                           boss_encounters names the boss docs where it is fought;
+                           summonable_for the bosses it can be summoned against, and
+                           hostile_signs its NPC invasions / red-sign duels (#93).
                            Humanoid NPCs/invaders carry equipment (weapons, ashes of
                            war, armor, spells, talismans, ammo; #85); items carry the
                            reciprocal equipped_by. placements lists where each
@@ -133,7 +135,9 @@ def search_entities(
                            fought (phases, duo partners), location / region /
                            nearest_grace / map, runes, the defeat banner (boss tier:
                            Enemy Felled … Demigod Felled, Legend Felled, God Slain),
-                           and the items that encounter awards. Named after the
+                           the items that encounter awards, and npc_summons (the NPC
+                           summon signs for the fight + their quest gate flag;
+                           #93). Named after the
                            defeated character; a name several encounters share gets
                            the place appended, e.g. "Night's Cavalry (Gate Town
                            Bridge)" — search entity_type="boss" by name to list them.

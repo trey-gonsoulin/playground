@@ -167,6 +167,15 @@ def test_grouped_leaves_mapped():
         "banner": "keyword",
         "defeat_flag": "long",
         "boss_encounters": "keyword",
+        "npc_summons.npc": "keyword",
+        "npc_summons.npc_id": "integer",
+        "npc_summons.sign": "keyword",
+        "npc_summons.requires_flag": "long",
+        "summonable_for": "keyword",
+        "hostile_signs.kind": "keyword",
+        "hostile_signs.map": "keyword",
+        "hostile_signs.sign_type": "integer",
+        "hostile_signs.requires_flag": "long",
         "parent_region": "keyword",
         "position.x": "float",
         "world_position.z": "float",
@@ -413,6 +422,33 @@ def test_builder_doc_shapes_fully_mapped():
             "drops": ["Ash of War: Ice Spear"],
         },
         {"boss_encounters": ["Godrick the Grafted"]},
+        {
+            "npc_summons": [
+                {
+                    "npc": "Nepheli Loux, Warrior",
+                    "npc_id": 533340014,
+                    "sign": "npc_white",
+                    "requires_flag": 10009709,
+                },
+                {
+                    "npc": "Lionel the Lionhearted",
+                    "npc_id": 533290040,
+                    "sign": "festival",
+                },
+            ]
+        },
+        {
+            "summonable_for": ["Bloodhound Knight Darriwil", "Starscourge Radahn"],
+            "hostile_signs": [
+                {
+                    "kind": "invasion",
+                    "map": "m60_43_37_00",
+                    "sign_type": 21,
+                    "requires_flag": 1043372740,
+                },
+                {"kind": "duel", "map": "m60_47_41_00", "sign_type": 2},
+            ],
+        },
         {
             "entity_type": "site_of_grace",
             "name": "Elden Throne (Leyndell, Ashen Capital)",
