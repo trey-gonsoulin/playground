@@ -146,6 +146,15 @@ def _props(type_: str, keys) -> dict:
     return {k: {"type": type_} for k in keys}
 
 
+# One end of a warp doc (#94): from / to.
+_WARP_END = {
+    **_props("keyword", ("map", "grace", "region", "parent_region", "location")),
+    "entity_id": {"type": "long"},
+    "world_position": {"type": "object", "enabled": False},
+    "position": {"type": "object", "enabled": False},
+}
+
+
 # Weapon stat groups (#115), shared by the +0 fields and max_level (#112). Plain
 # `object` fields index as dotted paths (attack_power.fire), so filters, sorts and
 # aggregations work as on flat fields.
@@ -582,6 +591,18 @@ INDEX_MAPPING = {
             "locations": {"type": "keyword"},
             "drop_regions": {"type": "keyword"},
             "drop_locations": {"type": "keyword"},
+            # Warp / portal graph (EMEVD WarpToMap + cutscene warps, #94): each end
+            # is filterable by map / grace / region / location; positions are
+            # returned, not searched. warps_to / warps_from summarise it on
+            # site_of_grace and location docs.
+            "from": {"properties": _WARP_END},
+            "to": {"properties": _WARP_END},
+            "prompt": {"type": "keyword"},
+            "gate_flag": {"type": "long"},
+            "event_id": {"type": "long"},
+            "cutscene_id": {"type": "long"},
+            "warps_to": {"type": "keyword"},
+            "warps_from": {"type": "keyword"},
             # Humanoid enemy loadout (MSB CharaInitID -> CharaInitParam, #85) and
             # its reverse on item docs.
             "equipment": {
@@ -2367,7 +2388,12 @@ _FIELD_NOTES: dict[str, str] = {
     "ruins, church, shack, rise, evergaol, hero_grave, fort, castle, settlement, "
     "legacy_dungeon, divine_tower, tower, minor_erdtree, miquellas_cross, gaol, forge, "
     "well, mausoleum, colosseum, gate, grand_lift. Absent on markers whose icon has no "
-    "label (unique landmarks). A marker named like a region merges into the region doc",
+    "label (unique landmarks). A marker named like a region merges into the region doc. "
+    "On a warp doc (#94): waygate (a portal: 'Travel to another location?'), "
+    "return_to_entrance (a dungeon boss room's shortcut back), evergaol (entering an "
+    "evergaol, or the exit after its boss), cutscene (a warp that plays a cutscene: "
+    "coffins, Astel's drop, Maliketh -> Ashen Capital) or scripted (other script "
+    "warps: trap chests, quest steps, the Radahn festival)",
     "graces": "on a location doc: the site_of_grace docs in it (a region: graces in the "
     "region or its subregions; a dungeon: graces in its map)",
     "area_scaling": "on a location doc (#77): the enemy area-scaling tiers of the "
@@ -2433,6 +2459,43 @@ _FIELD_NOTES: dict[str, str] = {
     "pickup regions",
     "drop_locations": "on item docs (#141): the dungeon location docs of those "
     "dropping placements, e.g. drop_locations='Murkwater Catacombs'",
+    "from": "on a warp doc (#94): where the warp starts. {map, world_position | "
+    "position, grace, region, parent_region, location, entity_id}: entity_id is the "
+    "MSB entity that triggers it (the waygate or stone asset the prompt is on, or a "
+    "region/character the script checks), grace its nearest site_of_grace, region / "
+    "parent_region that grace's, location the dungeon location doc (or, for an "
+    "evergaol, the evergaol, with both ends taking the grace and region nearest "
+    "its marker). A scripted warp with no placed trigger (a trap chest, "
+    "a quest step in common scripts) has only the map of its script, or nothing; "
+    "on an open-world tile its region is then that of the tile's only world-map "
+    "landmark, which also names the warp (Dragon-Burnt Ruins -> Sellia Crystal "
+    "Tunnel, Tower of Return -> Divine Bridge), else the tile centre's. Filter on "
+    "from.grace / from.region / from.location / from.map; positions are returned, "
+    "not searched",
+    "to": "on a warp doc (#94): where the warp lands, same shape as from; "
+    "entity_id is the destination player start (an MSB SpawnPoint region or Player "
+    "part in the destination map), map the map the warp loads",
+    "prompt": "on a warp doc (#94): the confirmation it asks (EventTextForMap): "
+    "'Travel to another location?' (waygates), 'Return to entrance?', 'Enter "
+    "evergaol?', 'Head to the realm of shadow?'. Absent when the warp doesn't ask",
+    "gate_flag": "on a warp doc (#94): the event flag that must be on for a waygate "
+    "to work; while it's off the gate says 'Cannot be used now' (Four Belfries "
+    "gates, the Impassable Greatbridge gates: 9410)",
+    "event_id": "on a warp doc (#94): the EMEVD event that performs the warp: the "
+    "common template for templated warps (90005605 waygate, 90005645/46 return to "
+    "entrance, 90005880 evergaol exit, 90005881 evergaol enter), else the map "
+    "script's own event",
+    "cutscene_id": "on a warp doc of kind cutscene (#94): the cutscene that plays "
+    "before the warp (PlayCutsceneToPlayerAndWarp)",
+    "warps_to": "on site_of_grace and location docs (#94): the places warps lead to "
+    "from here (the destination's grace, else dungeon location, map name or region), "
+    "e.g. The Four Belfries -> Dragon Temple, Worshippers' Woods, Chapel of "
+    "Anticipation. A location matches warps whose start is in it (location, region "
+    "or parent_region). Warps with both ends in one place (return to entrance, in "
+    "and out of an evergaol) are left out; the warp docs themselves have the "
+    "details",
+    "warps_from": "on site_of_grace and location docs (#94): the places whose warps "
+    "arrive here (reverse of warps_to)",
     "entity_id": "on a site_of_grace doc: the grace's MSB entity id (BonfireEntityId)",
     "unlock_flag": "on a site_of_grace doc: the event flag set when the grace is lit",
     "bosses": "on a site_of_grace doc: the boss docs whose nearest grace it is; on a "

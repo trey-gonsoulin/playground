@@ -171,7 +171,16 @@ def search_entities(
                            search_entities_literal(pattern="Caelid",
                            fields=["regions"]) or fields=["locations"] (a dungeon);
                            add "drop_regions" / "drop_locations" to include items
-                           that enemies there drop.
+                           that enemies there drop. Graces and locations also carry
+                           warps_to / warps_from (the places warps connect them to).
+            warp         — one doc per scripted map-to-map warp (#94, EMEVD): kind
+                           waygate / return_to_entrance / evergaol / cutscene /
+                           scripted, from and to ({map, grace, region, location,
+                           entity_id, position}), prompt ("Travel to another
+                           location?"), gate_flag (waygates that need a flag).
+                           Named "from → to" by nearest grace, e.g. "The Four
+                           Belfries → Dragon Temple"; evergaols "Stormhill Evergaol
+                           (enter)"; a warp with no placed trigger "<to> (<kind>)".
             Call list_entity_types() for the authoritative live list.
         patch_version: Filter to a specific game patch (e.g. "1.07.0"). Native data
             is extracted per-patch from that patch's regulation.bin, so this is the
