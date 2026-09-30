@@ -533,6 +533,25 @@ INDEX_MAPPING = {
             "banner": {"type": "keyword"},
             "defeat_flag": {"type": "long"},
             "boss_encounters": {"type": "keyword"},
+            # NPC summon signs (#93): npc_summons on boss docs; the reverse link and
+            # the boss-less signs (invasions, duels) on enemy docs.
+            "npc_summons": {
+                "properties": {
+                    "npc": {"type": "keyword"},
+                    "npc_id": {"type": "integer"},
+                    "sign": {"type": "keyword"},
+                    "requires_flag": {"type": "long"},
+                }
+            },
+            "summonable_for": {"type": "keyword"},
+            "hostile_signs": {
+                "properties": {
+                    "kind": {"type": "keyword"},
+                    "map": {"type": "keyword"},
+                    "sign_type": {"type": "integer"},
+                    "requires_flag": {"type": "long"},
+                }
+            },
             # Sites of grace (BonfireWarpParam, #78); region/map/nearest_grace shared
             # with bosses.
             "parent_region": {"type": "keyword"},
@@ -2241,6 +2260,22 @@ _FIELD_NOTES: dict[str, str] = {
     "(Stormfoot Catacombs)'",
     "boss_encounters": "on an enemy doc: the boss docs where it is fought (reverse of "
     "enemies)",
+    "npc_summons": "on a boss doc: the NPCs whose summon sign the map script places for "
+    "this fight, from the EMEVD sign templates joined on the boss's defeat flag. npc is "
+    "the NPC's name (its enemy doc; a persona name where the game gives one: 'Castellan "
+    "Jerren', 'D, Beholder of Death'), npc_id its NpcParam row, sign npc_white (the "
+    "usual NPC summon sign), white (the DLC's plain white signs: Leda, Dane, Freyja at "
+    "Rugalea) or festival (the Radahn festival's asset signs). requires_flag is the raw "
+    "event flag the sign waits for (a quest step), absent when the sign is always "
+    "there; an NPC listed twice has two alternative gates (Bernahl at the Godskin Duo)",
+    "summonable_for": "on an enemy doc: the boss docs where this NPC can be summoned "
+    "(reverse of npc_summons)",
+    "hostile_signs": "on an enemy doc: the NPC's signs tied to no boss fight. kind "
+    "invasion is a sign the game places by itself when the player walks into an area, "
+    "i.e. an NPC invasion (Bloody Finger Nerijus, Vyke, Moore after a Pest is killed); "
+    "duel is a red sign the player touches (the Knight of the Great Jar). map is where "
+    "it happens, sign_type the raw PlaceSummonSign type (21/22/23 for invasions, not "
+    "decoded), requires_flag the raw event flag it waits for, absent when ungated",
     "region": "on a site_of_grace doc: the grace's map-menu region (Stormhill, Liurnia "
     "of the Lakes, Leyndell, Ashen Capital, Gravesite Plain); on a boss doc and a "
     "location marker doc: the region of its nearest grace. Every region value is also "
