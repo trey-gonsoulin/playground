@@ -582,6 +582,35 @@ INDEX_MAPPING = {
             # Spirit-ash summons: one entry per distinct summoned NpcParam row (#86).
             "summon_count": {"type": "integer"},
             "summon_stats": {"properties": _SUMMON_STATS},
+            # Realtime cutscenes (EMEVD plays + MQB subtitles, #92); map / tags
+            # shared, and the back-reference on boss docs.
+            "cutscene_id": {"type": "long"},
+            "variant_ids": {"type": "long"},
+            "asset": {"type": "keyword"},
+            "label": {"type": "text"},
+            "trigger_kind": {"type": "keyword"},
+            "boss": {"type": "keyword"},
+            "trigger_flags": {"type": "long"},
+            "trigger_items": {"type": "keyword"},
+            "warp_region": {"type": "long"},
+            "is_ending": {"type": "boolean"},
+            "unskippable": {"type": "boolean"},
+            "subtitles": {"type": "text"},
+            "subtitles_ja": {
+                "type": "text",
+                "fields": {
+                    "ja": {"type": "text", "analyzer": "kuromoji_analyzer"},
+                    "morph": {"type": "text", "analyzer": "kuromoji_segmenter"},
+                    "lemma": {"type": "text", "analyzer": "kuromoji_lemmatizer"},
+                },
+            },
+            "talk_ids": {"type": "long"},
+            "cutscenes": {
+                "properties": {
+                    "id": {"type": "long"},
+                    "kind": {"type": "keyword"},
+                }
+            },
             "name_ja": {
                 "type": "text",
                 "fields": {
@@ -1712,11 +1741,12 @@ def list_entity_types(client: OpenSearch) -> list[str]:
 _FIELD_NOTES: dict[str, str] = {
     "entity_type": "category filter: weapon, armor, spell, item, ash_of_war, merchant, "
     "enemy, boss (one doc per boss encounter, #79), npc_dialogue, game_text "
-    "(prompts, map banners, tutorials, loading tips, #98; item-use dialogs, #90)",
+    "(prompts, map banners, tutorials, loading tips, #98; item-use dialogs, #90), "
+    "cutscene (one doc per realtime cutscene scene, #92)",
     "patch_version": "real game patch the doc was extracted from (native is per-patch); use with diff_entities",
     "source": "internal game-data origin — the param table or FMG the doc was built from "
     "(EquipParamWeapon, EquipParamProtector, Magic, EquipParamAccessory, EquipParamGem, "
-    "ShopLineupParam, GameAreaParam, TalkMsg). All data is first-party native extraction.",
+    "ShopLineupParam, GameAreaParam, TalkMsg, EMEVD). All data is first-party native extraction.",
     "availability": "'cut' for content whose in-game name row is [ERROR]-marked (scrapped, "
     "e.g. Millicent's set); 'unobtainable' for real-named armor with no acquisition path — "
     "enemy-only gear / reused assets like the Ragged set (#71); absent for normal obtainable "
@@ -2241,6 +2271,41 @@ _FIELD_NOTES: dict[str, str] = {
     "(Stormfoot Catacombs)'",
     "boss_encounters": "on an enemy doc: the boss docs where it is fought (reverse of "
     "enemies)",
+    "cutscene_id": "on a cutscene doc (#92): the scene's cutscene id (AABBNNNN; the doc "
+    "name is 'Cutscene <id>'), the one its map scripts play. Scene ids differing only in "
+    "the last digit (a …0 / …1 pair, Melina's eight 60420000-60420007 meetings) are "
+    "one doc; the others are in variant_ids",
+    "variant_ids": "on a cutscene doc: the other cutscene ids folded into this scene",
+    "asset": "on a cutscene doc: the cutscenebnd asset name (s10_00_0010 for "
+    "10000010); absent when the current game files hold no such asset (15000020)",
+    "label": "on a cutscene doc: a native label, no hand-written scene names. The boss "
+    "and trigger kind ('Margit, the Fell Omen: boss intro'), else the kind and first "
+    "subtitle line ('scripted: Greetings.'), else the kind and map",
+    "trigger_kind": "on a cutscene doc: how its map scripts trigger it. boss_intro (in "
+    "a boss's 28xx fight-event block, before the fight), boss_defeat (waits on / sets "
+    "a boss's defeat flag), ending (cutscene flag 64 or an ending-choice flag "
+    "9400-9409; keeps the Elden Beast boss link), item (gated on holding a key item: "
+    "the Dectus / Rold / Haligtree lifts), scripted (anything else: quest steps, area "
+    "arrivals)",
+    "boss": "on a cutscene doc: the boss doc the scene introduces or follows (see "
+    "trigger_kind); the boss doc lists it back under cutscenes",
+    "trigger_flags": "on a cutscene doc: the event flags its script waits to be on",
+    "trigger_items": "on a cutscene doc: the key items the player must hold (Dectus "
+    "Medallion (Left) / (Right) for the Grand Lift of Dectus)",
+    "warp_region": "on a cutscene doc: the MSB region entity the player is moved to "
+    "after the scene (…AndWarp plays)",
+    "is_ending": "on a cutscene doc: an ending cutscene (cutscene flag 64 or an "
+    "ending-choice flag)",
+    "unskippable": "on a cutscene doc: the cutscene flags forbid skipping (flag 2)",
+    "subtitles": "on a cutscene doc: the spoken lines in timeline order (EN), from the "
+    "scene's timeline (current-patch MQB) joined through TalkParam to the patch's "
+    "TalkMsg text; no speaker names. Every line is also an npc_dialogue doc "
+    "(see talk_ids). About half the scenes have none (no dialogue)",
+    "subtitles_ja": "on a cutscene doc: the Japanese lines matching subtitles",
+    "talk_ids": "on a cutscene doc: the TalkMsg ids of its subtitles, in order; the "
+    "npc_dialogue doc for a line is named 'Dialogue <id>'",
+    "cutscenes": "on a boss doc (#92): the cutscene docs linked to the encounter, each "
+    "{id: cutscene_id, kind: boss_intro / boss_defeat / ending}",
     "region": "on a site_of_grace doc: the grace's map-menu region (Stormhill, Liurnia "
     "of the Lakes, Leyndell, Ashen Capital, Gravesite Plain); on a boss doc and a "
     "location marker doc: the region of its nearest grace. Every region value is also "
@@ -2271,7 +2336,8 @@ _FIELD_NOTES: dict[str, str] = {
     "coordinates in the open world, same map otherwise); locates open-world bosses",
     "map": "MSB map id: a boss doc's arena, a site_of_grace doc's map (a dungeon grace "
     "gives the dungeon's map even though its world-map marker is on the overworld), a "
-    "location marker's map (a dungeon's own map, likewise). "
+    "location marker's map (a dungeon's own map, likewise), a cutscene doc's map (where "
+    "the play warps the player, else mAA_BB_00_00 from the cutscene id). "
     "m10_00_00_00 Stormveil; open world m60_XX_YY_00 tiles, DLC m61",
     "position": "on a site_of_grace or location doc outside the open world: its "
     "position in map's local coordinates. Also the key used inside placements entries",
