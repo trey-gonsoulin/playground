@@ -629,6 +629,8 @@ INDEX_MAPPING = {
             "sold_by": {"type": "keyword"},
             "shop_listings": {"type": "object", "enabled": False},  # #89
             "given_by": {"type": "keyword"},
+            "in_exchange_for": {"type": "keyword"},  # #97
+            "exchanged_for": {"type": "keyword"},  # #97
             "starting_classes": {"type": "keyword"},
             # Crafting (#87).
             "crafted_from": {
@@ -1805,6 +1807,16 @@ _FIELD_NOTES: dict[str, str] = {
     "scripts with no named placement (Melina, some DLC characters) have acquisition_types "
     "given_by_npc but no name. DLC gifts are indexed at 1.17.0 only (the older DLC-era "
     "patches' DLC talk scripts aren't extracted)",
+    "in_exchange_for": "on an NPC-gift item doc: the item(s) the giving NPC takes for it, from "
+    "the talk script's RemoveItem paired with the gift in the same dialogue state machine "
+    "(#97), e.g. Volcano Manor Invitation: [Rya's Necklace]; Radiant Baldachin's Blessing: "
+    "[Cursemark of Death]; Sellia's Secret: [Unalloyed Gold Needle]; Thiollier's Concoction: "
+    "[Black Syrup]; Jolán and Anna <-> Swordhand of Night Jolán (a swap that keeps the "
+    "upgrade level). One-to-one hand-ins only: Gurranq's Deathroot rewards aren't linked, and "
+    "Neutralizing Boluses (traded for an unnamed, param-less goods id) carries none. The "
+    "reverse of exchanged_for",
+    "exchanged_for": "on a handed-in item doc: the NPC gift(s) handing it over gets (#97), the "
+    "reverse of in_exchange_for, e.g. Rya's Necklace: [Volcano Manor Invitation]",
     "starting_classes": "on an item doc: the starting classes whose initial loadout includes "
     "it (#23), e.g. Longsword: [Vagabond]; Memory of Grace: every class",
     "crafted_from": "on a craftable consumable/ammo doc: the crafting recipe's materials as "
