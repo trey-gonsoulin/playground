@@ -211,6 +211,8 @@ def search_entities(
       dropped_by         — boss / named enemies that drop this item (EMEVD-derived, #68)
       equipped_by        — humanoid enemies/NPCs whose loadout includes it (#85)
       given_by           — NPCs whose dialogue gives this item (talk scripts, #23)
+      in_exchange_for    — the item the giving NPC takes for it (turn-in, #97);
+                           exchanged_for is the reverse, on the handed-in item
       starting_classes   — starting classes whose initial loadout includes it (#23)
       acquisition_types  — how it's obtained: merchant / enemy_drop / found_in_world /
                            chest / given_by_npc / starting_equipment / keepsake / crafted /

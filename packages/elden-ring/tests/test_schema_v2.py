@@ -190,6 +190,8 @@ def test_grouped_leaves_mapped():
         "equipment.ammo": "keyword",
         "equipped_by": "keyword",
         "given_by": "keyword",
+        "in_exchange_for": "keyword",
+        "exchanged_for": "keyword",
         "starting_classes": "keyword",
     }
     for path, type_ in expected.items():
