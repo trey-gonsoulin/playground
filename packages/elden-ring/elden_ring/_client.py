@@ -554,6 +554,16 @@ INDEX_MAPPING = {
                     ),
                 }
             },
+            # Open-world landmark MSB MapPoint volumes (#80): returned, never searched.
+            "footprint": {"type": "object", "enabled": False},
+            # NPC-invasion map instances (Ceremony rows) in a location (#96).
+            "invasion_instances": {
+                "properties": {
+                    "ceremony": {"type": "integer"},
+                    "hosts": {"type": "keyword"},
+                    "invader_flag": {"type": "long"},
+                }
+            },
             # MSB placements of enemies and treasure pickups of items (#76): the
             # list is returned, never searched; maps is the filterable summary.
             "placements": {"type": "object", "enabled": False},
@@ -2266,7 +2276,19 @@ _FIELD_NOTES: dict[str, str] = {
     "never scaled). A region counts placements by their nearest grace's region (a tab "
     "sums its subregions); a dungeon counts its map's placements. The first tier is "
     "the area's typical level (Caelid 7070: hp x2.406). Humanoid NPC tiers "
-    "(19351-19370) are left out; open-world landmarks use their region's tiers",
+    "(19351-19370) are left out. An open-world landmark (ruins, fort, church) counts "
+    "the enemies inside its MSB footprint (#80); one without a footprint has none",
+    "footprint": "on an open-world landmark location doc (#80): the MSB MapPoint "
+    "volumes that outline it, the same shapes placements are matched against. Each: "
+    "{shape (box | cylinder | sphere), map, world_position (the base centre, same frame "
+    "as placements), rotation_y (degrees), width / depth / height | radius (metres)}; "
+    "a composite landmark lists every part. Returned, not searchable",
+    "invasion_instances": "on a location doc (#96): the NPC-invasion versions of the "
+    "map there (the game's Ceremony instances: a Volcano Manor request, a Bloody "
+    "Finger or quest invasion). Each: {ceremony (the instance id, 20-50), hosts (the "
+    "enemy docs that exist only in that instance, the host first), invader_flag (the "
+    "event flag set when the invader is beaten)}. Sellen / Jerren and Millicent's "
+    "help / betray choices are two instances of one map",
     "nearest_grace": "on a boss doc: the site_of_grace doc closest to the arena (world "
     "coordinates in the open world, same map otherwise); locates open-world bosses",
     "map": "MSB map id: a boss doc's arena, a site_of_grace doc's map (a dungeon grace "
@@ -2297,7 +2319,18 @@ _FIELD_NOTES: dict[str, str] = {
     "alone keep the variant map id, and which world state a variant is isn't in the "
     "data. Each entry also "
     "carries region / parent_region (its nearest grace's, #140) and, in a dungeon map, "
-    "location (the dungeon's location doc). Returned, not searchable; filter on maps, "
+    "location (the dungeon's location doc). On open-world tiles, area is the game's "
+    "own region map at that spot (#80: the map-name texture, or a map-name volume "
+    "that renames the spot on entry), which can differ from the nearest grace's region "
+    "at borders (Stormhill vs Limgrave) and in stacked DLC areas (Rauh Base vs Scadu "
+    "Altus); location is the landmark whose MSB footprint holds it (Castle Morne, "
+    "Caria Manor). In other maps, subarea is the map-name banner of the volume holding "
+    "it when that differs from its location and region (Ainsel River Main, Nokron, "
+    "Eternal City). An enemy that exists only in an NPC-invasion instance of the map "
+    "carries world_state {kind: 'npc_invasion', ceremony, host, invader_flag} (#96; "
+    "Old Knight Istvan, Millicent): it is absent from the normal world, where "
+    "host is the instance's invader (see the location's invasion_instances). "
+    "Returned, not searchable; filter on maps, "
     "regions or locations. get_entity returns the list only when it has at most 50 "
     "entries, else placements_total (include_placements=True for all)",
     "maps": "on enemy and item docs (#76): the distinct MSB map ids of its placements, "
@@ -2310,16 +2343,16 @@ _FIELD_NOTES: dict[str, str] = {
     "pickups only; enemy drops are in drop_regions",
     "locations": "on enemy and item docs (#140): the dungeon location docs its "
     "placements are in (catacombs, caves, tunnels, gaols, legacy dungeons: "
-    "locations='Murkwater Catacombs'). Open-world landmarks (ruins, forts) have no "
-    "footprint, so open-world placements only get regions. Item locations cover "
+    "locations='Murkwater Catacombs') and the open-world landmarks whose MSB footprint "
+    "holds them (#80: locations='Castle Morne'). Item locations cover "
     "pickups only; enemy drops are in drop_locations",
     "drop_regions": "on item docs (#141): the regions (+ tabs) of the enemies in "
     "dropped_by, counting only the placements that carry the item (their own death "
     "lot or scripted award) when known, else every placement of that enemy. "
     "drop_regions='Caelid' finds what enemies in Caelid drop; kept apart from the "
     "pickup regions",
-    "drop_locations": "on item docs (#141): the dungeon location docs of those "
-    "dropping placements, e.g. drop_locations='Murkwater Catacombs'",
+    "drop_locations": "on item docs (#141): the dungeon and landmark (#80) location "
+    "docs of those dropping placements, e.g. drop_locations='Murkwater Catacombs'",
     "entity_id": "on a site_of_grace doc: the grace's MSB entity id (BonfireEntityId)",
     "unlock_flag": "on a site_of_grace doc: the event flag set when the grace is lit",
     "bosses": "on a site_of_grace doc: the boss docs whose nearest grace it is; on a "
