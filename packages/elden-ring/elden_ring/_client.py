@@ -248,6 +248,21 @@ _SUMMON_STATS = {
 }
 
 
+# One condition of a quest step / outcome (#95).
+_QUEST_CONDITION = {
+    "kind": {"type": "keyword"},
+    "flag": {"type": "long"},
+    "negated": {"type": "boolean"},
+    "npc": {"type": "keyword"},
+    "npcs": {"type": "keyword"},
+    "quest": {"type": "keyword"},
+    "life_state": {"type": "keyword"},
+    "bosses": {"type": "keyword"},
+    "items": {"type": "keyword"},
+    "item_id": {"type": "long"},
+    "set_at": {"type": "keyword"},
+}
+
 INDEX_MAPPING = {
     "settings": {
         "number_of_shards": 1,
@@ -582,6 +597,29 @@ INDEX_MAPPING = {
             # Spirit-ash summons: one entry per distinct summoned NpcParam row (#86).
             "summon_count": {"type": "integer"},
             "summon_stats": {"properties": _SUMMON_STATS},
+            # NPC questlines (#95): one doc per NPC event-flag block.
+            "npc": {"type": "keyword"},
+            "npc_names": {"type": "keyword"},
+            "flag_block": {"type": "long"},
+            "related_npcs": {"type": "keyword"},
+            "steps": {
+                "properties": {
+                    "phase_flag": {"type": "long"},
+                    "order": {"type": "integer"},
+                    "entered_from": {"type": "long"},
+                    "locations": {"type": "keyword"},
+                    "when": {"properties": _QUEST_CONDITION},
+                }
+            },
+            "outcomes": {
+                "properties": {
+                    "flag": {"type": "long"},
+                    "slot": {"type": "integer"},
+                    "life_state": {"type": "keyword"},
+                    "trigger": {"type": "keyword"},
+                    "when": {"properties": _QUEST_CONDITION},
+                }
+            },
             "name_ja": {
                 "type": "text",
                 "fields": {
@@ -2312,7 +2350,8 @@ _FIELD_NOTES: dict[str, str] = {
     "placements are in (catacombs, caves, tunnels, gaols, legacy dungeons: "
     "locations='Murkwater Catacombs'). Open-world landmarks (ruins, forts) have no "
     "footprint, so open-world placements only get regions. Item locations cover "
-    "pickups only; enemy drops are in drop_locations",
+    "pickups only; enemy drops are in drop_locations. On a quest doc (#95): every "
+    "step's locations (regions and dungeons), in step order",
     "drop_regions": "on item docs (#141): the regions (+ tabs) of the enemies in "
     "dropped_by, counting only the placements that carry the item (their own death "
     "lot or scripted award) when known, else every placement of that enemy. "
@@ -2361,6 +2400,41 @@ _FIELD_NOTES: dict[str, str] = {
     "its Silver Tear form",
     "summon_count": "on a spirit_ash doc: total spirits summoned at +0 (e.g. Lone Wolf "
     "Ashes 3); max_level.summon_count at +10",
+    "npc": "on a quest doc (#95): the NPC owning the flag block, named after the "
+    "character its death / turned-hostile events bind, else the NPC whose talk scripts "
+    "check the block most. An NPC with several blocks gets the flag range appended to "
+    "the doc name, e.g. 'Moore (4380–4399)'",
+    "npc_names": "on a quest doc: every NpcName persona of that NPC "
+    "(['Heartbroken Maiden', 'Roderika', 'Roderika, Spirit Tuner'])",
+    "flag_block": "on a quest doc: the NPC's 20 event flags [first, last]; +0..+4 are "
+    "its life state, +5..+19 its quest phases",
+    "related_npcs": "on a quest doc: other NPCs whose quest phase or life state gates "
+    "one of its steps or outcomes",
+    "steps": "on a quest doc: one entry per scripted phase transition (a phase set "
+    "under different conditions has several entries), from the event scripts read "
+    "guard-aware (gotos not followed, templated sets not instantiated). A phase no "
+    "parsed event sets (usually the first) is listed bare. Phases have no names: "
+    "meaning is positional (order + locations + when)",
+    "steps.phase_flag": "the phase's event flag (in flag_block)",
+    "steps.order": "1-based depth of the phase in the transition chain (the longest "
+    "entered_from path); sibling branches share an order (Millicent 4191 help vs 4194 "
+    "betray)",
+    "steps.entered_from": "the same NPC's phase the transition requires",
+    "steps.locations": "where the phase plays out: the dungeon location docs, else the "
+    "region of the grace nearest the map's centre, of every map whose event script "
+    "checks the phase flag",
+    "steps.when": "the other conditions of the transition, all required. kind: "
+    "boss_defeated (bosses), invasion (an NPC-invasion defeat flag, #138), item_pickup "
+    "(items: the pickup lot's items), item_held (items), talk (a flag the npcs' talk "
+    "scripts set: a dialogue choice or hand-over), quest_phase / life_state (npc, "
+    "quest when that NPC has several blocks), or flag (unresolved; set_at = the "
+    "locations of the maps whose events set it). negated = the condition must be off",
+    "outcomes": "on a quest doc: life-state changes: flag + slot (0-4) + life_state "
+    "(hostile for +1/+2, dead for +3: labelled from the death / SetTeamType events "
+    "that set them; +0/+4 unlabelled), with when (as steps.when) or trigger (death / "
+    "attacked: the shared common event that sets it)",
+    "outcomes.trigger": "death (set when the character dies) or attacked (set when "
+    "attacking the NPC turns it hostile)",
 }
 
 
