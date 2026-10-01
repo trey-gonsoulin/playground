@@ -2622,9 +2622,11 @@ _FIELD_NOTES: dict[str, str] = {
     "one of its steps or outcomes",
     "steps": "on a quest doc: one entry per scripted phase transition (a phase set "
     "under different conditions has several entries), from the event scripts read "
-    "guard-aware (gotos not followed, templated sets not instantiated). A set gated on "
-    "a template argument (e.g. the Church of Vows absolution reset) is left out, since "
-    "its trigger is unknown. A phase that other scripts check but no parsed event "
+    "control-flow aware (skips, gotos and returns on every path to the set) with each "
+    "shared template read once per call site, its args substituted (so the Church of "
+    "Vows absolution resets are gated on the absolution flag). Steps don't restate the "
+    "NPC's own normal life state (+0) or 'not yet at phase X'. A phase that other "
+    "scripts check but no parsed event "
     "sets (usually the first) is listed bare. Phases have no names: "
     "meaning is positional (order + locations + when)",
     "steps.phase_flag": "the phase's event flag (in flag_block)",
@@ -2644,8 +2646,9 @@ _FIELD_NOTES: dict[str, str] = {
     "outcomes": "on a quest doc: life-state changes: flag + slot (0-4) + life_state "
     "(hostile for +1/+2, dead for +3: labelled from the death / SetTeamType events "
     "that set them; +0/+4 unlabelled), with when (as steps.when) or trigger (death / "
-    "attacked: the shared common event that sets it). Resets gated on a template "
-    "argument (the absolution at the Church of Vows) are left out",
+    "attacked: the shared common event that sets it). The absolution at the Church of "
+    "Vows shows as a +0 outcome when the absolution talk flag (Miriel) and the hostile "
+    "state are on",
     "outcomes.trigger": "death (set when the character dies) or attacked (set when "
     "attacking the NPC turns it hostile)",
 }
