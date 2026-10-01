@@ -187,7 +187,7 @@ def test_get_entity_patch_version_as_of_sparse_type():
 def test_get_entity_patch_version_errors():
     c = _Client([*_RIVERS, _doc("Milady", "1.17.0")])
     assert (
-        "not loaded" in _client.get_entity(c, "Milady", patch_version="1.10")["error"]
+        "not loaded" in _client.get_entity(c, "Milady", patch_version="1.11")["error"]
     )
     out = _client.get_entity(c, "Milady", patch_version="1.10.0")
     assert out["error"] == "'Milady' not present in 1.10.0"
@@ -204,3 +204,37 @@ def test_get_entity_patch_version_keeps_historical_flags():
     out = _client.get_entity(_Client(docs), "Old Name", patch_version="1.02.0")
     assert out["display_name"] == "Old Name"
     assert out["name_is_historical"] is True and out["queried_name"] == "Old Name"
+
+
+def test_trailing_zero_spellings_share_a_key():
+    k = _client._trimmed_key
+    assert k("1.02.0") == k("1.02") and k("1.10") == k("1.10.0")
+    assert k("1.02") != k("1.02.1") and k("1.10.0") != k("1.01")
+
+
+def test_version_aliases_map_to_the_loaded_label():
+    c = _Client([_doc("Dagger", "1.02"), _doc("Dagger", "1.10.0")])
+    assert _client._canonical_version(c, "1.02.0") == "1.02"
+    assert _client._canonical_version(c, "1.10") == "1.10.0"
+    assert _client._canonical_version(c, "1.10.0") == "1.10.0"
+    assert _client._canonical_version(c, "1.11") == "1.11"
+    assert _client._canonical_version(c, None) is None
+
+
+def test_ambiguous_alias_passes_through():
+    c = _Client([_doc("Dagger", "1.10"), _doc("Dagger", "1.10.0")])
+    assert _client._canonical_version(c, "1.10.0.0") == "1.10.0.0"
+
+
+def test_tools_accept_version_aliases():
+    c = _Client([_doc("Dagger", "1.02"), _doc("Dagger", "1.10.0")])
+    out = _client.search_literal(c, entity_type="weapon", patch_version="1.02.0")
+    assert out["total"] == 1
+    assert (out["patch_version"], out["requested_patch_version"]) == ("1.02", "1.02.0")
+    out = _client.get_entity(c, "Dagger", patch_version="1.10")
+    assert (out["patch_version"], out["requested_patch_version"]) == ("1.10.0", "1.10")
+    out = _client.search(c, "x", patch_version="1.02.0")
+    assert [d["patch_version"] for d in out] == ["1.02"]
+    out = _client.diff_entities(c, "Dagger", "1.02.0", "1.10")
+    assert out["requested_patch_versions"] == {"1.02.0": "1.02", "1.10": "1.10.0"}
+    assert "error" not in out

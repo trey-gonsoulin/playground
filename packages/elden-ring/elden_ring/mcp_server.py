@@ -531,7 +531,10 @@ def list_patch_versions() -> dict:
     If this tool returns a connection error, call start_search_service() first.
 
     Returns:
-        versions: list[str] — patch versions sorted oldest-first (semantic order)
+        versions: list[str] — patch versions sorted oldest-first (semantic order).
+                  1.02–1.06 are labeled without a third part ("1.02") and 1.07.0
+                  on with one; every tool accepts either spelling ("1.02.0",
+                  "1.10") and maps it to the loaded label.
     """
     return {"versions": _os.list_patch_versions(_os.get_client())}
 
@@ -661,7 +664,9 @@ def search_entities_literal(
             list or call list_entity_types() for the authoritative live set.
         patch_version: Filter to a specific patch snapshot (e.g. "1.10.0"). Omit to
             search across all patches and return one result per entity (latest version).
-            Use list_patch_versions() to see available versions.
+            Use list_patch_versions() to see available versions. Trailing-zero
+            spellings are aliases ("1.02.0" → "1.02", "1.10" → "1.10.0"); a remapped
+            request returns requested_patch_version and the patch_version used.
         limit: Maximum results to return (default 200, max 500).
         include_fields: If provided, only these fields are returned per document (e.g.
             ["name", "sort_id"]). Reduces payload when full documents aren't needed.
