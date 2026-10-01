@@ -96,7 +96,9 @@ def search_entities(
             merchant     — NPC vendor inventories with item names and rune prices;
                            search by item name to find who sells it, or by merchant
                            name / location to get their full stock
-            npc_dialogue — individual spoken lines from the TalkMsg text (searchable by quote)
+            npc_dialogue — individual spoken lines from the TalkMsg text (searchable by quote);
+                           cutscene subtitle lines name their scene in cutscene /
+                           cutscene_id
             game_text    — other in-game text lines (#98), one doc per FMG id ("Loading
                            Tip 4", "Map Event 80810"); tags give the kind:
                            action_button (interaction prompts: "Touch grace"),
