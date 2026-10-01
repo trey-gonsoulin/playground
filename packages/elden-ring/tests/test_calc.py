@@ -125,6 +125,43 @@ def test_thrown_consumable_matches_wiki():
         assert r["status_buildup"]["poison"]["total"] == wiki, (arc, r)
 
 
+def _defense_multiplier(ratio: float) -> float:
+    """Elden Ring's attack/defense damage curve (share of AR that lands)."""
+    if ratio > 8:
+        return 0.9
+    if ratio > 2.5:
+        return 0.9 - 0.2 * ((8 - ratio) / 5.5) ** 2
+    if ratio > 1:
+        return 0.7 - 0.3 * ((2.5 - ratio) / 1.5) ** 2
+    if ratio > 0.125:
+        return 0.1 + 0.3 * ((ratio - 0.125) / 0.875) ** 2
+    return 0.1
+
+
+def test_thrown_motion_percent_is_not_applied():
+    """#182: Throwing Dagger's AtkParam_Pc row reads physical motion 120 %, but the
+    game deals its flat 67 x stat scaling only. The wiki's damage tests on Land
+    Squirts (physical defense 100 x area SpEffect 7060's 1.079, pierce taken 1.0)
+    match the unmultiplied AR to within 1 point; x 1.2 overshoots by 15+."""
+    dagger = {
+        "attack": {"physical": [67.0]},
+        "scaling": {"str": [95.0], "dex": [145.0]},
+        "correct": {"physical": ["str", "dex"]},
+        "graph_ids": {"physical": 3},
+        "graphs": {
+            "3": [[1, 0, 1], [20, 30, 1], [30, 62, 1], [50, 82, 1], [99, 100, 1]]
+        },
+    }
+    wiki = {(10, 10): 26, (20, 20): 49, (80, 20): 85, (20, 80): 105, (40, 40): 112}
+    defense = 100 * 1.079
+    for (s, d), dealt in {**wiki, (50, 50): 127}.items():
+        ar = attack_rating(dagger, {}, {**_TENS, "str": s, "dex": d}, 0, False)
+        ar = ar["attack_power"]["physical"]["total"]
+        assert abs(ar * _defense_multiplier(ar / defense) - dealt) < 1, (s, d, ar)
+        boosted = ar * 1.2
+        assert boosted * _defense_multiplier(boosted / defense) - dealt > 15, (s, d)
+
+
 def test_calculate_attack_rating_falls_back_to_consumable(monkeypatch):
     """A name that isn't a weapon resolves as a thrown consumable (#178)."""
     from elden_ring import _client
