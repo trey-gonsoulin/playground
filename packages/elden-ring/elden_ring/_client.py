@@ -2032,7 +2032,9 @@ _FIELD_NOTES: dict[str, str] = {
     "consumables (#150: darts, knives, pots, stones) carry their hit's flat base power "
     "before stat scaling, e.g. Throwing Dagger physical 67, Fire Pot fire 230 (its "
     "burst). Most also carry stat scaling in scaling, which calculate_attack_rating "
-    "applies (#178). Freezing Pot, Roped Freezing Pot and the Hefty Freezing / Oil / "
+    "applies (#178). Their attack rows' motion % is not applied (#182): Throwing "
+    "Dagger reads physical 120 yet the wiki's damage tests match 67 x scaling. "
+    "Freezing Pot, Roped Freezing Pot and the Hefty Freezing / Oil / "
     "Rot Pots have no hidden weapon row (VirtualWeaponID -1), so per the data they "
     "deal flat damage with no scaling",
     "projectile": "ammo standard-shot flight, from its Bullet param (#91; bow skills "
