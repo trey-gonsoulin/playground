@@ -2467,7 +2467,9 @@ _FIELD_NOTES: dict[str, str] = {
     "event flag set when the invader is beaten)}. Sellen / Jerren and Millicent's "
     "help / betray choices are two instances of one map",
     "nearest_grace": "on a boss doc: the site_of_grace doc closest to the arena (world "
-    "coordinates in the open world, same map otherwise); locates open-world bosses",
+    "coordinates in the open world, same map otherwise; a grace more than 30 m above "
+    "or below counts as farther, so a cliff's foot or another floor loses); locates "
+    "open-world bosses",
     "map": "MSB map id: a boss doc's arena, a site_of_grace doc's map (a dungeon grace "
     "gives the dungeon's map even though its world-map marker is on the overworld), a "
     "location marker's map (a dungeon's own map, likewise), a cutscene doc's map (where "
