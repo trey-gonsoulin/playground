@@ -220,9 +220,9 @@ def search_entities(
             (EquipParamGoods → consumable/key_item/…; EquipParamWeapon → weapon/ammo;
             EMEVD → warp/cutscene/quest), and one entity_type can come from several
             sources (game_text, location, enemy), so entity_type is usually the
-            better filter. An unrecognized value (including the retired "erdb")
-            matches nothing and returns no results rather than an error; call
-            describe_fields() for the live list.
+            better filter. An unrecognized value returns {"error": ...} listing the
+            live sources, and the retired "erdb"/"fextralife" say they were retired;
+            describe_fields() has the live list.
         include_unavailable: By default, content that exists in the game data but is not
             obtainable is excluded from results — availability="cut" (name row [ERROR]-marked,
             e.g. Millicent's armor set) or availability="unobtainable" (real-named armor with
@@ -279,7 +279,9 @@ def search_entities(
     上昇 → 大きく上昇 are ignored). text_added_lines lists the new lines, e.g.
     「伝説のタリスマン」のひとつ. False means only the magnitude wording changed.
 
-    Returns {"total": N} when count_only is True.
+    Returns {"total": N} when count_only is True, and {"error": ...} listing the
+    valid values for an unknown or retired entity_type / source / patch_version
+    or an unmapped include_fields name (not an empty list).
     """
     return _os.search(
         _os.get_client(),
@@ -302,6 +304,7 @@ def get_entity(
     entity_type: str | None = None,
     include_variants: bool = False,
     include_placements: bool = False,
+    patch_version: str | None = None,
 ) -> dict | None:
     """Retrieve the full data document for a named Elden Ring entity.
 
@@ -318,6 +321,14 @@ def get_entity(
             affinities); an entity outside a family gets an empty list.
         include_placements: If True, return every entry of placements even when
             there are more than 50 (see below).
+        patch_version: Return the document as of this patch (e.g. "1.10.0" for the
+            base game before the DLC) instead of the newest. Resolved as-of the
+            entity type's own loaded versions: the latest one at or before it, so
+            npc_dialogue (loaded once per Data0 group) works at any patch, and the
+            result then carries requested_patch_version alongside the doc's own
+            patch_version. Returns {"error": ...} if the version isn't loaded (see
+            list_patch_versions()) or the entity didn't exist yet (a DLC item at
+            1.10.0). include_variants uses the same patch.
 
     Named variants (weapon affinities, talisman ranks, flask +N, altered armor) are
     separate docs linked by base_item, and the base doc's variants field summarizes
@@ -330,26 +341,24 @@ def get_entity(
     doc (arena, runes, banner), "enemy" for the character's stats, and
     "site_of_grace" for a grace named after its boss.
 
-    There is no patch_version argument: get_entity always returns the newest
-    loaded document. For an older patch's values use diff_entities (field by
-    field) or search_entities_literal(pattern=<name>, fields=["name"],
-    patch_version=...), whose results hold that snapshot's full documents (the
-    phrase also matches longer names, e.g. Heavy Halberd for Halberd).
-
     Historical names resolve too: an item renamed across patches is indexed under
     its current name, with the per-patch name kept in display_name. Looking one up
     by an old name (e.g. "Celebrant's Flame Art Cleaver Blades") returns the
     newest document for the current name, with name_is_historical=true and
-    queried_name set to your input. Use diff_entities to see the old patch's values.
+    queried_name set to your input. Pass patch_version for the old patch's doc
+    (with that patch's display_name), or use diff_entities to compare.
 
     placements (MSB world positions) are returned only when there are at most 50;
     a longer list (common gathering materials have thousands of nodes, busy enemy
     types hundreds) is replaced by placements_total, and maps / regions / locations
     still say where. Pass include_placements=True for the full list.
 
-    Returns the full document dict, or null if the entity is not in the index.
+    Returns the full document dict, or null if the entity is not in the index
+    ({"error": ...} for an entity_type that isn't loaded).
     """
-    doc = _os.get_entity(_os.get_client(), name, entity_type, include_variants)
+    doc = _os.get_entity(
+        _os.get_client(), name, entity_type, include_variants, patch_version
+    )
     return doc if include_placements else _os.trim_placements(doc)
 
 
@@ -444,8 +453,8 @@ def list_menu_categories(
             param table (e.g. "EquipParamWeapon", "EquipParamProtector",
             "EquipParamGoods"). All data is first-party native extraction, so there
             are no cross-source duplicates to exclude, and entity_type is usually the
-            better filter. An unrecognized value matches nothing and returns {}; call
-            describe_fields() for the live source list. There is no patch filter:
+            better filter. An unrecognized or retired value returns {"error": ...}
+            listing the live sources (also in describe_fields()). There is no patch filter:
             counts are distinct names across every loaded patch, DLC included.
 
     Returns:
@@ -596,11 +605,12 @@ def search_entities_literal(
     1000 — base game included (Butchering Knife 2106500, Prelate's Inferno Crozier
     2504500), and many DLC armaments (+100 … +900 offsets).
 
-    Unmatched arguments return zero, not an error: a misspelled or retired
-    source / entity_type / patch_version value, or a field that the filtered
-    entity type doesn't carry (text_content_ja on weapons), all give total 0.
-    Before trusting a zero, check the value against describe_fields() /
-    list_entity_types() / list_patch_versions().
+    Unknown arguments return {"error": ...} rather than a silent 0: a misspelled
+    or retired source, an entity_type or patch_version that isn't loaded, or a
+    field / include_fields name that isn't in the mapping; the error lists the
+    valid values. A field that exists but that no doc of the filtered entity type
+    carries (text_content_ja on weapons) returns its 0 with "warnings" naming the
+    text fields that type does carry.
 
     For Japanese text there are two modes:
     - Default (use_kuromoji=False): standard CJK-unigram tokenization. Every character
@@ -638,8 +648,8 @@ def search_entities_literal(
             equipment (weapon, armor, spell, item, ash_of_war, ammo) has its JP flavor
             text only in description_ja and no text_content / text_content_ja;
             npc_dialogue, game_text and merchant have JP text only in
-            text_content_ja. Naming a field the type lacks returns 0 — see the
-            per-field notes in describe_fields(). Japanese fields named here are routed to the subfield for
+            text_content_ja. Naming a field the type lacks returns 0 plus a
+            "warnings" entry — see the per-field notes in describe_fields(). Japanese fields named here are routed to the subfield for
             the active mode (.morph when use_kuromoji=True, .lemma when
             use_lemmatize=True), so an explicit fields list composes correctly with
             those modes. The acquisition keyword fields (sold_by, acquisition_sources,
@@ -676,9 +686,8 @@ def search_entities_literal(
             (the param/FMG/script the docs were extracted from, e.g. "EquipParamWeapon",
             "Magic", "TalkMsg", "EMEVD"). Not 1:1 with entity_type: EquipParamGoods
             backs ten goods types, EMEVD backs warp/cutscene/quest, and game_text and
-            location each come from several. An unrecognized value (including the
-            retired "erdb") matches nothing, so total is 0; call describe_fields()
-            for the live list. Prefer entity_type unless you want the game-structure view.
+            location each come from several. An unrecognized or retired value
+            ("erdb") returns {"error": ...}; describe_fields() has the live list. Prefer entity_type unless you want the game-structure view.
         use_lemmatize: If True, route Japanese fields through kuromoji baseform reduction
             so a single query in dictionary form matches all inflected surface forms.
             Example: pattern="与える" matches docs containing 与えた, 与えられ, 与えて, etc.
