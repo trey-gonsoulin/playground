@@ -669,6 +669,8 @@ INDEX_MAPPING = {
                 },
             },
             "talk_ids": {"type": "long"},
+            # Back-link on npc_dialogue subtitle lines (#192); cutscene_id shared.
+            "cutscene": {"type": "keyword"},
             "cutscenes": {
                 "properties": {
                     "id": {"type": "long"},
@@ -2390,7 +2392,12 @@ _FIELD_NOTES: dict[str, str] = {
     "name is 'Cutscene <id>'), the one its map scripts play. Scene ids differing only in "
     "the last digit (a …0 / …1 pair, Melina's eight 60420000-60420007 meetings) are "
     "one doc; the others are in variant_ids. On a warp doc of kind cutscene (#94): the "
-    "cutscene that plays before the warp (PlayCutsceneToPlayerAndWarp)",
+    "cutscene that plays before the warp (PlayCutsceneToPlayerAndWarp). On an "
+    "npc_dialogue doc (#192): the scene the line is a subtitle of (see cutscene)",
+    "cutscene": "on an npc_dialogue doc (#192): the cutscene doc ('Cutscene <id>') the "
+    "line is a subtitle of, the reverse of that doc's talk_ids. Absent on lines no "
+    "cutscene speaks; a line several scenes share (the 3 opening narration lines "
+    "of the ending scenes) names the lowest id",
     "variant_ids": "on a cutscene doc: the other cutscene ids folded into this scene",
     "asset": "on a cutscene doc: the cutscenebnd asset name (s10_00_0010 for "
     "10000010); absent when the current game files hold no such asset (15000020)",
