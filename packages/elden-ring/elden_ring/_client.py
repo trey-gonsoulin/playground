@@ -2624,7 +2624,10 @@ _FIELD_NOTES: dict[str, str] = {
     "under different conditions has several entries), from the event scripts read "
     "control-flow aware (skips, gotos and returns on every path to the set) with each "
     "shared template read once per call site, its args substituted (so the Church of "
-    "Vows absolution resets are gated on the absolution flag). A when lists only "
+    "Vows absolution resets are gated on the absolution flag). The absolution also "
+    "sets the +18 phase of nearly every base-game NPC block (flags 3018–4718), hostile "
+    "or not, so those quest docs have a +18 step whose when is the absolution talk "
+    "flag (Miriel). A when lists only "
     "conditions that must hold: a test that also involves unparsed checks (flag "
     "ranges, distances, either-or tests) contributes nothing it can't guarantee, "
     "so a when can be incomplete but not wrong. Steps don't restate the "
@@ -2651,7 +2654,7 @@ _FIELD_NOTES: dict[str, str] = {
     "that set them; +0/+4 unlabelled), with when (as steps.when) or trigger (death / "
     "attacked: the shared common event that sets it). The absolution at the Church of "
     "Vows shows as a +0 outcome when the absolution talk flag (Miriel) and the hostile "
-    "state are on",
+    "state are on (the same absolution also sets the +18 phase, listed under steps)",
     "outcomes.trigger": "death (set when the character dies) or attacked (set when "
     "attacking the NPC turns it hostile)",
 }
