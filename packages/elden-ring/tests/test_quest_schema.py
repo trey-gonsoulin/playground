@@ -48,6 +48,13 @@ _DOC = {
                     "npc": "Needle Knight Leda",
                     "quest": "Needle Knight Leda (4880–4899)",
                 },
+                {
+                    "kind": "any_of",
+                    "conditions": [
+                        {"kind": "talk", "flag": 1043379353, "npcs": ["Rya"]},
+                        {"kind": "flag", "flag": 1043379354, "negated": True},
+                    ],
+                },
             ],
         },
     ],
@@ -133,5 +140,7 @@ def test_quest_fields_documented():
         "quest_phase",
         "life_state",
         "set_at",
+        "any_of",
+        "conditions",
     ):
         assert kind in _FIELD_NOTES["steps.when"], kind
