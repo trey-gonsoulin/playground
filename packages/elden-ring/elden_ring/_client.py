@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import fnmatch
 import os
 import time
 import unicodedata
@@ -861,6 +862,147 @@ def _variant_filter(collapse_variants: bool) -> list[dict]:
     return [{"bool": {"must_not": [{"exists": {"field": "base_item"}}]}}]
 
 
+# Source values from the retired erdb/fextralife layers (2026-09-21). An unknown
+# filter value matches nothing, so name these specifically rather than returning 0.
+_RETIRED_SOURCES = frozenset({"erdb", "fextralife"})
+
+
+def _mapping_paths(props: dict, prefix: str = "") -> dict[str, dict]:
+    """Every mapped field by dotted path ({path: mapping spec}), objects included."""
+    out: dict[str, dict] = {}
+    for fname, spec in props.items():
+        path = prefix + fname
+        out[path] = spec
+        if "properties" in spec:
+            out.update(_mapping_paths(spec["properties"], path + "."))
+    return out
+
+
+def _queryable_paths() -> frozenset[str]:
+    """Mapped paths plus their subfields (description_ja.lemma, name.keyword)."""
+    paths = set()
+    for path, spec in _mapping_paths(INDEX_MAPPING["mappings"]["properties"]).items():
+        paths.add(path)
+        paths.update(f"{path}.{sub}" for sub in spec.get("fields", {}))
+    return frozenset(paths)
+
+
+def _unknown_fields(names: list[str] | None) -> list[str]:
+    """Field names not in the mapping; a name with * passes if it matches any path."""
+    if not names:
+        return []
+    paths = _queryable_paths()
+    return [
+        n
+        for n in names
+        if n not in paths
+        and not ("*" in n and any(fnmatch.fnmatchcase(p, n) for p in paths))
+    ]
+
+
+def _precheck(source: str | None = None, *field_lists: list[str] | None) -> dict | None:
+    """Error for a retired source or an unmapped field name, before any query (#205)."""
+    if source in _RETIRED_SOURCES:
+        return {
+            "error": f"source '{source}' was retired 2026-09-21; all data is native — "
+            "filter by entity_type, or call describe_fields() for the live sources"
+        }
+    unknown = [n for names in field_lists for n in _unknown_fields(names)]
+    if unknown:
+        return {
+            "error": f"unknown field(s) {unknown}; call describe_fields() for the "
+            "field catalog"
+        }
+    return None
+
+
+def _check_filter_values(
+    client: OpenSearch,
+    entity_type: str | None = None,
+    source: str | None = None,
+    patch_version: str | None = None,
+) -> dict | None:
+    """Error naming a filter value no document carries, else None (#205).
+
+    Called only after a query comes back empty: an unknown value always matches
+    nothing, so a non-empty result needs no check.
+    """
+    if not (entity_type or source or patch_version):
+        return None
+    resp = client.search(
+        index=INDEX,
+        body={
+            "size": 0,
+            "aggs": {
+                "entity_type": {"terms": {"field": "entity_type", "size": 50}},
+                "source": {"terms": {"field": "source", "size": 50}},
+                "patch_version": {"terms": {"field": "patch_version", "size": 100}},
+            },
+        },
+    )
+    aggs = resp["aggregations"]
+
+    def _keys(name: str) -> list[str]:
+        return [b["key"] for b in aggs[name]["buckets"]]
+
+    if entity_type and entity_type not in _keys("entity_type"):
+        return {
+            "error": f"unknown entity_type '{entity_type}'; "
+            f"valid: {sorted(_keys('entity_type'))}"
+        }
+    if source and source not in _keys("source"):
+        return {"error": f"unknown source '{source}'; valid: {sorted(_keys('source'))}"}
+    if patch_version and patch_version not in _keys("patch_version"):
+        return {
+            "error": f"patch version '{patch_version}' is not loaded; "
+            f"loaded versions: {sorted(_keys('patch_version'), key=_ver_key)}"
+        }
+    return None
+
+
+def _field_coverage_warnings(
+    client: OpenSearch, fields: list[str], entity_type: str | None
+) -> list[str]:
+    """A warning per named field that no document (of entity_type) carries (#205).
+
+    Fields are checked on their base field, so description_ja.lemma counts
+    description_ja. Each warning lists the text fields the type does carry.
+    """
+    bases = []
+    for f in fields:
+        base = f
+        for suf in (*_JP_SUBFIELD_SUFFIXES, ".keyword", ".folded"):
+            if base.endswith(suf):
+                base = base[: -len(suf)]
+                break
+        bases.append(base)
+    check = list(dict.fromkeys([*bases, *_LITERAL_FIELDS]))
+    query = {"term": {"entity_type": entity_type}} if entity_type else {"match_all": {}}
+    resp = client.search(
+        index=INDEX,
+        body={
+            "size": 0,
+            "query": query,
+            "aggs": {
+                "has": {
+                    "filters": {"filters": {f: {"exists": {"field": f}} for f in check}}
+                }
+            },
+        },
+    )
+    counts = {
+        f: b["doc_count"] for f, b in resp["aggregations"]["has"]["buckets"].items()
+    }
+    carried = [f for f in _LITERAL_FIELDS if counts.get(f)]
+    scope = f"{entity_type} documents" if entity_type else "documents"
+    return [
+        f"{f}: no {scope} carry this field; "
+        f"text fields they carry: {', '.join(carried) or 'none'}"
+        for f, base in zip(fields, bases)
+        if not counts.get(base)
+    ]
+
+
 def search(
     client: OpenSearch,
     query: str,
@@ -874,6 +1016,8 @@ def search(
     collapse_affinity: bool = False,
     collapse_variants: bool = False,
 ) -> list[dict] | dict:
+    if err := _precheck(source, include_fields):
+        return err
     filters = []
     if entity_type:
         filters.append({"term": {"entity_type": entity_type}})
@@ -953,10 +1097,18 @@ def search(
 
     if count_only:
         if not patch_version:
-            return {"total": resp["aggregations"]["distinct_entities"]["value"]}
-        return {"total": resp["hits"]["total"]["value"]}
-
-    return [{"score": hit["_score"], **hit["_source"]} for hit in resp["hits"]["hits"]]
+            out: list[dict] | dict = {
+                "total": resp["aggregations"]["distinct_entities"]["value"]
+            }
+        else:
+            out = {"total": resp["hits"]["total"]["value"]}
+    else:
+        out = [
+            {"score": hit["_score"], **hit["_source"]} for hit in resp["hits"]["hits"]
+        ]
+    if not out or out == {"total": 0}:
+        return _check_filter_values(client, entity_type, source, patch_version) or out
+    return out
 
 
 def _ascii_fold(s: str) -> str:
@@ -1039,12 +1191,54 @@ def get_entity(
     name: str,
     entity_type: str | None = None,
     include_variants: bool = False,
+    patch_version: str | None = None,
 ) -> dict | None:
+    if patch_version:
+        loaded = _entity_versions(client, None)
+        if patch_version not in loaded:
+            return {
+                "error": f"patch version '{patch_version}' is not loaded; "
+                f"loaded versions: {loaded}"
+            }
     resolved = _resolve_entity_doc(client, name, entity_type)
     if resolved is None:
-        return None
+        return _check_filter_values(client, entity_type)
     doc, historical = resolved
-    if historical:
+    if patch_version:
+        # As-of the entity_type's own version set (#206): dialogue is loaded once
+        # per Data0 group, so a patch between representatives maps to the earlier one.
+        etype = doc["entity_type"]
+        ev = _entity_versions(client, etype)
+        resolved_version = _resolve_asof(patch_version, ev)
+        if resolved_version is None:
+            return {
+                "error": f"no {etype} data at or before '{patch_version}' "
+                f"(earliest loaded: {ev[0] if ev else 'none'})"
+            }
+        resp = client.search(
+            index=INDEX,
+            body={
+                "size": 1,
+                "query": {
+                    "bool": {
+                        "filter": [
+                            {"term": {"name.keyword": doc["name"]}},
+                            {"term": {"entity_type": etype}},
+                            {"term": {"patch_version": resolved_version}},
+                        ]
+                    }
+                },
+            },
+        )
+        hits = resp["hits"]["hits"]
+        if not hits:
+            return {"error": f"'{doc['name']}' not present in {resolved_version}"}
+        out = _public(hits[0]["_source"])
+        if historical:
+            out |= {"name_is_historical": True, "queried_name": name}
+        if resolved_version != patch_version:
+            out["requested_patch_version"] = patch_version
+    elif historical:
         # A historical name matched an old patch; return the current doc instead of
         # stale stats, and say so (#63).
         newest = _newest_doc(client, {"name.keyword": doc["name"]}, doc["entity_type"])
@@ -1405,7 +1599,65 @@ def search_literal(
     subfield automatically, so fields=["description_ja"] with use_lemmatize=True searches
     description_ja.lemma. Without this, an explicit field would search the surface form and
     silently defeat the analyzer.
+
+    Unknown values return {"error": ...} instead of a silent 0 (#205): a retired
+    source or unmapped field name up front, and an entity_type / source /
+    patch_version that no document carries when the result is empty. An empty
+    result over a mapped field that no doc of the type carries adds "warnings".
     """
+    if err := _precheck(source, fields, include_fields):
+        return err
+    out = _search_literal(
+        client,
+        pattern=pattern,
+        fields=fields,
+        entity_type=entity_type,
+        patch_version=patch_version,
+        limit=limit,
+        include_fields=include_fields,
+        count_only=count_only,
+        sort_id_gte=sort_id_gte,
+        sort_id_lte=sort_id_lte,
+        sort_id_mod=sort_id_mod,
+        sort_id_remainder=sort_id_remainder,
+        use_kuromoji=use_kuromoji,
+        patterns=patterns,
+        source=source,
+        use_lemmatize=use_lemmatize,
+        include_unavailable=include_unavailable,
+        collapse_affinity=collapse_affinity,
+        collapse_variants=collapse_variants,
+    )
+    if out["total"]:
+        return out
+    if err := _check_filter_values(client, entity_type, source, patch_version):
+        return err
+    if fields and (warnings := _field_coverage_warnings(client, fields, entity_type)):
+        out["warnings"] = warnings
+    return out
+
+
+def _search_literal(
+    client: OpenSearch,
+    pattern: str | None = None,
+    fields: list[str] | None = None,
+    entity_type: str | None = None,
+    patch_version: str | None = None,
+    limit: int = 200,
+    include_fields: list[str] | None = None,
+    count_only: bool = False,
+    sort_id_gte: int | None = None,
+    sort_id_lte: int | None = None,
+    sort_id_mod: int | None = None,
+    sort_id_remainder: int = 0,
+    use_kuromoji: bool = False,
+    patterns: list[str] | None = None,
+    source: str | None = None,
+    use_lemmatize: bool = False,
+    include_unavailable: bool = False,
+    collapse_affinity: bool = False,
+    collapse_variants: bool = False,
+) -> dict:
     if fields is not None:
         search_fields = _route_literal_fields(fields, use_lemmatize, use_kuromoji)
     elif use_lemmatize:
@@ -1468,7 +1720,7 @@ def search_literal(
             sub_include = [*include_fields, "name"]
         seen: dict[str, dict] = {}
         for p in all_patterns:
-            r = search_literal(
+            r = _search_literal(
                 client,
                 pattern=p,
                 fields=fields,
@@ -1682,6 +1934,8 @@ def text_changed_between(
     Only entities present in both versions are included (added/removed entities
     are excluded — use diff_entities for per-entity existence checks).
     """
+    if err := _precheck(None, [field]):
+        return err
     # A requested version must be a real loaded patch somewhere in the index …
     global_versions = set(_entity_versions(client, None))
     for v in (v1, v2):
@@ -1761,7 +2015,22 @@ def list_menu_categories(
 
     Counts are distinct-entity counts (cardinality on name.keyword), not raw
     doc counts, so multi-patch duplication doesn't inflate the numbers.
+
+    An unknown or retired entity_type / source returns {"error": ...} (#205).
     """
+    if err := _precheck(source):
+        return err
+    out = _menu_categories(client, entity_type, source)
+    if not out:
+        return _check_filter_values(client, entity_type, source) or out
+    return out
+
+
+def _menu_categories(
+    client: OpenSearch,
+    entity_type: str | None = None,
+    source: str | None = None,
+) -> dict[str, int] | dict[str, dict[str, int]]:
     if entity_type:
         filters: list[dict] = [{"term": {"entity_type": entity_type}}]
         if source:
@@ -1837,14 +2106,14 @@ _FIELD_NOTES: dict[str, str] = {
     "remembrance, great_rune, tool), merchant, enemy, boss (one doc per boss encounter, "
     "#79), site_of_grace, location, warp, quest, cutscene (one doc per realtime "
     "cutscene scene, #92), npc_dialogue, game_text (prompts, map banners, tutorials, "
-    "loading tips, #98; item-use dialogs, #90). An unknown value matches nothing",
+    "loading tips, #98; item-use dialogs, #90). An unknown value returns an error listing these",
     "patch_version": "real game patch the doc was extracted from (native is per-patch); use with diff_entities",
     "source": "internal game-data origin — the param table, FMG or event script the doc "
     "was built from; the live values are listed under sources above (EquipParamWeapon, "
     "EquipParamGoods, Magic, NpcName, GameAreaParam, BonfireWarpParam, EMEVD, TalkMsg, …). "
     "Not 1:1 with entity_type (EquipParamGoods backs ten goods types; EMEVD backs warp, "
     "cutscene and quest). All data is first-party native extraction; the retired 'erdb' "
-    "/ 'fextralife' values and any other unknown value match nothing",
+    "/ 'fextralife' values and any other unknown value return an error",
     "availability": "'cut' for content whose in-game name row is [ERROR]-marked (scrapped, "
     "e.g. Millicent's set); 'unobtainable' for real-named armor with no acquisition path — "
     "enemy-only gear / reused assets like the Ragged set (#71); absent for normal obtainable "
@@ -2260,7 +2529,7 @@ _FIELD_NOTES: dict[str, str] = {
     "text_content_ja": "Japanese long text; .ja/.morph/.lemma subfields drive JP search "
     "modes. Present on goods types, npc_dialogue, game_text, merchant and cutscenes with "
     "subtitles only. Equipment (weapon, armor, spell, item, ash_of_war, ammo) has its "
-    "JP text in description_ja instead, so naming text_content_ja there returns 0",
+    "JP text in description_ja instead, so naming text_content_ja there returns 0 plus a warning",
     "npc_id": "enemy's NpcName FMG id (6-digit humanoid / 9-digit boss & creature)",
     "stats": "enemy combat stats from one NpcParam row, bound by boss health bar, then "
     "NameID, then spirit-ash label (#84)",
