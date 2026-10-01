@@ -1831,14 +1831,20 @@ def list_entity_types(client: OpenSearch) -> list[str]:
 # ones a caller can't guess. Grouped stat objects are keyed by their dotted path
 # (stats.hp); self-describing leaves (attack_power.fire, requirements.str) get no note.
 _FIELD_NOTES: dict[str, str] = {
-    "entity_type": "category filter: weapon, armor, spell, item, ash_of_war, merchant, "
-    "enemy, boss (one doc per boss encounter, #79), npc_dialogue, game_text "
-    "(prompts, map banners, tutorials, loading tips, #98; item-use dialogs, #90), "
-    "cutscene (one doc per realtime cutscene scene, #92)",
+    "entity_type": "category filter, one of the entity_types listed above: equipment "
+    "(weapon, armor, spell, item = talismans, ash_of_war, ammo), goods (consumable, "
+    "key_item, info, crafting_material, upgrade_material, crystal_tear, spirit_ash, "
+    "remembrance, great_rune, tool), merchant, enemy, boss (one doc per boss encounter, "
+    "#79), site_of_grace, location, warp, quest, cutscene (one doc per realtime "
+    "cutscene scene, #92), npc_dialogue, game_text (prompts, map banners, tutorials, "
+    "loading tips, #98; item-use dialogs, #90). An unknown value matches nothing",
     "patch_version": "real game patch the doc was extracted from (native is per-patch); use with diff_entities",
-    "source": "internal game-data origin — the param table or FMG the doc was built from "
-    "(EquipParamWeapon, EquipParamProtector, Magic, EquipParamAccessory, EquipParamGem, "
-    "ShopLineupParam, GameAreaParam, TalkMsg, EMEVD). All data is first-party native extraction.",
+    "source": "internal game-data origin — the param table, FMG or event script the doc "
+    "was built from; the live values are listed under sources above (EquipParamWeapon, "
+    "EquipParamGoods, Magic, NpcName, GameAreaParam, BonfireWarpParam, EMEVD, TalkMsg, …). "
+    "Not 1:1 with entity_type (EquipParamGoods backs ten goods types; EMEVD backs warp, "
+    "cutscene and quest). All data is first-party native extraction; the retired 'erdb' "
+    "/ 'fextralife' values and any other unknown value match nothing",
     "availability": "'cut' for content whose in-game name row is [ERROR]-marked (scrapped, "
     "e.g. Millicent's set); 'unobtainable' for real-named armor with no acquisition path — "
     "enemy-only gear / reused assets like the Ragged set (#71); absent for normal obtainable "
@@ -1846,9 +1852,11 @@ _FIELD_NOTES: dict[str, str] = {
     "include_unavailable=True to include them.",
     "display_name": "per-patch in-game FMG name; differs from name when an item was renamed across patches",
     "menu_category": "in-game equipment menu grouping (e.g. 'Straight Sword', 'Reaper', 'Head')",
-    "sort_id": "in-game sort index; base-game armaments are 1000-aligned with +N per affinity "
-    "variant, but DLC bases are not 1000-aligned — use collapse_variants, not sort_id_mod, "
-    "to count distinct armaments",
+    "sort_id": "in-game sort index; affinity variants are their base + N. Most "
+    "armament bases are multiples of 1000, but not all: base-game Butchering Knife "
+    "(2106500) and Prelate's Inferno Crozier (2504500), and many DLC armaments "
+    "(+100 … +900 offsets), are not, so sort_id_mod silently drops them. Always use "
+    "collapse_variants to count distinct armaments",
     "affinity": "infusable weapon's affinity (Standard, Heavy, Keen, … Occult); each affinity "
     "is its own doc, linked to the Standard row by base_item",
     "base_item": "on an item variant doc: its family's base. Weapon affinity -> Standard "
@@ -2238,8 +2246,21 @@ _FIELD_NOTES: dict[str, str] = {
     "altered_variant": "name of the altered version of this armor",
     "altered_from": "name of the base armor this piece is altered from",
     "name_ja": "Japanese name; .ja/.morph/.lemma subfields drive JP search modes",
-    "description_ja": "Japanese description; .ja/.morph/.lemma subfields drive JP search modes",
-    "text_content_ja": "Japanese long text; .ja/.morph/.lemma subfields drive JP search modes",
+    "description_ja": "Japanese description; .ja/.morph/.lemma subfields drive JP search "
+    "modes. On equipment and goods docs; npc_dialogue, game_text and merchant keep "
+    "their JP text in text_content_ja",
+    "description": "the item's in-game English description (flavor text); also the line "
+    "itself on npc_dialogue / game_text and a stock summary on merchant. Absent on enemy, "
+    "boss, location, site_of_grace, warp, quest and cutscene docs",
+    "text_content": "searchable long text. Goods (consumable, key_item, …): the "
+    "description; npc_dialogue / game_text: the line; merchant: the full stock list; "
+    "cutscene: label + subtitles; enemy / boss / site_of_grace / location / warp / quest: "
+    "the name plus its place names (a search aid, not game text). Absent on weapon, "
+    "armor, spell, item, ash_of_war and ammo — search description there",
+    "text_content_ja": "Japanese long text; .ja/.morph/.lemma subfields drive JP search "
+    "modes. Present on goods types, npc_dialogue, game_text, merchant and cutscenes with "
+    "subtitles only. Equipment (weapon, armor, spell, item, ash_of_war, ammo) has its "
+    "JP text in description_ja instead, so naming text_content_ja there returns 0",
     "npc_id": "enemy's NpcName FMG id (6-digit humanoid / 9-digit boss & creature)",
     "stats": "enemy combat stats from one NpcParam row, bound by boss health bar, then "
     "NameID, then spirit-ash label (#84)",
@@ -2349,7 +2370,7 @@ _FIELD_NOTES: dict[str, str] = {
     "variants.npc_param_ids": "NpcParam rows in this stat block",
     "variants.hp_scaled": "in-game HP range over this block's placements (as hp_scaled)",
     "variants.maps": "MSB map ids of this block's placements (e.g. m12_01_00_00 for the "
-    "Lake of Rot). DLC maps are omitted: their MSB file names are content hashes",
+    "Lake of Rot; DLC maps such as m61 are resolved too, #133)",
     "phases": "multi-phase boss fight (#132), the same list on every phase's doc: one "
     "entry per fighting character in phase order, from the map event scripts' boss "
     "events, e.g. Beast Clergyman -> Maliketh, Radagon -> Elden Beast, Godfrey -> "

@@ -76,7 +76,7 @@ def search_entities(
             spell        — sorceries and incantations with FP cost, requirements and
                            decoded effects (buffs, heals, on-hit buildup; #88)
             ash_of_war   — weapon skills / ashes of war with effect descriptions
-            item         — talismans (with SpEffect-derived effect / effects) and equippables
+            item         — talismans (with SpEffect-derived effect / effects)
             ammo         — arrows, greatarrows, bolts, and ballista bolts (attack
                            by element, status_buildup / status_effects, and the
                            shot's projectile flight + follow-up hits and their
@@ -214,13 +214,15 @@ def search_entities(
             this a relevance count, not an exact-phrase count; for corpus counts use
             search_entities_literal.
         source: If provided, restrict to documents from one internal game-data
-            origin — the param table or FMG the docs were extracted from:
-            EquipParamWeapon, EquipParamProtector, Magic, EquipParamAccessory,
-            EquipParamGem, EquipParamGoods, ShopLineupParam, TalkMsg. One source can
-            back several entity_types (EquipParamGoods → consumable/key_item/…;
-            EquipParamWeapon → weapon/ammo), so entity_type is usually the better
-            filter; use source when you specifically want to think in terms of the
-            underlying game structure. Call describe_fields() for the live list.
+            origin — the param table, FMG or script the docs were extracted from
+            (e.g. EquipParamWeapon, EquipParamGoods, Magic, NpcName, GameAreaParam,
+            EMEVD, TalkMsg). One source can back several entity_types
+            (EquipParamGoods → consumable/key_item/…; EquipParamWeapon → weapon/ammo;
+            EMEVD → warp/cutscene/quest), and one entity_type can come from several
+            sources (game_text, location, enemy), so entity_type is usually the
+            better filter. An unrecognized value (including the retired "erdb")
+            matches nothing and returns no results rather than an error; call
+            describe_fields() for the live list.
         include_unavailable: By default, content that exists in the game data but is not
             obtainable is excluded from results — availability="cut" (name row [ERROR]-marked,
             e.g. Millicent's armor set) or availability="unobtainable" (real-named armor with
@@ -235,7 +237,9 @@ def search_entities(
         collapse_affinity: Deprecated alias for collapse_variants.
 
     Returns a list of entity documents when count_only is False, each with at minimum:
-    entity_type, name, patch_version, source, description. Use get_entity() for the
+    entity_type, name, patch_version and source; description is present on items,
+    equipment, dialogue, game_text and merchants but not on enemy, boss, location,
+    site_of_grace, warp, quest or cutscene docs. Use get_entity() for the
     full document of a specific named entity, or describe_fields() to see all
     queryable fields. Item documents may include cross-reference edge fields:
       sold_by            — merchant names that sell this item (per-patch)
@@ -306,7 +310,7 @@ def get_entity(
     Args:
         name: Exact entity name (case-sensitive), e.g. "Rivers of Blood".
         entity_type: Optional type hint to disambiguate if two entities share
-            a name across categories (e.g. a boss and a lore entry).
+            a name across categories (e.g. a boss and its enemy doc).
         include_variants: If True, add variant_docs: the full docs of the rest of the
             entity's item variant family at the same patch, in sort order (the base
             plus every doc naming it in base_item). Works from the base (Halberd ->
@@ -325,6 +329,12 @@ def get_entity(
     share a name ("Godrick the Grafted"): pass entity_type="boss" for the encounter
     doc (arena, runes, banner), "enemy" for the character's stats, and
     "site_of_grace" for a grace named after its boss.
+
+    There is no patch_version argument: get_entity always returns the newest
+    loaded document. For an older patch's values use diff_entities (field by
+    field) or search_entities_literal(pattern=<name>, fields=["name"],
+    patch_version=...), whose results hold that snapshot's full documents (the
+    phrase also matches longer names, e.g. Heavy Halberd for Halberd).
 
     Historical names resolve too: an item renamed across patches is indexed under
     its current name, with the per-patch name kept in display_name. Looking one up
@@ -430,10 +440,13 @@ def list_menu_categories(
             (e.g. entity_type="weapon" → {"Straight Sword": 26, "Reaper": 4, ...}).
             If omitted, return {entity_type: {category: entity_count}} for every
             type that has menu_category set — all data in one call.
-        source: If provided, restrict counts to documents from this data source
-            (e.g. source="erdb"). Use this to scope to the authoritative base-game
-            layer and exclude cross-source duplicates. See list_patch_versions() for
-            available source values.
+        source: If provided, restrict counts to documents extracted from one game
+            param table (e.g. "EquipParamWeapon", "EquipParamProtector",
+            "EquipParamGoods"). All data is first-party native extraction, so there
+            are no cross-source duplicates to exclude, and entity_type is usually the
+            better filter. An unrecognized value matches nothing and returns {}; call
+            describe_fields() for the live source list. There is no patch filter:
+            counts are distinct names across every loaded patch, DLC included.
 
     Returns:
         dict[str, int] when entity_type is given; dict[str, dict[str, int]] otherwise.
@@ -578,8 +591,16 @@ def search_entities_literal(
     Raptor Talons, … 13 docs), and the variants carry the base's text, so a Japanese
     phrase in one armament's description counts up to 13 times. Pass
     collapse_variants=True to count distinct items: Raptor Talons then counts once
-    for 凶手 instead of 13 times. Don't use sort_id_mod=1000 for this — it also drops
-    every non-weapon match and DLC bases (whose sort_ids aren't 1000-aligned).
+    for 凶手 instead of 13 times. Don't use sort_id_mod=1000 for this: it drops
+    every non-weapon match and every armament whose sort_id isn't a multiple of
+    1000 — base game included (Butchering Knife 2106500, Prelate's Inferno Crozier
+    2504500), and many DLC armaments (+100 … +900 offsets).
+
+    Unmatched arguments return zero, not an error: a misspelled or retired
+    source / entity_type / patch_version value, or a field that the filtered
+    entity type doesn't carry (text_content_ja on weapons), all give total 0.
+    Before trusting a zero, check the value against describe_fields() /
+    list_entity_types() / list_patch_versions().
 
     For Japanese text there are two modes:
     - Default (use_kuromoji=False): standard CJK-unigram tokenization. Every character
@@ -613,7 +634,12 @@ def search_entities_literal(
         fields: Which fields to search. Defaults to the eleven text fields: name,
             display_name, description, text_content, effect_text, info_text, name_ja,
             description_ja, text_content_ja, effect_text_ja, info_text_ja (the
-            effect/info lines are #90). Japanese fields named here are routed to the subfield for
+            effect/info lines are #90). Not every type carries every field:
+            equipment (weapon, armor, spell, item, ash_of_war, ammo) has its JP flavor
+            text only in description_ja and no text_content / text_content_ja;
+            npc_dialogue, game_text and merchant have JP text only in
+            text_content_ja. Naming a field the type lacks returns 0 — see the
+            per-field notes in describe_fields(). Japanese fields named here are routed to the subfield for
             the active mode (.morph when use_kuromoji=True, .lemma when
             use_lemmatize=True), so an explicit fields list composes correctly with
             those modes. The acquisition keyword fields (sold_by, acquisition_sources,
@@ -636,8 +662,10 @@ def search_entities_literal(
         sort_id_lte: Filter to entities with sort_id <= this value.
         sort_id_mod: If set, keep only entities where sort_id % sort_id_mod == sort_id_remainder.
             A raw structural filter on the in-game sort index: docs without a sort_id
-            (enemies, merchants, dialogue) never match. To count distinct armaments use
-            collapse_variants instead (DLC weapon bases aren't 1000-aligned).
+            (enemies, merchants, dialogue) never match. Not a way to count distinct
+            armaments: some bases aren't 1000-aligned in the base game too (Butchering
+            Knife 2106500, Prelate's Inferno Crozier 2504500) and many in the DLC, so
+            it silently drops them. Use collapse_variants instead.
         sort_id_remainder: Remainder for the modulo filter (default 0).
         use_kuromoji: If True, route Japanese fields through kuromoji morpheme segmentation
             so phrase queries respect dictionary word boundaries. Prevents single-kanji
@@ -645,8 +673,11 @@ def search_entities_literal(
             Has no effect on English fields. Default False (standard CJK-unigram mode).
             See the suru-verb caveat above before trusting zero results from this mode.
         source: If provided, restrict to documents from one internal game-data origin
-            (the param/FMG the docs were extracted from, e.g. "EquipParamWeapon",
-            "Magic", "TalkMsg"). Maps 1:1 to entity_type today; call describe_fields()
+            (the param/FMG/script the docs were extracted from, e.g. "EquipParamWeapon",
+            "Magic", "TalkMsg", "EMEVD"). Not 1:1 with entity_type: EquipParamGoods
+            backs ten goods types, EMEVD backs warp/cutscene/quest, and game_text and
+            location each come from several. An unrecognized value (including the
+            retired "erdb") matches nothing, so total is 0; call describe_fields()
             for the live list. Prefer entity_type unless you want the game-structure view.
         use_lemmatize: If True, route Japanese fields through kuromoji baseform reduction
             so a single query in dictionary form matches all inflected surface forms.
@@ -732,8 +763,8 @@ def text_changed_between(
     If this tool returns a connection error, call start_search_service() first.
 
     Args:
-        entity_type: Entity category to scan (weapon, armor, spell, item, ash_of_war,
-            merchant, npc_dialogue, game_text).
+        entity_type: Entity category to scan (any list_entity_types() value, e.g.
+            weapon, armor, spell, item, ash_of_war, merchant, npc_dialogue, game_text).
         field: Field to compare, e.g. "description", "description_ja", "text_content",
             "location", "effect", "display_name" (per-patch FMG name — use this to find
             weapons renamed across patches). Any indexed field works, including a grouped
