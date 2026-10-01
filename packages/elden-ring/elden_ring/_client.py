@@ -746,6 +746,7 @@ INDEX_MAPPING = {
             "shop_listings": {"type": "object", "enabled": False},  # #89
             "given_by": {"type": "keyword"},
             "in_exchange_for": {"type": "keyword"},  # #97
+            "in_exchange_count": {"type": "integer"},  # #193
             "exchanged_for": {"type": "keyword"},  # #97
             "starting_classes": {"type": "keyword"},
             # Crafting (#87).
@@ -1929,11 +1930,20 @@ _FIELD_NOTES: dict[str, str] = {
     "(#97), e.g. Volcano Manor Invitation: [Rya's Necklace]; Radiant Baldachin's Blessing: "
     "[Cursemark of Death]; Sellia's Secret: [Unalloyed Gold Needle]; Thiollier's Concoction: "
     "[Black Syrup]; Jolán and Anna <-> Swordhand of Night Jolán (a swap that keeps the "
-    "upgrade level). One-to-one hand-ins only: Gurranq's Deathroot rewards aren't linked, and "
-    "Neutralizing Boluses (traded for an unnamed, param-less goods id) carries none. The "
-    "reverse of exchanged_for",
+    "upgrade level). Gurranq's Deathroot rewards are linked too (#193), with the count in "
+    "in_exchange_count, e.g. Bestial Sling: [Deathroot]. Neutralizing Boluses (traded for an "
+    "unnamed, param-less goods id) carries none. Name-keyed like given_by, so a same-named "
+    "item (the DLC Beast Claw fist weapon) shows it too. The reverse of exchanged_for",
+    "in_exchange_count": "on a counted turn-in reward (#193): which hand-in of the "
+    "in_exchange_for item buys it, counting every one handed over so far (Gurranq takes all "
+    "Deathroot held and keeps a running total), e.g. Clawmark Seal and Beast Eye: 1, Bestial "
+    "Sling: 2, Ash of War: Beast's Roar: 4, Beast Claw: 5, Ancient Dragon Smithing Stone: 9. "
+    "The fifth onward also need Gurranq's aggression event, which isn't modeled. Absent on "
+    "one-to-one turn-ins",
     "exchanged_for": "on a handed-in item doc: the NPC gift(s) handing it over gets (#97), the "
-    "reverse of in_exchange_for, e.g. Rya's Necklace: [Volcano Manor Invitation]",
+    "reverse of in_exchange_for, e.g. Rya's Necklace: [Volcano Manor Invitation]; a counted "
+    "turn-in lists them in hand-in order (#193), e.g. Deathroot: [Clawmark Seal, Beast Eye, "
+    "Bestial Sling, … Ancient Dragon Smithing Stone]",
     "starting_classes": "on an item doc: the starting classes whose initial loadout includes "
     "it (#23), e.g. Longsword: [Vagabond]; Memory of Grace: every class",
     "crafted_from": "on a craftable consumable/ammo doc: the crafting recipe's materials as "

@@ -200,6 +200,7 @@ def test_grouped_leaves_mapped():
         "equipped_by": "keyword",
         "given_by": "keyword",
         "in_exchange_for": "keyword",
+        "in_exchange_count": "integer",
         "exchanged_for": "keyword",
         "starting_classes": "keyword",
     }
