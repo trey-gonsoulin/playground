@@ -70,3 +70,24 @@ def test_cutscene_fields_documented():
     assert "Dialogue <id>" in _FIELD_NOTES["talk_ids"]
     assert "boss_intro" in _FIELD_NOTES["trigger_kind"]
     assert "EMEVD" in _FIELD_NOTES["source"]
+
+
+def test_dialogue_cutscene_back_link():
+    # A 1.17 build's npc_dialogue subtitle line, trimmed (#192).
+    doc = {
+        "entity_type": "npc_dialogue",
+        "name": "Dialogue 20030000",
+        "patch_version": "1.17.0",
+        "source": "TalkMsg",
+        "description": "Foul Tarnished,",
+        "text_content": "Foul Tarnished,",
+        "text_content_ja": "褪せ人よ",
+        "tags": ["dialogue"],
+        "cutscene": "Cutscene 10000010",
+        "cutscene_id": 10000010,
+    }
+    for field in doc:
+        assert field in _PROPS, field
+    assert _PROPS["cutscene"] == {"type": "keyword"}
+    assert "talk_ids" in _FIELD_NOTES["cutscene"]
+    assert "npc_dialogue" in _FIELD_NOTES["cutscene_id"]
