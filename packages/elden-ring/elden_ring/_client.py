@@ -6,6 +6,7 @@ import fnmatch
 import os
 import time
 import unicodedata
+from typing import overload
 
 import boto3
 import requests
@@ -1018,6 +1019,7 @@ def search(
 ) -> list[dict] | dict:
     if err := _precheck(source, include_fields):
         return err
+    patch_version = _canonical_version(client, patch_version)
     filters = []
     if entity_type:
         filters.append({"term": {"entity_type": entity_type}})
@@ -1193,8 +1195,10 @@ def get_entity(
     include_variants: bool = False,
     patch_version: str | None = None,
 ) -> dict | None:
+    requested_version = patch_version
     if patch_version:
         loaded = _entity_versions(client, None)
+        patch_version = _canonical_version(client, patch_version)
         if patch_version not in loaded:
             return {
                 "error": f"patch version '{patch_version}' is not loaded; "
@@ -1236,8 +1240,8 @@ def get_entity(
         out = _public(hits[0]["_source"])
         if historical:
             out |= {"name_is_historical": True, "queried_name": name}
-        if resolved_version != patch_version:
-            out["requested_patch_version"] = patch_version
+        if resolved_version != requested_version:
+            out["requested_patch_version"] = requested_version
     elif historical:
         # A historical name matched an old patch; return the current doc instead of
         # stale stats, and say so (#63).
@@ -1337,6 +1341,36 @@ def list_patch_versions(client: OpenSearch) -> list[str]:
     return _entity_versions(client, None)
 
 
+def _trimmed_key(version: str) -> tuple:
+    """_ver_key without trailing zero parts, so "1.02.0" == "1.02", "1.10" == "1.10.0"."""
+    key = list(_ver_key(version))
+    while len(key) > 1 and key[-1] == 0:
+        key.pop()
+    return tuple(key)
+
+
+@overload
+def _canonical_version(client: OpenSearch, version: str) -> str: ...
+@overload
+def _canonical_version(client: OpenSearch, version: None) -> None: ...
+@overload
+def _canonical_version(client: OpenSearch, version: str | None) -> str | None: ...
+def _canonical_version(client: OpenSearch, version: str | None) -> str | None:
+    """The loaded patch label a requested version means, ignoring trailing zeros.
+
+    Labels 1.02–1.06 have no third part while 1.07.0 on do, so "1.02.0" and
+    "1.10" would otherwise be "not loaded". Returns the input unchanged when it's
+    loaded already or doesn't match exactly one loaded label.
+    """
+    if not version:
+        return version
+    loaded = _entity_versions(client, None)
+    if version in loaded:
+        return version
+    matches = [v for v in loaded if _trimmed_key(v) == _trimmed_key(version)]
+    return matches[0] if len(matches) == 1 else version
+
+
 def _resolve_asof(version: str, versions: list[str]) -> str | None:
     """Resolve a requested version to the latest loaded version <= it (as-of).
 
@@ -1376,6 +1410,8 @@ def diff_entities(
     v2: str,
     entity_type: str | None = None,
 ) -> dict:
+    requested = {v1: _canonical_version(client, v1), v2: _canonical_version(client, v2)}
+    v1, v2 = requested[v1], requested[v2]
     global_versions = set(_entity_versions(client, None))
     for v in (v1, v2):
         if v not in global_versions:
@@ -1461,6 +1497,8 @@ def diff_entities(
     }
     if queried_name != name:
         result["queried_name"] = queried_name
+    if remapped := {k: v for k, v in requested.items() if k != v}:
+        result["requested_patch_versions"] = remapped
     return result
 
 
@@ -1607,6 +1645,8 @@ def search_literal(
     """
     if err := _precheck(source, fields, include_fields):
         return err
+    requested_version = patch_version
+    patch_version = _canonical_version(client, patch_version)
     out = _search_literal(
         client,
         pattern=pattern,
@@ -1628,12 +1668,18 @@ def search_literal(
         collapse_affinity=collapse_affinity,
         collapse_variants=collapse_variants,
     )
-    if out["total"]:
-        return out
-    if err := _check_filter_values(client, entity_type, source, patch_version):
-        return err
-    if fields and (warnings := _field_coverage_warnings(client, fields, entity_type)):
-        out["warnings"] = warnings
+    if not out["total"]:
+        if err := _check_filter_values(client, entity_type, source, patch_version):
+            return err
+        if fields and (
+            warnings := _field_coverage_warnings(client, fields, entity_type)
+        ):
+            out["warnings"] = warnings
+    if patch_version != requested_version:
+        out |= {
+            "requested_patch_version": requested_version,
+            "patch_version": patch_version,
+        }
     return out
 
 
@@ -1860,6 +1906,7 @@ def calculate_attack_rating(
     if canonical is None:
         return {"error": f"weapon '{name}' not found"}
     versions = _entity_versions(client, entity_type)
+    patch_version = _canonical_version(client, patch_version)
     version = _resolve_asof(patch_version, versions) if patch_version else versions[-1]
     if version is None:
         return {"error": f"no {entity_type} data at or before '{patch_version}'"}
@@ -1936,6 +1983,7 @@ def text_changed_between(
     """
     if err := _precheck(None, [field]):
         return err
+    v1, v2 = _canonical_version(client, v1), _canonical_version(client, v2)
     # A requested version must be a real loaded patch somewhere in the index …
     global_versions = set(_entity_versions(client, None))
     for v in (v1, v2):
