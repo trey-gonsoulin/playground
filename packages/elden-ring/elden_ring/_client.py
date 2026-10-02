@@ -2219,7 +2219,9 @@ _FIELD_NOTES: dict[str, str] = {
     "Dragon Heart at Dragon Communion / Starlight Shards for Seluvis's puppets / Heart of "
     "Bayle at the Grand Altar; else the raw cost_type), quantity (stock; "
     "absent = unlimited), unlock_flag (the event flag that makes the row visible, e.g. a "
-    "bell bearing handed to the Twin Maiden Husks; absent = always sold), unlocked_by (the "
+    "bell bearing handed to the Twin Maiden Husks; absent = always sold), requires_dlc (the "
+    'paid DLC whose ownership flag gates the row: "Tarnished Pack" for its 1.17 stock), '
+    "unlocked_by (the "
     "goods that set unlock_flag: handed over in the vendor's talk script — bell bearings, "
     "scrolls, prayerbooks, quest items like Seluvis's Potion — or picked up, #144), "
     "handed_to (the NPCs whose talk script takes that item: Seluvis's Potion given to "
