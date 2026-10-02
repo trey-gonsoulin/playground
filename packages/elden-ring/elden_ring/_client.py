@@ -3019,16 +3019,15 @@ _FIELD_NOTES: dict[str, str] = {
     "outcomes": "on a quest doc: life-state changes: flag + slot (0-4) + life_state "
     "(hostile for +1/+2, dead for +3: labelled from the death / SetTeamType events "
     "that set them; +0/+4 unlabelled), with when (as steps.when) or trigger (death / "
-    "attacked: the shared common event that sets it; event: a script sets it after "
-    "waiting on conditions none of which could be listed). The absolution at the "
-    "Church of "
+    "attacked: the shared common event that sets it; event: an event script sets it "
+    "after waiting for a character's state or another flag that can't be listed as "
+    "a condition). The absolution at the Church of "
     "Vows shows as a +0 outcome when the absolution talk flag (Miriel) and the hostile "
     "state are on (the same absolution also sets the +18 phase, listed under steps)",
     "outcomes.trigger": "death (set when the character dies), attacked (set when "
-    "attacking the NPC turns it hostile) or event (an event script sets it once "
-    "something it waits for happens, e.g. another character's death or an ally "
-    "turning hostile, but its only conditions were unparsed checks or flags the "
-    "script sets itself: Sir Ansbach's +1 flag, set when Moore dies)",
+    "attacking the NPC turns it hostile) or event (an event script sets it after "
+    "waiting for something the quest data can't name, such as another character's "
+    "death or an ally turning hostile: Sir Ansbach's +1 flag, set when Moore dies)",
 }
 
 
