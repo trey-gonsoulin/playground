@@ -185,7 +185,9 @@ def search_entities(
                            (enter)"; a warp with no placed trigger "<to> (<kind>)".
             quest        — one doc per NPC questline (#95): the NPC's 20-flag event
                            block (flag_block; slots +0..+4 life state, +5..+19
-                           phases) read from the event scripts. steps are phase
+                           phases; an NPC's second block with no death or
+                           hostility evidence is all phases) read from the
+                           event scripts. steps are phase
                            transitions (phase_flag, order, entered_from, the
                            locations whose scripts check the phase, and when: the
                            conditions — boss_defeated, talk, invasion, item_pickup,
