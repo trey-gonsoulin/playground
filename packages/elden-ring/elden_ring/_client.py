@@ -148,6 +148,14 @@ def _props(type_: str, keys) -> dict:
     return {k: {"type": type_} for k in keys}
 
 
+# A raw event flag's quest step (#189): summon-sign requires_step, cutscene
+# trigger_steps.
+_QUEST_LINK = {
+    **_props("keyword", ("quest", "npc", "life_state")),
+    "phase_flag": {"type": "long"},
+    "order": {"type": "integer"},
+}
+
 # One end of a warp doc (#94): from / to.
 _WARP_END = {
     **_props("keyword", ("map", "grace", "region", "parent_region", "location")),
@@ -578,6 +586,7 @@ INDEX_MAPPING = {
                     "npc_id": {"type": "integer"},
                     "sign": {"type": "keyword"},
                     "requires_flag": {"type": "long"},
+                    "requires_step": {"properties": _QUEST_LINK},  # #189
                 }
             },
             "summonable_for": {"type": "keyword"},
@@ -587,6 +596,7 @@ INDEX_MAPPING = {
                     "map": {"type": "keyword"},
                     "sign_type": {"type": "integer"},
                     "requires_flag": {"type": "long"},
+                    "requires_step": {"properties": _QUEST_LINK},  # #189
                 }
             },
             # Sites of grace (BonfireWarpParam, #78); region/map/nearest_grace shared
@@ -668,6 +678,7 @@ INDEX_MAPPING = {
             "trigger_kind": {"type": "keyword"},
             "boss": {"type": "keyword"},
             "trigger_flags": {"type": "long"},
+            "trigger_steps": {"properties": _QUEST_LINK},  # #189
             "trigger_items": {"type": "keyword"},
             "warp_region": {"type": "long"},
             "is_ending": {"type": "boolean"},
@@ -2785,7 +2796,12 @@ _FIELD_NOTES: dict[str, str] = {
     "usual NPC summon sign), white (the DLC's plain white signs: Leda, Dane, Freyja at "
     "Rugalea) or festival (the Radahn festival's asset signs). requires_flag is the raw "
     "event flag the sign waits for (a quest step), absent when the sign is always "
-    "there; an NPC listed twice has two alternative gates (Bernahl at the Godskin Duo)",
+    "there; an NPC listed twice has two alternative gates (Bernahl at the Godskin Duo). "
+    "requires_step (#189) names the quest step behind that flag: {quest (the quest "
+    "doc), npc (only when the quest name differs), phase_flag + order (the step in "
+    "the quest doc's steps; Nepheli at Godrick: phase 4225, order 1)}, or just the "
+    "quest when only its manager event sets the flag; absent when no quest phase "
+    "sets it (about half the gates: map flags, Bernahl, Freyja)",
     "summonable_for": "on an enemy doc: the boss docs where this NPC can be summoned "
     "(reverse of npc_summons)",
     "hostile_signs": "on an enemy doc: the NPC's signs tied to no boss fight. kind "
@@ -2793,7 +2809,11 @@ _FIELD_NOTES: dict[str, str] = {
     "i.e. an NPC invasion (Bloody Finger Nerijus, Vyke, Moore after a Pest is killed); "
     "duel is a red sign the player touches (the Knight of the Great Jar). map is where "
     "it happens, sign_type the raw PlaceSummonSign type (21/22/23 for invasions, not "
-    "decoded), requires_flag the raw event flag it waits for, absent when ungated",
+    "decoded), requires_flag the raw event flag it waits for, absent when ungated, "
+    "and requires_step its quest step when a quest phase sets it (same shape as "
+    "npc_summons; #189). These sign invasions are separate from the Ceremony-instance "
+    "invasions of placements' world_state / a location's invasion_instances (#96): "
+    "no NPC has both on one map",
     "cutscene_id": "on a cutscene doc (#92): the scene's cutscene id (AABBNNNN; the doc "
     "name is 'Cutscene <id>'), the one its map scripts play. Scene ids differing only in "
     "the last digit (a …0 / …1 pair, Melina's eight 60420000-60420007 meetings) are "
@@ -2803,23 +2823,30 @@ _FIELD_NOTES: dict[str, str] = {
     "cutscene": "on an npc_dialogue doc (#192): the cutscene doc ('Cutscene <id>') the "
     "line is a subtitle of, the reverse of that doc's talk_ids. Absent on lines no "
     "cutscene speaks; a line several scenes share (the 3 opening narration lines "
-    "of the ending scenes) names the lowest id",
+    "of the ending scenes) names the lowest id. On a warp doc with a cutscene_id "
+    "(#189): the cutscene doc that plays (variant ids folded)",
     "variant_ids": "on a cutscene doc: the other cutscene ids folded into this scene",
     "asset": "on a cutscene doc: the cutscenebnd asset name (s10_00_0010 for "
     "10000010); absent when the current game files hold no such asset (15000020)",
     "label": "on a cutscene doc: a native label, no hand-written scene names. The boss "
-    "and trigger kind ('Margit, the Fell Omen: boss intro'), else the kind and first "
+    "and trigger kind ('Margit, the Fell Omen: boss intro'), else the quest of a quest "
+    "scene ('Dung Eater: quest', #189), else the kind and first "
     "subtitle line ('scripted: Greetings.'), else the kind and map",
     "trigger_kind": "on a cutscene doc: how its map scripts trigger it. boss_intro (in "
     "a boss's 28xx fight-event block, before the fight), boss_defeat (waits on / sets "
     "a boss's defeat flag), ending (cutscene flag 64 or an ending-choice flag "
     "9400-9409; keeps the Elden Beast boss link), item (gated on holding an item: the "
     "medallions of the Dectus / Rold / Haligtree lifts, but also e.g. any Flask of "
-    "Crimson Tears or Messmer's Kindling), scripted (anything else: quest steps, area "
-    "arrivals)",
+    "Crimson Tears or Messmer's Kindling), quest (a trigger flag is an NPC quest step, "
+    "see trigger_steps; #189), scripted (anything else: area arrivals, world-state "
+    "flags)",
     "boss": "on a cutscene doc: the boss doc the scene introduces or follows (see "
     "trigger_kind); the boss doc lists it back under cutscenes",
     "trigger_flags": "on a cutscene doc: the event flags its script waits to be on",
+    "trigger_steps": "on a cutscene doc (#189): the quest steps behind its "
+    "trigger_flags, one per distinct step, each {quest, npc, phase_flag, order, "
+    "life_state} as in npc_summons.requires_step (Patches' 60370000: phase 3688). "
+    "Any trigger kind can carry it; a scripted scene with one is trigger_kind quest",
     "trigger_items": "on a cutscene doc: the items the player must hold (Dectus "
     "Medallion (Left) / (Right) for the Grand Lift of Dectus)",
     "warp_region": "on a cutscene doc: the MSB region entity the player is moved to "
@@ -2981,7 +3008,9 @@ _FIELD_NOTES: dict[str, str] = {
     "evergaol?', 'Head to the realm of shadow?'. Absent when the warp doesn't ask",
     "gate_flag": "on a warp doc (#94): the event flag that must be on for a waygate "
     "to work; while it's off the gate says 'Cannot be used now' (Four Belfries "
-    "gates, the Impassable Greatbridge gates: 9410)",
+    "gates, the Impassable Greatbridge gates: 9410). These are world-state flags "
+    "(an Imbued Sword Key used, the Radahn festival begun), not quest steps. A "
+    "warp with a cutscene_id names its cutscene doc in cutscene (#189)",
     "event_id": "on a warp doc (#94): the EMEVD event that performs the warp: the "
     "common template for templated warps (90005605 waygate, 90005645/46 return to "
     "entrance, 90005880 evergaol exit, 90005881 evergaol enter), else the map "
