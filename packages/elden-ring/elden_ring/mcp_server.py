@@ -245,7 +245,8 @@ def search_entities(
     queryable fields. Item documents may include cross-reference edge fields:
       sold_by            — merchant names that sell this item (per-patch)
       shop_listings      — per shop row: vendor/price/currency/quantity/unlock_flag (#89;
-                           get_entity only, not searchable), unlocked_by /
+                           get_entity only, not searchable), requires_dlc (the paid
+                           DLC gating the row, e.g. "Tarnished Pack", #210), unlocked_by /
                            unlocked_by_defeating (the goods / bosses that unlock it, #144),
                            handed_to (the NPC the goods are given to); resold_from /
                            resale_flags on Twin Maiden Husks re-sales (bell bearing, #145)
