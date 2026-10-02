@@ -2336,7 +2336,10 @@ _FIELD_NOTES: dict[str, str] = {
     "unlocked_by / unlocked_by_defeating (#144), e.g. Somberstone Miner's Bell Bearing [5]: "
     "[Somber Smithing Stone [9]]",
     "dropped_by": "enemies that drop this item: bosses/named enemies (map EMEVD + MSB "
-    "placements, #68) and generic mobs named by their spirit-ash model label (#104)",
+    "placements, #68) and generic mobs named by their spirit-ash model label (#104). An "
+    "enemy_drop item can have no dropped_by when the game data gives its killer no name "
+    "(Teardrop Scarabs, the Fort Haight Godrick Knight dropping Ash of War: Bloody Slash; "
+    "#153)",
     "drops": "on an enemy doc: items this enemy drops (EMEVD awards + MSB death lots), "
     "merged over every encounter of the name; on a boss doc: the items awarded for that "
     "one encounter. Includes defeat rewards (remembrances, great runes) awarded when the "
