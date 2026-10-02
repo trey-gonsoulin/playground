@@ -202,6 +202,13 @@ def test_grouped_leaves_mapped():
         "in_exchange_for": "keyword",
         "in_exchange_count": "integer",
         "exchanged_for": "keyword",
+        "duplication.service": "keyword",
+        "duplication.where": "keyword",
+        "duplication.price": "integer",
+        "duplication.quantity": "integer",
+        "duplication.currency": "keyword",
+        "duplication.unlock_flag": "long",
+        "duplication.unlocked_by_defeating": "keyword",
         "starting_classes": "keyword",
     }
     for path, type_ in expected.items():
