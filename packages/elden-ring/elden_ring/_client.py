@@ -2642,7 +2642,9 @@ _FIELD_NOTES: dict[str, str] = {
     "hostile_npc (27, invaders), none (0, untargetable NPCs/objects), cooperator (2, "
     "summonable-ally rows), spirit_summon (47)",
     "ai": "enemy AI perception profile (#83) from NpcThinkParam, the think row most used by "
-    "the enemy's MSB placements. Absent = never placed with a think row",
+    "the enemy's MSB placements; a tie goes to the row placed with the doc's stat row "
+    "(the primary encounter: Belurat's Divine Beast Dancing Lion, not Rauh's), then "
+    "the lowest id. Absent = never placed with a think row",
     "ai.think_id": "NpcThinkParam row id",
     "ai.sight_distance": "sight range in meters",
     "ai.sight_angle_width": "horizontal field of view in degrees",
@@ -2936,7 +2938,9 @@ _FIELD_NOTES: dict[str, str] = {
     "location doc: the boss docs in it (by region, or a dungeon's map)",
     "arena_position": "on a boss doc: the arena's position in its map's local "
     "coordinates (GameAreaParam BossPos; the boss's MSB placement when the param's "
-    "BossMap is another map, e.g. Base Serpent Messmer's stale Haligtree row)",
+    "BossMap is another map, e.g. Base Serpent Messmer's stale Haligtree row, or its "
+    "dungeon BossPos is over 500 m from the boss, e.g. Ancestor Spirit's). It can sit "
+    "up to ~200 m from where the boss stands",
     "runes": "on a boss doc: runes awarded for the kill (GameAreaParam "
     "SingleplayerSoulReward, before rune-gain buffs)",
     "banner": "on a boss doc: the defeat banner, i.e. the boss tier: Enemy Felled "
