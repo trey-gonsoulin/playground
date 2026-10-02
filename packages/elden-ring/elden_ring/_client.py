@@ -2787,8 +2787,10 @@ _FIELD_NOTES: dict[str, str] = {
     "cutscenes": "on a boss doc (#92): the cutscene docs linked to the encounter, each "
     "{id: cutscene_id, kind: boss_intro / boss_defeat / ending}",
     "region": "on a site_of_grace doc: the grace's map-menu region (Stormhill, Liurnia "
-    "of the Lakes, Leyndell, Ashen Capital, Gravesite Plain); on a boss doc and a "
-    "location marker doc: the region of its nearest grace. Every region value is also "
+    "of the Lakes, Leyndell, Ashen Capital, Gravesite Plain); on a boss doc: the "
+    "region of the grace closest to the arena, even where nearest_grace skips that "
+    "post-fight grace (a teleport-only arena takes its nearest_grace's); on a location "
+    "marker doc: the region of its nearest grace. Every region value is also "
     "a location doc. Enemy and item docs carry it per placement; filter them on regions",
     "parent_region": "on a site_of_grace doc: the map-menu tab its region sits under "
     "(Stormhill and Weeping Peninsula -> Limgrave; Castle Ensis -> Gravesite Plain); on "
@@ -2832,7 +2834,13 @@ _FIELD_NOTES: dict[str, str] = {
     "nearest_grace": "on a boss doc: the site_of_grace doc closest to the arena (world "
     "coordinates in the open world, same map otherwise; a grace more than 30 m above "
     "or below counts as farther, so a cliff's foot or another floor loses); locates "
-    "open-world bosses",
+    "open-world bosses. It's the grace before the fight: the arena's own grace, which "
+    "only appears once the boss is beaten (Godrick the Grafted), is skipped unless "
+    "it's the map's only one, so Godrick gives Secluded Cell. A teleport-only arena "
+    "with no grace of its own (Hallowhorn Grounds, Chapel of Anticipation) gives the "
+    "grace at the warp's other end: Ancestor Spirit -> Siofra River Bank. The boss "
+    "doc's region, and the place in parentheses when a shared boss name takes a grace "
+    "('Crucible Knight (Redmane Castle Plaza)'), are still the arena's own grace's",
     "map": "MSB map id: a boss doc's arena, a site_of_grace doc's map (a dungeon grace "
     "gives the dungeon's map even though its world-map marker is on the overworld), a "
     "location marker's map (a dungeon's own map, likewise), a cutscene doc's map (where "
