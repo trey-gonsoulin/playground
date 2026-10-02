@@ -2212,7 +2212,9 @@ _FIELD_NOTES: dict[str, str] = {
     "open-world bosses (see nearest_grace / region). Enemy and item placements name "
     "their dungeon location doc instead (see locations)",
     "sold_by": "merchant names that sell this item, derived per-patch from ShopLineupParam "
-    "(includes Twin Maiden Husks for lineups they re-sell once given the bell bearing, #145)",
+    "(includes Twin Maiden Husks for lineups they re-sell once given the bell bearing, #145). "
+    "A row with no vendor label takes it from the NPC talk script that opens its range "
+    "(#212): Moore's DLC stock, or the merchant whose other rows share the range",
     "shop_listings": "not searchable; returned by get_entity. One entry per ShopLineupParam "
     "row selling the item (#89): vendor, condition (the shop row's unlock label, e.g. a "
     "scroll/prayerbook, quest step or nomadic merchant site), price, currency (runes / "
