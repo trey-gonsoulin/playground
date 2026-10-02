@@ -2303,14 +2303,15 @@ _FIELD_NOTES: dict[str, str] = {
     "duplication opener",
     "duplication.service": '"Ash of War duplication" (Smithing Master Hewg\'s "Duplicate '
     'Ash of War" menu, every Ash of War) or "Remembrance duplication" (a Wandering '
-    "Mausoleum; 1.17 rows only, absent on older patches)",
+    "Mausoleum; patch 1.12 onward, absent on older patches)",
     "duplication.where": '"Smithing Master Hewg" or "Wandering Mausoleum"',
     "duplication.price": "the cost per copy: 1 (Lost Ashes of War) for an Ash of War; 0 for "
     "a remembrance (free)",
     "duplication.currency": '"Lost Ashes of War" (ShopLineupParam costType 4); absent when '
     "price is 0",
-    "duplication.quantity": "copies available per playthrough: 1 for a remembrance; absent "
-    "= unlimited (Ashes of War)",
+    "duplication.quantity": "copies per stock row: 1 for a remembrance (a second, separately "
+    "stocked row range exists, opened by an unplaced Leyndell talk); absent = unlimited "
+    "(Ashes of War)",
     "duplication.unlock_flag": "the event flag that makes the row visible: a per-ash flag "
     "(65810 + n, in EquipParamGem order) for an Ash of War, the boss-defeat flag for a "
     "remembrance (e.g. 9101 Remembrance of the Grafted)",
