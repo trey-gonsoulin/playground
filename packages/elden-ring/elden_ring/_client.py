@@ -275,6 +275,13 @@ _QUEST_CONDITION = {
 }
 # kind any_of (#203): at least one of the nested (leaf) conditions holds
 _QUEST_CONDITION = {**_QUEST_CONDITION, "conditions": {"properties": _QUEST_CONDITION}}
+# What an 'event' outcome's script waited for (#213): the conditions above, or kind
+# character (a character's state, named via its MSB entities)
+_QUEST_WAITED_FOR = {
+    **_QUEST_CONDITION,
+    "state": {"type": "keyword"},
+    "entity_ids": {"type": "long"},
+}
 
 INDEX_MAPPING = {
     "settings": {
@@ -702,6 +709,7 @@ INDEX_MAPPING = {
                     "life_state": {"type": "keyword"},
                     "trigger": {"type": "keyword"},
                     "when": {"properties": _QUEST_CONDITION},
+                    "waited_for": {"properties": _QUEST_WAITED_FOR},
                 }
             },
             "name_ja": {
@@ -2994,7 +3002,9 @@ _FIELD_NOTES: dict[str, str] = {
     "npc_names": "on a quest doc: every NpcName persona of that NPC "
     "(['Heartbroken Maiden', 'Roderika', 'Roderika, Spirit Tuner'])",
     "flag_block": "on a quest doc: the NPC's 20 event flags [first, last]; +0..+4 are "
-    "its life state, +5..+19 its quest phases",
+    "its life state, +5..+19 its quest phases. A second block of an NPC whose +1..+4 "
+    "flags are set with no death / hostility evidence uses all 20 as phases "
+    "(Roderika 3060, Moore 4920)",
     "related_npcs": "on a quest doc: other NPCs whose quest phase or life state gates "
     "one of its steps or outcomes",
     "steps": "on a quest doc: one entry per scripted phase transition (a phase set "
@@ -3034,14 +3044,20 @@ _FIELD_NOTES: dict[str, str] = {
     "(hostile for +1/+2, dead for +3: labelled from the death / SetTeamType events "
     "that set them; +0/+4 unlabelled), with when (as steps.when) or trigger (death / "
     "attacked: the shared common event that sets it; event: an event script sets it "
-    "after waiting for a character's state or another flag that can't be listed as "
-    "a condition). The absolution at the Church of "
+    "after waiting for a character's state or another flag, listed in waited_for). "
+    "The absolution at the Church of "
     "Vows shows as a +0 outcome when the absolution talk flag (Miriel) and the hostile "
     "state are on (the same absolution also sets the +18 phase, listed under steps)",
     "outcomes.trigger": "death (set when the character dies), attacked (set when "
     "attacking the NPC turns it hostile) or event (an event script sets it after "
-    "waiting for something the quest data can't name, such as another character's "
-    "death or an ally turning hostile: Sir Ansbach's +1 flag, set when Moore dies)",
+    "waiting for a character's state or another flag, listed in waited_for: Sir "
+    "Ansbach's +1 flag, set when Moore dies)",
+    "outcomes.waited_for": "on an outcome with trigger event: what its event script "
+    "waited for before setting the flag (any one of them, or several together, ends "
+    "the wait). kind character = a character's state (state dead / alive / "
+    "attacked / health / special_effect; npc = its name, entity_ids = its MSB "
+    "entities; one entry per character, in the most telling state checked), else a "
+    "condition shaped as steps.when. The NPC's own block flags are left out",
 }
 
 
