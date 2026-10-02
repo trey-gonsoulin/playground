@@ -781,6 +781,7 @@ INDEX_MAPPING = {
                     "service": {"type": "keyword"},
                     "where": {"type": "keyword"},
                     "also_at": {"type": "keyword"},  # #225
+                    "only_at_bell_mausoleums": {"type": "boolean"},  # #227
                     "price": {"type": "integer"},
                     "currency": {"type": "keyword"},
                     "quantity": {"type": "integer"},
@@ -2324,6 +2325,13 @@ _FIELD_NOTES: dict[str, str] = {
     "duplication.also_at": "other places offering the same duplication from their own, "
     'separately stocked rows (#225): ["Stone Coffin Altar"] on a remembrance from 1.12 '
     "(the three DLC coffins, ShopLineupParam 102800-26); absent otherwise",
+    "duplication.only_at_bell_mausoleums": "true on a remembrance the two bell-less "
+    "Wandering Mausoleums in Liurnia don't offer (#227): their talk scripts open the "
+    "duplication range 10 rows in, past the demigods' remembrances, so only the mausoleums "
+    "with a boss bell duplicate them: the Grafted, Full Moon Queen, Starscourge, "
+    "Blasphemous, Omen King, Blood Lord and Rot Goddess at every patch, plus the Impaler and "
+    "A God and a Lord from 1.12; absent = every Wandering Mausoleum (and every also_at "
+    "place)",
     "duplication.price": "the cost per copy: 1 (Lost Ashes of War) for an Ash of War; 0 for "
     "a remembrance (free)",
     "duplication.currency": '"Lost Ashes of War" (ShopLineupParam costType 4); absent when '
