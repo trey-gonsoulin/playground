@@ -60,8 +60,23 @@ _DOC = {
     ],
     "outcomes": [
         {"flag": 3941, "slot": 1, "trigger": "attacked", "life_state": "hostile"},
-        # #208: set by a map event whose only conditions weren't listable
-        {"flag": 3942, "slot": 2, "trigger": "event", "life_state": "hostile"},
+        # #208: set by a map event whose only conditions weren't listable; #213:
+        # what it waited for
+        {
+            "flag": 3942,
+            "slot": 2,
+            "trigger": "event",
+            "life_state": "hostile",
+            "waited_for": [
+                {
+                    "kind": "character",
+                    "state": "dead",
+                    "npc": "Moore",
+                    "entity_ids": [2047460720, 2047460721],
+                },
+                {"kind": "flag", "flag": 1035429251, "set_at": ["Moonlight Altar"]},
+            ],
+        },
         {
             "flag": 3943,
             "slot": 3,
@@ -116,6 +131,8 @@ def test_quest_flags_are_long():
         "steps.entered_from",
         "steps.when.flag",
         "outcomes.flag",
+        "outcomes.waited_for.flag",
+        "outcomes.waited_for.entity_ids",
     ):
         assert _mapped(path)["type"] == "long", path
 
@@ -130,8 +147,10 @@ def test_quest_fields_documented():
         "steps.when",
         "outcomes",
         "outcomes.trigger",
+        "outcomes.waited_for",
     ):
         assert f in _FIELD_NOTES, f
+    assert "waited_for" in _FIELD_NOTES["outcomes.trigger"]
     assert "quest doc" in _FIELD_NOTES["locations"]
     for kind in (
         "boss_defeated",
