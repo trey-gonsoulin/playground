@@ -60,6 +60,8 @@ _DOC = {
     ],
     "outcomes": [
         {"flag": 3941, "slot": 1, "trigger": "attacked", "life_state": "hostile"},
+        # #208: set by a map event whose only conditions weren't listable
+        {"flag": 3942, "slot": 2, "trigger": "event", "life_state": "hostile"},
         {
             "flag": 3943,
             "slot": 3,
