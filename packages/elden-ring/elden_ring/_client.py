@@ -2939,8 +2939,8 @@ _FIELD_NOTES: dict[str, str] = {
     "arena_position": "on a boss doc: the arena's position in its map's local "
     "coordinates (GameAreaParam BossPos; the boss's MSB placement when the param's "
     "BossMap is another map, e.g. Base Serpent Messmer's stale Haligtree row, or its "
-    "dungeon BossPos is over 500 m from the boss, e.g. Ancestor Spirit's). It can sit "
-    "up to ~200 m from where the boss stands",
+    "dungeon BossPos is over 500 m from the boss, e.g. Ancestor Spirit's). In a dungeon "
+    "it can sit up to ~200 m from where the boss stands",
     "runes": "on a boss doc: runes awarded for the kill (GameAreaParam "
     "SingleplayerSoulReward, before rune-gain buffs)",
     "banner": "on a boss doc: the defeat banner, i.e. the boss tier: Enemy Felled "
