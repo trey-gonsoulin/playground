@@ -259,16 +259,17 @@ def search_entities(
                            exchanged_for is the reverse, on the handed-in item;
                            in_exchange_count = the n-th hand-in (Gurranq's Deathroot, #193)
       duplication        — a duplication menu for an item you hold, not a sale (#223):
-                           {service, where, price, currency, quantity, unlock_flag,
-                           unlocked_by_defeating}; Ashes of War at Smithing Master Hewg
-                           (1 Lost Ashes of War), remembrances at a Wandering Mausoleum
-                           (free, once, 1.12+)
+                           {service, where, also_at, price, currency, quantity,
+                           unlock_flag, unlocked_by_defeating}; Ashes of War at Smithing
+                           Master Hewg (1 Lost Ashes of War), remembrances at a Wandering
+                           Mausoleum (free, once; also_at the DLC Stone Coffin Altars, 1.12+)
       starting_classes   — starting classes whose initial loadout includes it (#23)
       acquisition_types  — how it's obtained: merchant / enemy_drop / found_in_world /
                            chest / given_by_npc / starting_equipment / keepsake / crafted /
                            gathered (gathering-node pickup, #142) /
                            quest_reward (scripted quest award, #137) /
-                           invader_drop (defeating an NPC invader, #138)
+                           invader_drop (defeating an NPC invader, #138) /
+                           altered ((Altered) armor made from its base piece, #224)
       crafted_from       — crafting recipe materials [{item, quantity}], with
                            crafted_yield and recipe_unlock (cookbooks) (#87)
       used_in / unlocks_recipes — on materials / cookbooks: the items they craft (#87)

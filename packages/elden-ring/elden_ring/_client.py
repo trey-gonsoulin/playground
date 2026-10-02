@@ -769,6 +769,7 @@ INDEX_MAPPING = {
                 "properties": {
                     "service": {"type": "keyword"},
                     "where": {"type": "keyword"},
+                    "also_at": {"type": "keyword"},  # #225
                     "price": {"type": "integer"},
                     "currency": {"type": "keyword"},
                     "quantity": {"type": "integer"},
@@ -2269,7 +2270,9 @@ _FIELD_NOTES: dict[str, str] = {
     "pickup such as a herb, butterfly or ore; placements with gathering, #142) / "
     "quest_reward (a map event script awards it once a quest flag is set, e.g. Rogier's "
     "Bell Bearing, the Volcano Manor rewards; #137) / invader_drop (awarded for defeating "
-    "an NPC invader, e.g. Hoslow's Petal Whip, Millicent's Prosthesis; #138). Scripted "
+    "an NPC invader, e.g. Hoslow's Petal Whip, Millicent's Prosthesis; #138) / altered (an "
+    "(Altered) armor piece, made from its base piece, see altered_from, by the alteration "
+    "service at a site of grace; not a sale, so no sold_by; #224). Scripted "
     "awards that wait only on an interaction (paintings, Great Rune restoration) carry "
     "neither",
     "acquisition_sources": "named sources: merchant names, boss/named-enemy names (see "
@@ -2305,14 +2308,17 @@ _FIELD_NOTES: dict[str, str] = {
     "duplication opener",
     "duplication.service": '"Ash of War duplication" (Smithing Master Hewg\'s "Duplicate '
     'Ash of War" menu, every Ash of War) or "Remembrance duplication" (a Wandering '
-    "Mausoleum; patch 1.12 onward, absent on older patches)",
+    "Mausoleum, every patch; from 1.12 also the DLC Stone Coffin Altars, see also_at)",
     "duplication.where": '"Smithing Master Hewg" or "Wandering Mausoleum"',
+    "duplication.also_at": "other places offering the same duplication from their own, "
+    'separately stocked rows (#225): ["Stone Coffin Altar"] on a remembrance from 1.12 '
+    "(the three DLC coffins, ShopLineupParam 102800-26); absent otherwise",
     "duplication.price": "the cost per copy: 1 (Lost Ashes of War) for an Ash of War; 0 for "
     "a remembrance (free)",
     "duplication.currency": '"Lost Ashes of War" (ShopLineupParam costType 4); absent when '
     "price is 0",
-    "duplication.quantity": "copies per stock row: 1 for a remembrance (a second, separately "
-    "stocked row range exists, opened by an unplaced Leyndell talk); absent = unlimited "
+    "duplication.quantity": "copies per stock row: 1 for a remembrance (from 1.12 the "
+    "also_at Stone Coffin Altars have their own stock row); absent = unlimited "
     "(Ashes of War)",
     "duplication.unlock_flag": "the event flag that makes the row visible: a per-ash flag "
     "(65810 + n, in EquipParamGem order) for an Ash of War, the boss-defeat flag for a "
