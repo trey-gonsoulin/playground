@@ -139,15 +139,17 @@ def search_entities(
                            Enemy Felled … Demigod Felled, Legend Felled, God Slain),
                            the items that encounter awards, and npc_summons (the NPC
                            summon signs for the fight + their quest gate flag;
-                           #93). Named after the
+                           #93, and requires_step, the quest step behind it:
+                           {quest, phase_flag, order}; #189). Named after the
                            defeated character; a name several encounters share gets
                            the place appended, e.g. "Night's Cavalry (Gate Town
                            Bridge)" — search entity_type="boss" by name to list them.
                            cutscenes lists the encounter's cutscene docs ({id, kind}).
             cutscene     — one doc per realtime cutscene scene (#92), named
                            "Cutscene <id>": trigger_kind (boss_intro, boss_defeat,
-                           ending, item, scripted), the boss it belongs to, map,
-                           trigger_flags / trigger_items (e.g. the Dectus medallion
+                           ending, item, quest, scripted), the boss it belongs to,
+                           map, trigger_flags (+ trigger_steps, the quest steps
+                           behind them, #189) / trigger_items (e.g. the Dectus medallion
                            halves), is_ending / unskippable, and its subtitles (EN +
                            subtitles_ja, in playback order; talk_ids join the
                            npc_dialogue lines). label is native (boss + kind, or the
@@ -179,7 +181,8 @@ def search_entities(
                            waygate / return_to_entrance / evergaol / cutscene /
                            scripted, from and to ({map, grace, region, location,
                            entity_id, position}), prompt ("Travel to another
-                           location?"), gate_flag (waygates that need a flag).
+                           location?"), gate_flag (waygates that need a flag),
+                           cutscene (the cutscene doc a kind-cutscene warp plays).
                            Named "from → to" by nearest grace, e.g. "The Four
                            Belfries → Dragon Temple"; evergaols "Stormhill Evergaol
                            (enter)"; a warp with no placed trigger "<to> (<kind>)".
