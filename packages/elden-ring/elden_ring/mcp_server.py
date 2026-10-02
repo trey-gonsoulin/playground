@@ -191,8 +191,8 @@ def search_entities(
                            transitions (phase_flag, order, entered_from, the
                            locations whose scripts check the phase, and when: the
                            conditions — boss_defeated, talk, invasion, item_pickup,
-                           item_held, another NPC's quest_phase / life_state, a
-                           raw flag named only by the maps that set it, or any_of
+                           item_held, another NPC's quest_phase / life_state,
+                           hit_count (the NPC hit N times), a raw flag named only by the maps that set it, or any_of
                            with nested conditions, one of which holds). outcomes
                            are life-state changes (hostile / dead). Phases are
                            positional (order + location), not labelled; e.g.

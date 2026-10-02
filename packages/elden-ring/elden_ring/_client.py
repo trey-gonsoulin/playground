@@ -272,6 +272,9 @@ _QUEST_CONDITION = {
     "items": {"type": "keyword"},
     "item_id": {"type": "long"},
     "set_at": {"type": "keyword"},
+    # kind hit_count (#218): the character's MSB entities + the hits counted
+    "entity_ids": {"type": "long"},
+    "hits": {"type": "integer"},
 }
 # kind any_of (#203): at least one of the nested (leaf) conditions holds
 _QUEST_CONDITION = {**_QUEST_CONDITION, "conditions": {"properties": _QUEST_CONDITION}}
@@ -280,7 +283,6 @@ _QUEST_CONDITION = {**_QUEST_CONDITION, "conditions": {"properties": _QUEST_COND
 _QUEST_WAITED_FOR = {
     **_QUEST_CONDITION,
     "state": {"type": "keyword"},
-    "entity_ids": {"type": "long"},
 }
 
 INDEX_MAPPING = {
@@ -3073,7 +3075,10 @@ _FIELD_NOTES: dict[str, str] = {
     "boss_defeated (bosses), invasion (an NPC-invasion defeat flag, #138), item_pickup "
     "(items: the pickup lot's items), item_held (items), talk (a flag the npcs' talk "
     "scripts set: a dialogue choice or hand-over), quest_phase / life_state (npc, "
-    "quest when that NPC has several blocks), flag (unresolved; set_at = the "
+    "quest when that NPC has several blocks), hit_count (a map flag set once the "
+    "player has hit the npc that many times while friendly: hits, entity_ids = its "
+    "MSB entities; the hostility counter Ranni / Iji / Seluvis wait on), flag "
+    "(unresolved; set_at = the "
     "locations of the maps whose events set it), or any_of (conditions: at least one "
     "of these nested conditions holds, each shaped as above). negated = the "
     "condition must be off",
