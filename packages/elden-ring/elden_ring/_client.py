@@ -762,6 +762,18 @@ INDEX_MAPPING = {
             "in_exchange_for": {"type": "keyword"},  # #97
             "in_exchange_count": {"type": "integer"},  # #193
             "exchanged_for": {"type": "keyword"},  # #97
+            # Duplication menus (#223): Ash of War / remembrance copies.
+            "duplication": {
+                "properties": {
+                    "service": {"type": "keyword"},
+                    "where": {"type": "keyword"},
+                    "price": {"type": "integer"},
+                    "currency": {"type": "keyword"},
+                    "quantity": {"type": "integer"},
+                    "unlock_flag": {"type": "long"},
+                    "unlocked_by_defeating": {"type": "keyword"},
+                }
+            },
             "starting_classes": {"type": "keyword"},
             # Crafting (#87).
             "crafted_from": {
@@ -2285,6 +2297,26 @@ _FIELD_NOTES: dict[str, str] = {
     "reverse of in_exchange_for, e.g. Rya's Necklace: [Volcano Manor Invitation]; a counted "
     "turn-in lists them in hand-in order (#193), e.g. Deathroot: [Clawmark Seal, Beast Eye, "
     "Bestial Sling, … Ancient Dragon Smithing Stone]",
+    "duplication": "on an ash_of_war or remembrance doc: the menu that makes another copy of "
+    "the item once you hold it (#223). Not a sale, so it never adds sold_by / shop_listings / "
+    "an acquisition_types value; from the ShopLineupParam rows a talk script opens with a "
+    "duplication opener",
+    "duplication.service": '"Ash of War duplication" (Smithing Master Hewg\'s "Duplicate '
+    'Ash of War" menu, every Ash of War) or "Remembrance duplication" (a Wandering '
+    "Mausoleum; patch 1.12 onward, absent on older patches)",
+    "duplication.where": '"Smithing Master Hewg" or "Wandering Mausoleum"',
+    "duplication.price": "the cost per copy: 1 (Lost Ashes of War) for an Ash of War; 0 for "
+    "a remembrance (free)",
+    "duplication.currency": '"Lost Ashes of War" (ShopLineupParam costType 4); absent when '
+    "price is 0",
+    "duplication.quantity": "copies per stock row: 1 for a remembrance (a second, separately "
+    "stocked row range exists, opened by an unplaced Leyndell talk); absent = unlimited "
+    "(Ashes of War)",
+    "duplication.unlock_flag": "the event flag that makes the row visible: a per-ash flag "
+    "(65810 + n, in EquipParamGem order) for an Ash of War, the boss-defeat flag for a "
+    "remembrance (e.g. 9101 Remembrance of the Grafted)",
+    "duplication.unlocked_by_defeating": "the boss(es) whose defeat sets a remembrance's "
+    "unlock_flag, e.g. Remembrance of the Grafted: [Godrick the Grafted]",
     "starting_classes": "on an item doc: the starting classes whose initial loadout includes "
     "it (#23), e.g. Longsword: [Vagabond]; Memory of Grace: every class",
     "crafted_from": "on a craftable consumable/ammo doc: the crafting recipe's materials as "

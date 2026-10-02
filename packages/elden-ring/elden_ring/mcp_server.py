@@ -258,6 +258,11 @@ def search_entities(
       in_exchange_for    — the item the giving NPC takes for it (turn-in, #97);
                            exchanged_for is the reverse, on the handed-in item;
                            in_exchange_count = the n-th hand-in (Gurranq's Deathroot, #193)
+      duplication        — a duplication menu for an item you hold, not a sale (#223):
+                           {service, where, price, currency, quantity, unlock_flag,
+                           unlocked_by_defeating}; Ashes of War at Smithing Master Hewg
+                           (1 Lost Ashes of War), remembrances at a Wandering Mausoleum
+                           (free, once, 1.12+)
       starting_classes   — starting classes whose initial loadout includes it (#23)
       acquisition_types  — how it's obtained: merchant / enemy_drop / found_in_world /
                            chest / given_by_npc / starting_equipment / keepsake / crafted /
