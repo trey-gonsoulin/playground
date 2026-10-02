@@ -74,7 +74,15 @@ _DOC = {
                     "npc": "Moore",
                     "entity_ids": [2047460720, 2047460721],
                 },
-                {"kind": "flag", "flag": 1035429251, "set_at": ["Moonlight Altar"]},
+                {"kind": "flag", "flag": 1034509403, "set_at": ["Liurnia"]},
+                # #218: the map flag the NPC's hit counter sets
+                {
+                    "kind": "hit_count",
+                    "flag": 1035429251,
+                    "npc": "Ranni the Witch",
+                    "entity_ids": [1035420706],
+                    "hits": 3,
+                },
             ],
         },
         {
@@ -133,6 +141,8 @@ def test_quest_flags_are_long():
         "outcomes.flag",
         "outcomes.waited_for.flag",
         "outcomes.waited_for.entity_ids",
+        "steps.when.entity_ids",
+        "steps.when.conditions.entity_ids",
     ):
         assert _mapped(path)["type"] == "long", path
 
@@ -163,5 +173,7 @@ def test_quest_fields_documented():
         "set_at",
         "any_of",
         "conditions",
+        "hit_count",
+        "hits",
     ):
         assert kind in _FIELD_NOTES["steps.when"], kind
