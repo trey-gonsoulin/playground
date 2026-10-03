@@ -115,6 +115,8 @@ def test_grouped_leaves_mapped():
         "critical_hits.riposte": "boolean",
         "critical_hits.stance_break": "boolean",
         "critical_hits.other_throw_types": "integer",
+        "phases.critical_hits.stance_break": "boolean",
+        "phases.critical_hits.other_throw_types": "integer",
         "team_type": "integer",
         "team": "keyword",
         "ai.think_id": "integer",
@@ -624,3 +626,6 @@ def test_critical_hits_notes_name_the_confirmed_kinds():
     assert "Tree Sentinel" in _FIELD_NOTES["critical_hits"]
     for leaf in ("backstab", "riposte", "stance_break", "other_throw_types"):
         assert f"critical_hits.{leaf}" in _FIELD_NOTES
+    # Multi-phase bosses: per-phase values, top level is their union (Rennala).
+    assert "phases.critical_hits" in _FIELD_NOTES
+    assert "union" in _FIELD_NOTES["critical_hits"]
