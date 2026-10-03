@@ -78,6 +78,18 @@ def test_set_when_fields_mapped():
                     "flag": 19001100,
                     "when": [{"kind": "character", "state": "dead", "npc": "x"}],
                 },
+                # #232: no event sets it; the talk script that does
+                {
+                    "flag": 1051362702,
+                    "when": [
+                        {
+                            "kind": "talk",
+                            "flag": 1051362702,
+                            "npcs": ["Castellan Jerren"],
+                        }
+                    ],
+                },
+                {"flag": 9000, "when": [{"kind": "talk", "flag": 9000}]},
             ],
         },
     )
@@ -96,3 +108,6 @@ def test_set_when_documented():
     # guards beside an undecoded wait aren't presented as enough (#228)
     assert "untracked_wait" in _FIELD_NOTES["gate_set_when"]
     assert "quest-only" in _FIELD_NOTES["npc_summons"]
+    # a flag only a talk script or pickup sets (#232)
+    assert "item_pickup" in _FIELD_NOTES["gate_set_when"]
+    assert "Castellan Jerren" in _FIELD_NOTES["trigger_set_when"]
