@@ -502,6 +502,15 @@ INDEX_MAPPING = {
                     "status_effects": {"type": "keyword"},
                 }
             },
+            # Player criticals the bound row's model allows, from ThrowParam (#128).
+            "critical_hits": {
+                "properties": {
+                    "backstab": {"type": "boolean"},
+                    "riposte": {"type": "boolean"},
+                    "stance_break": {"type": "boolean"},
+                    "other_throw_types": {"type": "integer"},
+                }
+            },
             # NpcParam TeamType + NpcThinkParam AI profile via MSB placements (#83).
             "team_type": {"type": "integer"},
             "team": {"type": "keyword"},
@@ -2713,6 +2722,20 @@ _FIELD_NOTES: dict[str, str] = {
     "Standard",
     "grabs.status_buildup": "max direct per-hit status buildup of grab hits",
     "grabs.status_effects": "statuses a grab inflicts (Margit's grab: bleed)",
+    "critical_hits": "which critical hits the player can land on this enemy (#128), from "
+    "the player's ThrowParam rows for the bound NpcParam row's model. All false = no "
+    "critical at all (Tree Sentinel, Rykard). Absent on c0000 humanoids (NPCs, "
+    "invaders) and unbound docs",
+    "critical_hits.backstab": "a critical from behind is possible (false for Margit, "
+    "Malenia, Crucible Knights)",
+    "critical_hits.riposte": "a critical after a parry is possible; whether any of its "
+    "attacks can be parried is a separate question (Guardian Golem has the row but is "
+    "not parryable)",
+    "critical_hits.stance_break": "a critical after a stance (posture) break is possible "
+    "(the only critical of Radahn, Godrick, Mohg, Placidusax)",
+    "critical_hits.other_throw_types": "raw ThrowParam ThrowType values with no confirmed "
+    "meaning (22 / 24 = eight 45-degree arcs around a downed or seated body, 23 = a "
+    "second rear arc)",
     "team_type": "enemy NpcParam TeamType (#83): the team deciding whose attacks hit whom and "
     "who is targeted, so enemies with the same value are allies. Values without a team "
     "label are Elden Ring factions with no confirmed name (48 = lord soldiers + Mad "
