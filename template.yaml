@@ -234,6 +234,70 @@ Resources:
   YnabHttpApi:
     Type: AWS::Serverless::HttpApi
 
+  # ---------------------------------------------------------------------------
+  # Genealogy — personal family tree (JSON/GEDCOM in S3) + WikiTree + newspapers
+  # ---------------------------------------------------------------------------
+
+  # Holds trees/<name>/{tree.json,tree.ged,exports/,resources/}. Retained and
+  # versioned: family research is irreplaceable, and versioning is the undo for
+  # tree_remove_person / tree_import_gedcom replace=True.
+  GenealogyBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      VersioningConfiguration:
+        Status: Enabled
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+  GenealogyHttpApi:
+    Type: AWS::Serverless::HttpApi
+
+  # No auth for now (like the Elden Ring and Therapist Finder functions): claude.ai
+  # connectors can't send a static bearer header. The app enforces one if
+  # GENEALOGY_MCP_SECRET is set.
+  GenealogyMcpFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      PackageType: Image
+      # HTTP API stops waiting at 30 s, so a longer Lambda timeout would only let
+      # work finish after the client already saw a 503 (and retried). Keep the
+      # function just under it; outbound HTTP calls use 20 s timeouts to fit.
+      Timeout: 29
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Ref GenealogyBucket
+      Environment:
+        Variables:
+          TREE_BUCKET: !Ref GenealogyBucket
+          # Identifies this app to WikiTree; anonymous callers get stricter limits.
+          WIKITREE_APP_ID: genealogy-mcp
+      Events:
+        Root:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref GenealogyHttpApi
+            Path: /
+            Method: ANY
+        Proxy:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref GenealogyHttpApi
+            Path: /{proxy+}
+            Method: ANY
+    Metadata:
+      DockerTag: latest
+      DockerContext: .
+      Dockerfile: packages/genealogy/Dockerfile
+
 Outputs:
   TherapistFinderApiUrl:
     Description: Therapist Finder HTTP API endpoint URL (MCP server at /mcp)
@@ -246,6 +310,14 @@ Outputs:
   EldenRingMcpApiUrl:
     Description: Elden Ring MCP HTTP API endpoint URL (MCP server at /mcp)
     Value: !Sub "https://${EldenRingHttpApi}.execute-api.${AWS::Region}.amazonaws.com"
+
+  GenealogyMcpApiUrl:
+    Description: Genealogy MCP HTTP API endpoint URL (MCP server at /mcp)
+    Value: !Sub "https://${GenealogyHttpApi}.execute-api.${AWS::Region}.amazonaws.com"
+
+  GenealogyBucketName:
+    Description: S3 bucket holding family trees (tree.json, tree.ged, resources/)
+    Value: !Ref GenealogyBucket
 
   EldenRingSearchInstanceId:
     Description: EC2 instance ID for the OpenSearch node (use to find the public DNS after starting)

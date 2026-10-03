@@ -5,6 +5,7 @@
 !packages/*/pyproject.toml
 !packages/*/Dockerfile
 !packages/elden-ring/elden_ring
+!packages/genealogy/genealogy
 !packages/therapist-finder/therapist_finder
 !packages/ynab-mcp/ynab_mcp
 **/__pycache__
