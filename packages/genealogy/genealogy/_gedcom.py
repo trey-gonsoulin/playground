@@ -29,7 +29,12 @@ def to_gedcom(tree: Tree, source_name: str = "genealogy-mcp") -> str:
     ]
     famc, fams = tree.family_index()
     for person in tree.people.values():
-        out += _person_lines(person, famc.get(person.id, []), fams.get(person.id, []))
+        out += _person_lines(
+            person,
+            famc.get(person.id, []),
+            fams.get(person.id, []),
+            tree.own_id_system(),
+        )
     for fam in tree.families.values():
         out += _family_lines(tree, fam)
     out.append("0 TRLR")
@@ -92,7 +97,9 @@ def _event_lines(event: Event) -> list[str]:
     return lines
 
 
-def _person_lines(p: Person, famc: list[str], fams: list[str]) -> list[str]:
+def _person_lines(
+    p: Person, famc: list[str], fams: list[str], own_system: str
+) -> list[str]:
     lines = [f"0 {_xref(p.id)} INDI"]
     lines.append(f"1 NAME {p.given or ''} /{p.surname or ''}/".replace("  ", " "))
     if p.given:
@@ -106,6 +113,12 @@ def _person_lines(p: Person, famc: list[str], fams: list[str]) -> list[str]:
         lines += _text(1, "NOTE", note)
     for cit in p.citations:
         lines += _citation_lines(1, cit)
+    # REFN/TYPE is the standard home for foreign ids (plus our own id, so an
+    # edited export merges back); _FSFTID is what FamilySearch-aware apps
+    # (RootsMagic, Ancestral Quest) read.
+    ids = [(s, e) for s, e in p.external_ids.items() if s != own_system]
+    for system, ext_id in [(own_system, p.id), *ids]:
+        lines += [f"1 REFN {ext_id}", f"2 TYPE {system}"]
     if fs_id := p.external_ids.get("familysearch"):
         lines.append(f"1 {_FS_TAG} {fs_id}")
     lines += [f"1 FAMC {_xref(f)}" for f in famc]
@@ -233,8 +246,15 @@ def _notes(node: _Node) -> list[str]:
     return [n.text() for n in node.all("NOTE") if not n.value.startswith("@")]
 
 
-def from_gedcom(text: str, name: str = "default") -> Tree:
-    """Parse GEDCOM text into a Tree. People and families are renumbered."""
+def from_gedcom(text: str, name: str = "default", source: str | None = None) -> Tree:
+    """Parse GEDCOM text into a Tree. People and families are renumbered.
+
+    External ids come from ``REFN``/``TYPE`` pairs (how we export them) and
+    ``_FSFTID``. With ``source`` set (e.g. "ancestry"), each person also gets
+    ``external_ids[source]`` = their ``_UID`` if present, else their xref, so
+    re-importing a later export from the same app matches the same people.
+    Xrefs are only stable if the exporting app keeps them stable.
+    """
     roots = _parse_nodes(text)
     tree = Tree(name=name)
     id_map: dict[str, str] = {}
@@ -262,8 +282,14 @@ def from_gedcom(text: str, name: str = "default") -> Tree:
             notes=_notes(node),
             citations=_parse_citations(node),
         )
+        for refn in node.all("REFN"):
+            if (kind := refn.first("TYPE")) and refn.value.strip():
+                person.external_ids[kind.value.strip()] = refn.value.strip()
         if fs := node.first(_FS_TAG):
             person.external_ids["familysearch"] = fs.value.strip()
+        if source:
+            uid = node.first("_UID")
+            person.external_ids[source] = uid.value.strip() if uid else node.xref
         id_map[node.xref] = person.id
         tree.people[person.id] = person
 

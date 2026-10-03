@@ -235,7 +235,7 @@ Resources:
     Type: AWS::Serverless::HttpApi
 
   # ---------------------------------------------------------------------------
-  # Genealogy — FamilySearch lookups + personal family tree (JSON/GEDCOM in S3)
+  # Genealogy — personal family tree (JSON/GEDCOM in S3) + WikiTree + newspapers
   # ---------------------------------------------------------------------------
 
   # Holds trees/<name>/{tree.json,tree.ged,exports/,resources/}. Retained and
@@ -261,14 +261,9 @@ Resources:
   GenealogyHttpApi:
     Type: AWS::Serverless::HttpApi
 
-  # Prerequisites (create before deploying):
-  #   aws ssm put-parameter --name /genealogy/familysearch-client-id --type String \
-  #     --value '<FamilySearch app key>' --profile personal
+  # Prerequisite (create before deploying):
   #   aws ssm put-parameter --name /genealogy/mcp-secret --type String \
   #     --value "$(openssl rand -hex 32)" --profile personal
-  # Then authorize once locally, writing the token where the Lambda reads it:
-  #   FAMILYSEARCH_CLIENT_ID=... FAMILYSEARCH_TOKEN_SSM_PATH=/genealogy/familysearch-token \
-  #     AWS_PROFILE=personal uv run --package genealogy genealogy-fs-login
   GenealogyMcpFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -280,21 +275,11 @@ Resources:
       Policies:
         - S3CrudPolicy:
             BucketName: !Ref GenealogyBucket
-        - Statement:
-            # Read the OAuth token, and write it back after a refresh.
-            - Effect: Allow
-              Action:
-                - ssm:GetParameter
-                - ssm:PutParameter
-              Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/genealogy/familysearch-token'
       Environment:
         Variables:
           TREE_BUCKET: !Ref GenealogyBucket
-          FAMILYSEARCH_ENV: production
-          FAMILYSEARCH_CLIENT_ID: "{{resolve:ssm:/genealogy/familysearch-client-id}}"
-          # Path only — the token is fetched at runtime so it never sits in the
-          # Lambda environment config.
-          FAMILYSEARCH_TOKEN_SSM_PATH: /genealogy/familysearch-token
+          # Identifies this app to WikiTree; anonymous callers get stricter limits.
+          WIKITREE_APP_ID: genealogy-mcp
           GENEALOGY_MCP_SECRET: "{{resolve:ssm:/genealogy/mcp-secret}}"
       Events:
         Root:

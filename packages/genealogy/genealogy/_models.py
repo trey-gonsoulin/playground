@@ -7,7 +7,7 @@ citations) losslessly; GEDCOM is the interchange format.
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-# GEDCOM event tag -> GedcomX fact name (http://gedcomx.org/<name>).
+# GEDCOM event tags the model supports -> what they mean.
 EVENT_TAGS = {
     "BIRT": "Birth",
     "CHR": "Christening",
@@ -31,7 +31,7 @@ SINGLE_EVENTS = {"BIRT", "CHR", "BAPM", "DEAT", "BURI", "CREM"}
 class Citation(BaseModel):
     title: str
     url: str | None = None
-    # Which system the citation came from, e.g. "familysearch", "manual".
+    # Which system the citation came from, e.g. "wikitree", "gedcom", "manual".
     origin: str = "manual"
     note: str | None = None
 
@@ -70,7 +70,7 @@ class Person(BaseModel):
     events: list[Event] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)
     citations: list[Citation] = Field(default_factory=list)
-    # System name -> id in that system, e.g. {"familysearch": "KWQ7-ABC"}.
+    # System name -> id in that system, e.g. {"wikitree": "Clemens-1"}.
     external_ids: dict[str, str] = Field(default_factory=dict)
     # Storage paths (under the tree root) of resources attached to this person.
     resources: list[str] = Field(default_factory=list)
@@ -78,7 +78,7 @@ class Person(BaseModel):
     @field_validator("sex", mode="before")
     @classmethod
     def _normalize_sex(cls, v: str | None) -> str:
-        # Accepts M/F/U as well as Male/Female (GedcomX) and blanks.
+        # Accepts M/F/U as well as Male/Female and blanks.
         first = (v or "U").strip()[:1].upper()
         return first if first in ("M", "F") else "U"
 
@@ -259,51 +259,93 @@ class Tree(BaseModel):
         ):
             del self.families[fam.id]
 
-    def merge_people(
-        self, incoming: list[Person], system: str, overwrite: bool = False
-    ) -> tuple[list[Person], int]:
-        """Merge people from an external system, matching on ``external_ids[system]``.
+    def own_id_system(self) -> str:
+        """External-id system name under which GEDCOM exports carry this tree's ids,
+        so an export edited in another app merges back onto the same people."""
+        return f"tree:{self.name}"
 
-        Incoming ids are ignored; new people get fresh tree ids. Existing people
-        keep local edits and only gain missing data unless ``overwrite`` is set,
-        which takes the incoming record but keeps notes, resources and other
-        systems' ids. Returns (merged people in input order, number created).
+    def merge_tree(self, incoming: "Tree", overwrite: bool = False) -> dict:
+        """Merge another tree (a WikiTree pedigree, a GEDCOM import...) into this one.
+
+        People match when they share any external id (same system and value),
+        so re-importing the same source is idempotent. Unmatched people are
+        added with fresh ids. Matched people keep local edits and only gain
+        missing data, unless ``overwrite`` is set: then the incoming record wins,
+        keeping local notes, resources and other systems' ids. Family links are
+        then applied through add_child / family_for_partners, which never
+        downgrade or duplicate existing links.
         """
+        own = self.own_id_system()
         index = {
-            p.external_ids[system]: p
+            (system, ext): p
             for p in self.people.values()
-            if system in p.external_ids
+            for system, ext in [*p.external_ids.items(), (own, p.id)]
         }
-        merged: list[Person] = []
+        id_map: dict[str, str] = {}
         created = 0
-        for fresh in incoming:
-            ext_id = fresh.external_ids[system]
-            existing = index.get(ext_id)
+        for incoming_id, original in incoming.people.items():
+            fresh = original.model_copy(deep=True)
+            keys = list(fresh.external_ids.items())
+            existing = next((index[k] for k in keys if k in index), None)
+            # A round-tripped export of this very tree: its own ids aren't external.
+            fresh.external_ids.pop(own, None)
             if existing is None:
                 fresh.id = self.new_person_id()
-                self.people[fresh.id] = index[ext_id] = fresh
-                merged.append(fresh)
+                self.people[fresh.id] = person = fresh
                 created += 1
-            elif overwrite:
-                fresh.id = existing.id
-                fresh.notes, fresh.resources = existing.notes, existing.resources
-                fresh.external_ids = {**existing.external_ids, **fresh.external_ids}
-                self.people[fresh.id] = index[ext_id] = fresh
-                merged.append(fresh)
             else:
-                have = {e.type for e in existing.events}
-                existing.events += [
-                    e
-                    for e in fresh.events
-                    if e.type not in have
-                    or (e.type not in SINGLE_EVENTS and e not in existing.events)
+                person = self._merge_person(existing, fresh, overwrite)
+            index.update({k: person for k in person.external_ids.items()})
+            id_map[incoming_id] = person.id
+
+        links = 0
+        for fam in incoming.families.values():
+            partners = [id_map[p] for p in fam.partner_ids if p in id_map][:2]
+            if not partners:
+                continue
+            a, b = (partners + [None])[:2]
+            children = [id_map[c] for c in fam.child_ids if c in id_map]
+            targets = [self.add_child(c, a, b) for c in children]
+            if not children:
+                targets = [self.family_for_partners(a, b)]
+            for target in dict.fromkeys(f.id for f in targets):
+                merged_fam = self.families[target]
+                merged_fam.events += [
+                    e for e in fam.events if not _has_event(merged_fam.events, e)
                 ]
-                existing.given = existing.given or fresh.given
-                existing.surname = existing.surname or fresh.surname
-                if existing.sex == "U":
-                    existing.sex = fresh.sex
-                merged.append(existing)
-        return merged, created
+                merged_fam.notes += [n for n in fam.notes if n not in merged_fam.notes]
+            links += 1
+        return {
+            "created": created,
+            "updated": len(id_map) - created,
+            "families_linked": links,
+        }
+
+    def _merge_person(self, existing: Person, fresh: Person, overwrite: bool) -> Person:
+        if overwrite:
+            fresh.id = existing.id
+            fresh.notes, fresh.resources = existing.notes, existing.resources
+            fresh.external_ids = {**existing.external_ids, **fresh.external_ids}
+            self.people[fresh.id] = fresh
+            return fresh
+        have = {e.type for e in existing.events}
+        existing.events += [
+            e
+            for e in fresh.events
+            if e.type not in have
+            or (e.type not in SINGLE_EVENTS and not _has_event(existing.events, e))
+        ]
+        existing.notes += [n for n in fresh.notes if n not in existing.notes]
+        cited = {(c.title, c.url) for c in existing.citations}
+        existing.citations += [
+            c for c in fresh.citations if (c.title, c.url) not in cited
+        ]
+        existing.external_ids = {**fresh.external_ids, **existing.external_ids}
+        existing.given = existing.given or fresh.given
+        existing.surname = existing.surname or fresh.surname
+        if existing.sex == "U":
+            existing.sex = fresh.sex
+        return existing
 
     def remove_person(self, person_id: str) -> None:
         self.people.pop(person_id, None)
@@ -333,6 +375,13 @@ class Tree(BaseModel):
             "partners": _summaries(partners),
             "children": _summaries(children),
         }
+
+
+def _has_event(events: list[Event], event: Event) -> bool:
+    """Same fact already recorded? Ignores citations, whose provenance fields
+    don't survive a GEDCOM round trip."""
+    key = (event.type, event.date, event.place, event.value)
+    return any((e.type, e.date, e.place, e.value) == key for e in events)
 
 
 def _event_phrase(event: Event | None) -> str | None:
