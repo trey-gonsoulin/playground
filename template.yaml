@@ -58,8 +58,12 @@ Resources:
     Type: AWS::EC2::Instance
     Properties:
       InstanceType: t4g.small
-      # Latest Amazon Linux 2023 ARM64 — resolved at deploy time via SSM public parameter.
-      ImageId: '{{resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64}}'
+      # Pinned to the AMI the instance was launched with (Amazon Linux 2023 ARM64,
+      # 2026-09-11). Do NOT resolve the "latest" SSM parameter here: ImageId
+      # changes force replacement, so every new AL2023 release would make the
+      # next full deploy replace this instance and start OpenSearch empty.
+      # To upgrade deliberately, change this and plan a reindex.
+      ImageId: ami-07987a01dcdb011ef
       IamInstanceProfile: !Ref EldenRingSearchInstanceProfile
       SecurityGroupIds:
         - !GetAtt EldenRingSearchSecurityGroup.GroupId
