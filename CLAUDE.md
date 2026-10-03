@@ -100,6 +100,40 @@ Searches [inclusivetherapists.com](https://www.inclusivetherapists.com) and [psy
 - `GET /us/therapists/{state-abbr-lower}/{city-slug}?issue=X&insurance=Y&telehealth=true&lgbta=true`
 - Results are server-side rendered as a Nuxt 3 flat-array state object in a `<script>` tag. Each therapist is a dict with `firstName`, `lastName`, `suffixes`, `primaryLocation`, `personalStatements`, `accepting_appointments`, `appointmentTypes`, and `urlPath` fields that reference other positions in the flat array by integer index. `_deref()` in `_scrapers.py` resolves those references. The `urlPath` template placeholders `[COUNTRY_CODE]` and `[PROFILE_CLASS]` are replaced with `us` and `therapists` respectively.
 
+### genealogy (`packages/genealogy/`)
+
+A personal family tree built up through MCP tools and exported as GEDCOM. It is fed by WikiTree, Library of Congress newspapers, and GEDCOM files from other apps.
+
+- **Tools:**
+  - `wikitree_*` (search, get_person, get_ancestors) reads WikiTree's free public world tree.
+  - `newspapers_search` does full-text search of Chronicling America (Library of Congress).
+  - `tree_*` builds your own tree: add/update people, set events, link relatives, `tree_import_wikitree`, GEDCOM import (merge or replace) and export, and resource attachments.
+- **Why no FamilySearch:** its API is a partner program that needs approval, and it doesn't expose record search. The client was removed and is in the repo history. For FamilySearch data, use partner desktop software (e.g. RootsMagic) and import its GEDCOM. `_FSFTID` ids still round-trip.
+- **Source of truth:** `tree.json` is the canonical model in `_models.py`; `tree.ged` is a GEDCOM 5.5.1 export written by `_gedcom.py`.
+- **External ids:**
+  - `Person.external_ids` maps a system to an id: `wikitree`, `familysearch`, a GEDCOM `source` such as `ancestry`, or `tree:<name>`.
+  - Export writes every id as a `REFN`/`TYPE` pair, including the tree's own ids under `tree:<name>`. So an export edited in another app merges back onto the same people.
+- **Merging:** every source builds a `Tree`, and `Tree.merge_tree` merges it.
+  - People match on any shared external id.
+  - Matched people keep local edits and only gain missing data, unless `overwrite`.
+  - Links go through `add_child`/`add_parent`, which never downgrade a link, steal half-siblings, or duplicate a couple.
+  - GEDCOM imports from other apps need `source=` so each person gets a stable key (`_UID`, else the xref). Without it, a re-import duplicates people.
+- **WikiTree (`_wikitree.py`):**
+  - Calls `GET api.wikitree.com/api.php?action=...` with `appId` (`WIKITREE_APP_ID`); no auth for public profiles. Responses are a top-level array.
+  - Pedigrees use `getPeople&ancestors=N`. `getAncestors` still answers but returns a deprecation message in `status`; `_call` raises on any non-empty status.
+  - Dates are `YYYY-MM-DD` with zeros for unknown parts. `DataStatus` guess/before/after maps to ABT/BEF/AFT.
+- **Newspapers (`_newspapers.py`):**
+  - Calls `loc.gov/collections/chronicling-america/?fo=json&at=results,pagination&searchType=advanced&qs=...&ops=PHRASE|AND`.
+  - `at=` cuts response time a lot; `start_date`/`end_date` only filter in advanced mode.
+  - Search latency is erratic (4–50 s measured), so the 25 s timeout (`NEWSPAPER_TIMEOUT`) can be hit in Lambda.
+  - Page images use IIIF `/full/pct:50/`; storage-service PDFs return 403 to scripts.
+  - The `description` field is only the first ~1000 OCR characters.
+- **Storage (`_storage.py`):**
+  - With `TREE_BUCKET` set, files go to `s3://$TREE_BUCKET/trees/<name>/{tree.json,tree.ged,exports/,resources/}`. Otherwise they go to `$TREE_DIR` (default `~/.genealogy-mcp/trees`).
+  - Saves are conditional, so overlapping invocations raise `ConcurrentModification` instead of losing writes.
+  - Resources are content-addressed (`resources/<sha256[:16]>-<name>`). The bucket is versioned and retained.
+- **Auth:** none when deployed, like elden-ring and therapist-finder, because claude.ai connectors can't send a static bearer header. The app still requires `Authorization: Bearer <secret>` if `GENEALOGY_MCP_SECRET` is set (same pattern as ynab-mcp), but `template.yaml` leaves it unset.
+
 ## Conventions
 
 - Use `uv` for all dependency and run management (`uv add --package <name> <dep>`, `uv run`).
