@@ -21,7 +21,8 @@ confirm_changeset = false
 resolve_s3 = true
 s3_prefix = "mcp-playground"
 profile = "personal"
-# GenealogyMcpFunction has no ECR repo yet — the first deploy after adding it
-# must be `sam deploy --guided` so SAM creates one and appends it here.
-image_repositories = ["TherapistFinderFunction=268834972001.dkr.ecr.us-east-1.amazonaws.com/therapistfinder8ff77c7a/therapistfinderfunction87be2aadrepo", "YnabMcpFunction=268834972001.dkr.ecr.us-east-1.amazonaws.com/mcpplayground7d6ff2e8/ynabmcpfunction7a0a73f1repo", "EldenRingMcpFunction=268834972001.dkr.ecr.us-east-1.amazonaws.com/mcpplayground7d6ff2e8/eldenringmcpfunction0d23b4b2repo"]
+# A new image function needs a repo here before a non-guided deploy. The
+# genealogy repo was created by hand (aws ecr create-repository + the same
+# lifecycle policy as the others) rather than via `sam deploy --guided`.
+image_repositories = ["TherapistFinderFunction=268834972001.dkr.ecr.us-east-1.amazonaws.com/therapistfinder8ff77c7a/therapistfinderfunction87be2aadrepo", "YnabMcpFunction=268834972001.dkr.ecr.us-east-1.amazonaws.com/mcpplayground7d6ff2e8/ynabmcpfunction7a0a73f1repo", "EldenRingMcpFunction=268834972001.dkr.ecr.us-east-1.amazonaws.com/mcpplayground7d6ff2e8/eldenringmcpfunction0d23b4b2repo", "GenealogyMcpFunction=268834972001.dkr.ecr.us-east-1.amazonaws.com/mcp-playground/genealogymcpfunction"]
 stack_name = "mcp-playground"
