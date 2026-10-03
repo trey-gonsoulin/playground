@@ -11,6 +11,7 @@ resolution-markers = [
 [manifest]
 members = [
     "elden-ring",
+    "genealogy",
     "playground",
     "therapist-finder",
     "ynab-mcp",
@@ -405,6 +406,39 @@ sdist = { url = "https://artifacts.apple.com/api/pypi/pypi-private/packages/pack
 wheels = [
     { url = "https://artifacts.apple.com/api/pypi/pypi-private/packages/packages/5f/c7/cb03251d9dfb177246a9809a76f189d21df32dbd4a845951881d11323b7f/fastapi-0.139.2-py3-none-any.whl", hash = "sha256:b9ad015a835173d59865e2f5d8296fbc2b317bf56a2ba1a5bfbdd03de2fd4b1c", size = 130234, upload-time = "2026-07-16T15:06:19.557Z" },
 ]
+
+[[package]]
+name = "genealogy"
+version = "0.1.0"
+source = { editable = "packages/genealogy" }
+dependencies = [
+    { name = "boto3" },
+    { name = "fastapi" },
+    { name = "httpx" },
+    { name = "mangum" },
+    { name = "mcp" },
+    { name = "pydantic" },
+    { name = "uvicorn", extra = ["standard"] },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "boto3", specifier = ">=1.35" },
+    { name = "fastapi", specifier = ">=0.115" },
+    { name = "httpx", specifier = ">=0.28" },
+    { name = "mangum", specifier = ">=0.21.0" },
+    { name = "mcp", specifier = ">=1.0" },
+    { name = "pydantic", specifier = ">=2.0" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
+]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=8.0" }]
 
 [[package]]
 name = "grpcio"

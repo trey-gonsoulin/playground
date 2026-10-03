@@ -100,6 +100,22 @@ Searches [inclusivetherapists.com](https://www.inclusivetherapists.com) and [psy
 - `GET /us/therapists/{state-abbr-lower}/{city-slug}?issue=X&insurance=Y&telehealth=true&lgbta=true`
 - Results are server-side rendered as a Nuxt 3 flat-array state object in a `<script>` tag. Each therapist is a dict with `firstName`, `lastName`, `suffixes`, `primaryLocation`, `personalStatements`, `accepting_appointments`, `appointmentTypes`, and `urlPath` fields that reference other positions in the flat array by integer index. `_deref()` in `_scrapers.py` resolves those references. The `urlPath` template placeholders `[COUNTRY_CODE]` and `[PROFILE_CLASS]` are replaced with `us` and `therapists` respectively.
 
+### genealogy (`packages/genealogy/`)
+
+FamilySearch lookups plus a personal family tree that is built up through MCP tools and exported as GEDCOM.
+
+- **Tools:** `familysearch_*` handles read-only FamilySearch Family Tree queries (status, search, get_person, get_ancestry). `tree_*` builds and maintains your own tree: add/update people, set events, link relatives, import from FamilySearch, import/export GEDCOM, and attach resources.
+- **Source of truth:** `tree.json` is the canonical model in `_models.py`. It is lossless for provenance (external ids, citations). `tree.ged` is a GEDCOM 5.5.1 export written by `_gedcom.py`. The FamilySearch id round-trips via the de-facto `_FSFTID` tag.
+- **Storage (`_storage.py`):** with `TREE_BUCKET` set, files go to `s3://$TREE_BUCKET/trees/<name>/{tree.json,tree.ged,exports/,resources/}`. Otherwise they go to `$TREE_DIR` (default `~/.genealogy-mcp/trees`). Saves are conditional (S3 `If-Match`/`If-None-Match`; mtime locally), so overlapping invocations raise `ConcurrentModification` rather than losing writes. The bucket is versioned and retained.
+- **FamilySearch auth (`_familysearch.py`, `fs_login.py`):**
+  - It needs a registered app key (`FAMILYSEARCH_CLIENT_ID`) and a user OAuth token.
+  - `genealogy-fs-login` runs the authorization-code + PKCE flow locally. The redirect URI (`FAMILYSEARCH_REDIRECT_URI`, default `http://127.0.0.1:5000/callback`) must be registered for the key.
+  - The token is saved to SSM (`FAMILYSEARCH_TOKEN_SSM_PATH`, which is what Lambda reads) or to a local file. On a 401 the client refreshes the token if it has a refresh token.
+  - `FAMILYSEARCH_ENV` selects `production`, `beta`, or `integration`.
+- **Pedigree import:** this uses `/platform/tree/ancestry`, whose `display.ascendancyNumber` is Ahnentafel (father of n = 2n, mother = 2n+1). People are matched on FamilySearch id, so re-imports are idempotent and keep local edits unless `overwrite=True`.
+- **Auth:** set `GENEALOGY_MCP_SECRET` to require `Authorization: Bearer <secret>`, the same pattern as ynab-mcp.
+- **Planned:** an Ancestry.com source using personal credentials. It has no public API, so it would be a session-cookie scraper. Add it as a sibling module to `_familysearch.py` that maps into the same `Tree` (`external_ids["ancestry"]`).
+
 ## Conventions
 
 - Use `uv` for all dependency and run management (`uv add --package <name> <dep>`, `uv run`).

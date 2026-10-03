@@ -234,6 +234,86 @@ Resources:
   YnabHttpApi:
     Type: AWS::Serverless::HttpApi
 
+  # ---------------------------------------------------------------------------
+  # Genealogy — FamilySearch lookups + personal family tree (JSON/GEDCOM in S3)
+  # ---------------------------------------------------------------------------
+
+  # Holds trees/<name>/{tree.json,tree.ged,exports/,resources/}. Retained and
+  # versioned: family research is irreplaceable, and versioning is the undo for
+  # tree_remove_person / tree_import_gedcom replace=True.
+  GenealogyBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      VersioningConfiguration:
+        Status: Enabled
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+  GenealogyHttpApi:
+    Type: AWS::Serverless::HttpApi
+
+  # Prerequisites (create before deploying):
+  #   aws ssm put-parameter --name /genealogy/familysearch-client-id --type String \
+  #     --value '<FamilySearch app key>' --profile personal
+  #   aws ssm put-parameter --name /genealogy/mcp-secret --type String \
+  #     --value "$(openssl rand -hex 32)" --profile personal
+  # Then authorize once locally, writing the token where the Lambda reads it:
+  #   FAMILYSEARCH_CLIENT_ID=... FAMILYSEARCH_TOKEN_SSM_PATH=/genealogy/familysearch-token \
+  #     AWS_PROFILE=personal uv run --package genealogy genealogy-fs-login
+  GenealogyMcpFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      PackageType: Image
+      # HTTP API stops waiting at 30 s, so a longer Lambda timeout would only let
+      # work finish after the client already saw a 503 (and retried). Keep the
+      # function just under it; outbound HTTP calls use 20 s timeouts to fit.
+      Timeout: 29
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Ref GenealogyBucket
+        - Statement:
+            # Read the OAuth token, and write it back after a refresh.
+            - Effect: Allow
+              Action:
+                - ssm:GetParameter
+                - ssm:PutParameter
+              Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/genealogy/familysearch-token'
+      Environment:
+        Variables:
+          TREE_BUCKET: !Ref GenealogyBucket
+          FAMILYSEARCH_ENV: production
+          FAMILYSEARCH_CLIENT_ID: "{{resolve:ssm:/genealogy/familysearch-client-id}}"
+          # Path only — the token is fetched at runtime so it never sits in the
+          # Lambda environment config.
+          FAMILYSEARCH_TOKEN_SSM_PATH: /genealogy/familysearch-token
+          GENEALOGY_MCP_SECRET: "{{resolve:ssm:/genealogy/mcp-secret}}"
+      Events:
+        Root:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref GenealogyHttpApi
+            Path: /
+            Method: ANY
+        Proxy:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref GenealogyHttpApi
+            Path: /{proxy+}
+            Method: ANY
+    Metadata:
+      DockerTag: latest
+      DockerContext: .
+      Dockerfile: packages/genealogy/Dockerfile
+
 Outputs:
   TherapistFinderApiUrl:
     Description: Therapist Finder HTTP API endpoint URL (MCP server at /mcp)
@@ -246,6 +326,14 @@ Outputs:
   EldenRingMcpApiUrl:
     Description: Elden Ring MCP HTTP API endpoint URL (MCP server at /mcp)
     Value: !Sub "https://${EldenRingHttpApi}.execute-api.${AWS::Region}.amazonaws.com"
+
+  GenealogyMcpApiUrl:
+    Description: Genealogy MCP HTTP API endpoint URL (MCP server at /mcp)
+    Value: !Sub "https://${GenealogyHttpApi}.execute-api.${AWS::Region}.amazonaws.com"
+
+  GenealogyBucketName:
+    Description: S3 bucket holding family trees (tree.json, tree.ged, resources/)
+    Value: !Ref GenealogyBucket
 
   EldenRingSearchInstanceId:
     Description: EC2 instance ID for the OpenSearch node (use to find the public DNS after starting)
