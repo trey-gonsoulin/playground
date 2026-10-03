@@ -2909,9 +2909,9 @@ _FIELD_NOTES: dict[str, str] = {
     "their own world; flag 9411 = an any_of of all_of alternatives; the Frenzied "
     "Flame endings' flag 108 = the player wearing no armor (armor_equipped Head, "
     "Body, Arms, Legs: the empty slots) and pressing 'Open door' on entity "
-    "35001500, in their own world). A flag is left out when it links to a phase or "
-    "life_state step, or when its set_when would be absent for any of the reasons "
-    "gate_set_when lists",
+    "35001500, in their own world; flag 1051362702 = talk to Castellan Jerren, "
+    "#232). A flag is left out when it links to a phase or life_state step, or when "
+    "its set_when would be absent for any of the reasons gate_set_when lists",
     "trigger_items": "on a cutscene doc: the items the player must hold (Dectus "
     "Medallion (Left) / (Right) for the Grand Lift of Dectus)",
     "warp_region": "on a cutscene doc: the MSB region entity the player is moved to "
@@ -3108,7 +3108,11 @@ _FIELD_NOTES: dict[str, str] = {
     "event sets the flag with no tracked or decoded condition (only area arrivals or "
     "untracked waits), when an event's extras hold an any_of plus other conditions, "
     "when one event waits on more than one character, or past 8 conditions (or 8 "
-    "any_of / all_of members). Same "
+    "any_of / all_of members). A flag no event script sets but a talk script or "
+    "item pickup does gets that one condition instead (#232): kind talk (the flag "
+    "itself, npcs = the talking NPCs, absent when no talk script setting it belongs "
+    "to a named NPC) or item_pickup (items). Also absent when nothing sets the flag "
+    "by its literal id (an event's own slot flag, a computed flag). Same "
     "shape as "
     "npc_summons / hostile_signs requires_set_when and cutscene trigger_set_when",
     "event_id": "on a warp doc (#94): the EMEVD event that performs the warp: the "
