@@ -292,6 +292,34 @@ _QUEST_WAITED_FOR = {
     **_QUEST_CONDITION,
     "state": {"type": "keyword"},
 }
+# One condition of a world-state flag's set_when (#228): the above, plus the
+# decoded progress waits (#231) and, inside any_of, all_of (#233; one level).
+_SET_WHEN_LEAF = {
+    **{k: v for k, v in _QUEST_WAITED_FOR.items() if k != "conditions"},
+    # kind action_button: the prompt pressed, on an MSB entity
+    "action_button_id": {"type": "long"},
+    "prompt": {"type": "keyword"},
+    "entity_id": {"type": "long"},
+    # kind in_region: the player in an MSB region (entity_id) on a map
+    "map": {"type": "keyword"},
+    "locations": {"type": "keyword"},
+    "area": {"type": "keyword"},
+    "subarea": {"type": "keyword"},
+    "landmark": {"type": "keyword"},
+    # kind flag_range: IfFlagRangeState over [first_flag, last_flag]
+    "first_flag": {"type": "long"},
+    "last_flag": {"type": "long"},
+    "range_state": {"type": "keyword"},
+}
+_SET_WHEN = {
+    **_SET_WHEN_LEAF,
+    "conditions": {
+        "properties": {
+            **_SET_WHEN_LEAF,
+            "conditions": {"properties": _SET_WHEN_LEAF},
+        }
+    },
+}
 
 INDEX_MAPPING = {
     "settings": {
@@ -587,7 +615,7 @@ INDEX_MAPPING = {
                     "sign": {"type": "keyword"},
                     "requires_flag": {"type": "long"},
                     "requires_step": {"properties": _QUEST_LINK},  # #189
-                    "requires_set_when": {"properties": _QUEST_WAITED_FOR},  # #228
+                    "requires_set_when": {"properties": _SET_WHEN},  # #228
                 }
             },
             "summonable_for": {"type": "keyword"},
@@ -598,7 +626,7 @@ INDEX_MAPPING = {
                     "sign_type": {"type": "integer"},
                     "requires_flag": {"type": "long"},
                     "requires_step": {"properties": _QUEST_LINK},  # #189
-                    "requires_set_when": {"properties": _QUEST_WAITED_FOR},  # #228
+                    "requires_set_when": {"properties": _SET_WHEN},  # #228
                 }
             },
             # Sites of grace (BonfireWarpParam, #78); region/map/nearest_grace shared
@@ -649,7 +677,7 @@ INDEX_MAPPING = {
             "to": {"properties": _WARP_END},
             "prompt": {"type": "keyword"},
             "gate_flag": {"type": "long"},
-            "gate_set_when": {"properties": _QUEST_WAITED_FOR},  # #228
+            "gate_set_when": {"properties": _SET_WHEN},  # #228
             "event_id": {"type": "long"},
             "cutscene_id": {"type": "long"},  # also on cutscene docs (#92)
             "warps_to": {"type": "keyword"},
@@ -685,7 +713,7 @@ INDEX_MAPPING = {
             "trigger_set_when": {  # #228
                 "properties": {
                     "flag": {"type": "long"},
-                    "when": {"properties": _QUEST_WAITED_FOR},
+                    "when": {"properties": _SET_WHEN},
                 }
             },
             "trigger_items": {"type": "keyword"},
@@ -2826,8 +2854,8 @@ _FIELD_NOTES: dict[str, str] = {
     "#228). With no step, or a quest-only one, requires_set_when (#228) says what "
     "turns the flag on (see gate_set_when): Jerren at Radahn = a SpEffect on Radahn "
     "(kind character, state special_effect, entity 1052380800) while Starscourge "
-    "Radahn is not yet defeated, plus an untracked_wait; Freyja at the Dancing Lion "
-    "= Moore's phase 4927 not yet reached",
+    "Radahn is not yet defeated, with the player in their own world (in_own_world); "
+    "Freyja at the Dancing Lion = Moore's phase 4927 not yet reached",
     "summonable_for": "on an enemy doc: the boss docs where this NPC can be summoned "
     "(reverse of npc_summons)",
     "hostile_signs": "on an enemy doc: the NPC's signs tied to no boss fight. kind "
@@ -2877,9 +2905,13 @@ _FIELD_NOTES: dict[str, str] = {
     "trigger_set_when": "on a cutscene doc (#228): for each trigger_flag with no "
     "quest step (unlinked, or linked to a quest only), {flag, when}: what turns it on, as warp gate_set_when (Jerren's "
     "festival scene 60510000: flag 9410 = any_of(talk to Iji / Sellen, Roderika's "
-    "phase 3063) while no other festival flag 9411-9413 is on, plus an "
-    "untracked_wait). A flag is left out when it links to a phase or life_state step, "
-    "or when its set_when would be absent for any of the reasons gate_set_when lists",
+    "phase 3063) while no other festival flag 9411-9413 is on, with the player in "
+    "their own world; flag 9411 = an any_of of all_of alternatives; the Frenzied "
+    "Flame endings' flag 108 = the player wearing no armor (armor_equipped Head, "
+    "Body, Arms, Legs: the empty slots) and pressing 'Open door' on entity "
+    "35001500, in their own world). A flag is left out when it links to a phase or "
+    "life_state step, or when its set_when would be absent for any of the reasons "
+    "gate_set_when lists",
     "trigger_items": "on a cutscene doc: the items the player must hold (Dectus "
     "Medallion (Left) / (Right) for the Grand Lift of Dectus)",
     "warp_region": "on a cutscene doc: the MSB region entity the player is moved to "
@@ -3048,20 +3080,35 @@ _FIELD_NOTES: dict[str, str] = {
     "gate_set_when": "on a warp doc (#228): what turns gate_flag on, read from the "
     "event scripts that set it: conditions shaped as quest steps.when, all required "
     "(The Four Belfries: item_held Imbued Sword Key + the map flag of that gate's "
-    "keyhole, plus an untracked_wait; 9410, the Radahn festival: any_of(talk to "
-    "Smithing Master Iji / Sorceress Sellen, Roderika's phase 3063) while no other "
-    "festival flag 9411-9413 is on, plus an untracked_wait). An event that waits on a "
+    "keyhole + action_button 'Examine' on the keyhole; 9410, the Radahn festival: "
+    "any_of(talk to Smithing Master Iji / Sorceress Sellen, Roderika's phase 3063) "
+    "while no other festival flag 9411-9413 is on, with the player in their own "
+    "world). An event that waits on a "
     "character's state adds it as kind character + state (dead, attacked, health, "
     "special_effect; npc / entity_ids, npc absent when the entity has no name: entity "
-    "10000 is the player), as quest outcome waited_for. kind "
-    "untracked_wait: the event also waits on something not decoded (the player "
-    "entering a region, pressing an action button, a flag range), so the other "
-    "conditions are needed but not enough on their own. One hop only: a condition's "
+    "10000 is the player), as quest outcome waited_for. Waits on the player's "
+    "progress (#231): action_button (the player presses a prompt: action_button_id, "
+    "prompt (its text, absent when the param row has none), entity_id the prompt "
+    "is on), in_region (the player inside MSB region entity_id; negated = outside: "
+    "map (when the MSB dumps place the region), plus locations of that map, area "
+    "/ subarea / landmark of the region's position when they add a name), flag_range (first_flag..last_flag, "
+    "range_state all_on / all_off / any_on / any_off), in_own_world (the player is "
+    "the host, not a summoned phantom; negated = not in their own world), "
+    "armor_equipped (items: the armor piece worn, else item_id; Head / Body / Arms "
+    "/ Legs are the empty slots, i.e. no armor there). kind "
+    "untracked_wait: the event also waits on something still not decoded (such as "
+    "another character in a region, a distance, either of several regions or prompts, or a "
+    "wait only some of its paths take), so the other conditions are needed but not "
+    "enough on their own. When the setting events need different conditions beyond "
+    "the shared ones, the last condition is an any_of of each event's extra: one "
+    "condition, or an all_of of several (#233; an all_of holds plain conditions "
+    "only, never another any_of, and an event needing a superset of another's "
+    "extras adds no alternative). One hop only: a condition's "
     "own flag isn't expanded (kind flag, with set_at). Absent (unresolved) when an "
-    "event sets the flag with no tracked condition (only area arrivals or untracked "
-    "waits), when its setting events differ by more than one condition each or one "
-    "alternative is a character or untracked wait, when one event waits on more than "
-    "one character, or past 8 conditions. Same "
+    "event sets the flag with no tracked or decoded condition (only area arrivals or "
+    "untracked waits), when an event's extras hold an any_of plus other conditions, "
+    "when one event waits on more than one character, or past 8 conditions (or 8 "
+    "any_of / all_of members). Same "
     "shape as "
     "npc_summons / hostile_signs requires_set_when and cutscene trigger_set_when",
     "event_id": "on a warp doc (#94): the EMEVD event that performs the warp: the "

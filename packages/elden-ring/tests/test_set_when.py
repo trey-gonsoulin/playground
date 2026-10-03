@@ -31,7 +31,53 @@ _FESTIVAL = [
 _KEY = [
     {"kind": "flag", "flag": 1033462613},
     {"kind": "item_held", "items": ["Imbued Sword Key"]},
+    {
+        "kind": "action_button",
+        "action_button_id": 9523,
+        "prompt": "Examine",
+        "entity_id": 1033461611,
+    },
+]
+# #231 decoded progress waits; #233 all_of inside any_of (one level)
+_PROGRESS = [
+    {
+        "kind": "in_region",
+        "entity_id": 1051362230,
+        "map": "m60_51_36_00",
+        "locations": ["Caelid"],
+        "area": "Caelid",
+        "subarea": "x",
+        "landmark": "Redmane Castle",
+        "negated": True,
+    },
+    {
+        "kind": "flag_range",
+        "first_flag": 76100,
+        "last_flag": 76199,
+        "range_state": "any_on",
+    },
+    {"kind": "in_own_world"},
+    {"kind": "armor_equipped", "items": ["Head"]},
+    {"kind": "armor_equipped", "item_id": 10000},
     {"kind": "untracked_wait"},
+]
+_ALTERNATIVES = [
+    {
+        "kind": "any_of",
+        "conditions": [
+            {
+                "kind": "all_of",
+                "conditions": [
+                    {"kind": "talk", "flag": 1051362702, "npcs": ["Castellan Jerren"]},
+                    *_PROGRESS,
+                    {"kind": "character", "state": "dead", "entity_ids": [1]},
+                    *_KEY,
+                ],
+            },
+            {"kind": "character", "state": "dead", "npc": "x"},
+            *_PROGRESS,
+        ],
+    }
 ]
 
 
@@ -78,9 +124,14 @@ def test_set_when_fields_mapped():
                     "flag": 19001100,
                     "when": [{"kind": "character", "state": "dead", "npc": "x"}],
                 },
+                {"flag": 9411, "when": [*_PROGRESS, *_ALTERNATIVES]},
             ],
         },
     )
+    for alt in (_ALTERNATIVES, _PROGRESS):
+        _mapped(_PROPS, {"gate_set_when": alt})
+        _mapped(_PROPS, {"npc_summons": [{"requires_set_when": alt}]})
+        _mapped(_PROPS, {"hostile_signs": [{"requires_set_when": alt}]})
     when = _PROPS["trigger_set_when"]["properties"]["when"]["properties"]
     assert when["conditions"]["properties"]["flag"]["type"] == "long"
     assert _PROPS["gate_set_when"]["properties"]["negated"]["type"] == "boolean"
@@ -96,3 +147,32 @@ def test_set_when_documented():
     # guards beside an undecoded wait aren't presented as enough (#228)
     assert "untracked_wait" in _FIELD_NOTES["gate_set_when"]
     assert "quest-only" in _FIELD_NOTES["npc_summons"]
+
+
+def test_set_when_progress_and_all_of_documented():
+    """#231 decoded waits and #233 all_of: every kind and leaf is in the notes."""
+    note = _FIELD_NOTES["gate_set_when"]
+    for word in (
+        "action_button",
+        "action_button_id",
+        "prompt",
+        "entity_id",
+        "in_region",
+        "map",
+        "locations",
+        "area / subarea / landmark",
+        "flag_range",
+        "first_flag",
+        "last_flag",
+        "all_on / all_off / any_on / any_off",
+        "in_own_world",
+        "armor_equipped",
+        "item_id",
+        "all_of",
+        "untracked_wait",
+    ):
+        assert word in note, word
+    # the #228 "differ by more than one condition" absence rule is gone
+    assert "more than one condition" not in note
+    assert "'Examine'" in note
+    assert "all_of" in _FIELD_NOTES["trigger_set_when"]
