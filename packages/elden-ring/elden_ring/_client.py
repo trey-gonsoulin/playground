@@ -333,6 +333,9 @@ INDEX_MAPPING = {
     "settings": {
         "number_of_shards": 1,
         "number_of_replicas": 0,
+        # the nested set_when conditions (#231/#233) take the mapping past the
+        # default 1000 fields; also applied to the live index with put_settings
+        "mapping.total_fields.limit": 2000,
         "analysis": {
             "tokenizer": {
                 # Kuromoji in normal mode: dictionary-based segmentation with no
