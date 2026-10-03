@@ -587,6 +587,7 @@ INDEX_MAPPING = {
                     "sign": {"type": "keyword"},
                     "requires_flag": {"type": "long"},
                     "requires_step": {"properties": _QUEST_LINK},  # #189
+                    "requires_set_when": {"properties": _QUEST_WAITED_FOR},  # #228
                 }
             },
             "summonable_for": {"type": "keyword"},
@@ -597,6 +598,7 @@ INDEX_MAPPING = {
                     "sign_type": {"type": "integer"},
                     "requires_flag": {"type": "long"},
                     "requires_step": {"properties": _QUEST_LINK},  # #189
+                    "requires_set_when": {"properties": _QUEST_WAITED_FOR},  # #228
                 }
             },
             # Sites of grace (BonfireWarpParam, #78); region/map/nearest_grace shared
@@ -647,6 +649,7 @@ INDEX_MAPPING = {
             "to": {"properties": _WARP_END},
             "prompt": {"type": "keyword"},
             "gate_flag": {"type": "long"},
+            "gate_set_when": {"properties": _QUEST_WAITED_FOR},  # #228
             "event_id": {"type": "long"},
             "cutscene_id": {"type": "long"},  # also on cutscene docs (#92)
             "warps_to": {"type": "keyword"},
@@ -679,6 +682,12 @@ INDEX_MAPPING = {
             "boss": {"type": "keyword"},
             "trigger_flags": {"type": "long"},
             "trigger_steps": {"properties": _QUEST_LINK},  # #189
+            "trigger_set_when": {  # #228
+                "properties": {
+                    "flag": {"type": "long"},
+                    "when": {"properties": _QUEST_WAITED_FOR},
+                }
+            },
             "trigger_items": {"type": "keyword"},
             "warp_region": {"type": "long"},
             "is_ending": {"type": "boolean"},
@@ -2810,9 +2819,15 @@ _FIELD_NOTES: dict[str, str] = {
     "there; an NPC listed twice has two alternative gates (Bernahl at the Godskin Duo). "
     "requires_step (#189) names the quest step behind that flag: {quest (the quest "
     "doc), npc (only when the quest name differs), phase_flag + order (the step in "
-    "the quest doc's steps; Nepheli at Godrick: phase 4225, order 1)}, or just the "
-    "quest when only its manager event sets the flag; absent when no quest phase "
-    "sets it (about half the gates: map flags, Bernahl, Freyja)",
+    "the quest doc's steps; Nepheli at Godrick: phase 4225, order 1)}, also through "
+    "flags set by events gated on such a flag (hops, #228), or just the quest when "
+    "only its manager event sets the flag or the only quest flags on in every event "
+    "that sets it are that one quest's (Bernahl's life state at the Godskin Duo, "
+    "#228). With no step, or a quest-only one, requires_set_when (#228) says what "
+    "turns the flag on (see gate_set_when): Jerren at Radahn = a SpEffect on Radahn "
+    "(kind character, state special_effect, entity 1052380800) while Starscourge "
+    "Radahn is not yet defeated, plus an untracked_wait; Freyja at the Dancing Lion "
+    "= Moore's phase 4927 not yet reached",
     "summonable_for": "on an enemy doc: the boss docs where this NPC can be summoned "
     "(reverse of npc_summons)",
     "hostile_signs": "on an enemy doc: the NPC's signs tied to no boss fight. kind "
@@ -2822,7 +2837,8 @@ _FIELD_NOTES: dict[str, str] = {
     "it happens, sign_type the raw PlaceSummonSign type (21/22/23 for invasions, not "
     "decoded), requires_flag the raw event flag it waits for, absent when ungated, "
     "and requires_step its quest step when a quest phase sets it (same shape as "
-    "npc_summons; #189). These sign invasions are separate from the Ceremony-instance "
+    "npc_summons; #189), and requires_set_when when there's no step or a quest-only "
+    "one: what turns the flag on (as gate_set_when; #228). These sign invasions are separate from the Ceremony-instance "
     "invasions of placements' world_state / a location's invasion_instances (#96): "
     "no NPC has both on one map",
     "cutscene_id": "on a cutscene doc (#92): the scene's cutscene id (AABBNNNN; the doc "
@@ -2858,6 +2874,10 @@ _FIELD_NOTES: dict[str, str] = {
     "trigger_flags, one per distinct step, each {quest, npc, phase_flag, order, "
     "life_state} as in npc_summons.requires_step (Patches' 60370000: phase 3688). "
     "Any trigger kind can carry it; a scripted scene with one is trigger_kind quest",
+    "trigger_set_when": "on a cutscene doc (#228): for each trigger_flag with no "
+    "quest step (unlinked, or linked to a quest only), {flag, when}: what turns it on, as warp gate_set_when (Jerren's "
+    "festival scene 60510000: flag 9410 = any_of(talk to Iji / Sellen, Roderika's "
+    "phase 3063)). Flags left out are unresolved (no tracked condition)",
     "trigger_items": "on a cutscene doc: the items the player must hold (Dectus "
     "Medallion (Left) / (Right) for the Grand Lift of Dectus)",
     "warp_region": "on a cutscene doc: the MSB region entity the player is moved to "
@@ -3020,8 +3040,26 @@ _FIELD_NOTES: dict[str, str] = {
     "gate_flag": "on a warp doc (#94): the event flag that must be on for a waygate "
     "to work; while it's off the gate says 'Cannot be used now' (Four Belfries "
     "gates, the Impassable Greatbridge gates: 9410). These are world-state flags "
-    "(an Imbued Sword Key used, the Radahn festival begun), not quest steps. A "
+    "(an Imbued Sword Key used, the Radahn festival begun), not quest steps; "
+    "gate_set_when says what turns them on. A "
     "warp with a cutscene_id names its cutscene doc in cutscene (#189)",
+    "gate_set_when": "on a warp doc (#228): what turns gate_flag on, read from the "
+    "event scripts that set it: conditions shaped as quest steps.when, all required "
+    "(The Four Belfries: item_held Imbued Sword Key + the map flag of that gate's "
+    "keyhole, plus an untracked_wait; 9410, the Radahn festival: any_of(talk to "
+    "Smithing Master Iji / Sorceress Sellen, Roderika's phase 3063) while no other "
+    "festival flag 9411-9413 is on, plus an untracked_wait). An event that waits on a "
+    "character's state adds it as kind character + state (dead, attacked, health, "
+    "special_effect; npc / entity_ids), as quest outcome waited_for. kind "
+    "untracked_wait: the event also waits on something not decoded (the player "
+    "entering a region, pressing an action button, a flag range), so the other "
+    "conditions are needed but not enough on their own. One hop only: a condition's "
+    "own flag isn't expanded (kind flag, with set_at). Absent (unresolved) when an "
+    "event sets the flag with no tracked condition (only area arrivals or untracked "
+    "waits), when its setting events differ by more than one condition each or one "
+    "alternative is a character or untracked wait, or past 8 conditions. Same "
+    "shape as "
+    "npc_summons / hostile_signs requires_set_when and cutscene trigger_set_when",
     "event_id": "on a warp doc (#94): the EMEVD event that performs the warp: the "
     "common template for templated warps (90005605 waygate, 90005645/46 return to "
     "entrance, 90005880 evergaol exit, 90005881 evergaol enter), else the map "
