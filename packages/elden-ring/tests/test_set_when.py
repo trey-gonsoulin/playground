@@ -31,6 +31,7 @@ _FESTIVAL = [
 _KEY = [
     {"kind": "flag", "flag": 1033462613},
     {"kind": "item_held", "items": ["Imbued Sword Key"]},
+    {"kind": "untracked_wait"},
 ]
 
 
@@ -53,7 +54,15 @@ def test_set_when_fields_mapped():
                 {
                     "npc": "Castellan Jerren",
                     "requires_flag": 1252382890,
-                    "requires_set_when": _FESTIVAL[2:],
+                    "requires_set_when": [
+                        *_FESTIVAL[2:],
+                        {"kind": "untracked_wait"},
+                        {
+                            "kind": "character",
+                            "state": "special_effect",
+                            "entity_ids": [1052380800],
+                        },
+                    ],
                 }
             ],
             "hostile_signs": [
@@ -63,7 +72,13 @@ def test_set_when_fields_mapped():
                     "requires_set_when": _FESTIVAL,
                 }
             ],
-            "trigger_set_when": [{"flag": 9410, "when": _FESTIVAL}],
+            "trigger_set_when": [
+                {"flag": 9410, "when": _FESTIVAL},
+                {
+                    "flag": 19001100,
+                    "when": [{"kind": "character", "state": "dead", "npc": "x"}],
+                },
+            ],
         },
     )
     when = _PROPS["trigger_set_when"]["properties"]["when"]["properties"]
@@ -78,3 +93,6 @@ def test_set_when_documented():
     assert "requires_set_when" in _FIELD_NOTES["npc_summons"]
     assert "requires_set_when" in _FIELD_NOTES["hostile_signs"]
     assert "{flag, when}" in _FIELD_NOTES["trigger_set_when"]
+    # guards beside an undecoded wait aren't presented as enough (#228)
+    assert "untracked_wait" in _FIELD_NOTES["gate_set_when"]
+    assert "quest-only" in _FIELD_NOTES["npc_summons"]
