@@ -230,6 +230,14 @@ _POISE_HANDS = {
     for hand in ("one_handed", "two_handed")
 }
 
+# Player criticals from ThrowParam (#128): enemy docs and their phases[] entries.
+_CRITICAL_HITS = {
+    "backstab": {"type": "boolean"},
+    "riposte": {"type": "boolean"},
+    "stance_break": {"type": "boolean"},
+    "other_throw_types": {"type": "integer"},
+}
+
 # NpcParam stat groups (#84), shared by enemy docs and spirit-ash summon_stats (#86).
 _NPC_STATS = {
     "stats": {
@@ -530,6 +538,8 @@ INDEX_MAPPING = {
                     "status_effects": {"type": "keyword"},
                 }
             },
+            # Player criticals the bound row's model allows, from ThrowParam (#128).
+            "critical_hits": {"properties": _CRITICAL_HITS},
             # NpcParam TeamType + NpcThinkParam AI profile via MSB placements (#83).
             "team_type": {"type": "integer"},
             "team": {"type": "keyword"},
@@ -593,6 +603,7 @@ INDEX_MAPPING = {
                     "ends_at_hp_ratio": {"type": "float"},
                     "hp_pool_shared_with": {"type": "keyword"},
                     "heals_on_entry": {"type": "boolean"},
+                    "critical_hits": {"properties": _CRITICAL_HITS},  # #128
                 }
             },
             # Boss encounters (GameAreaParam + defeat banner, #79) and the reverse
@@ -2741,6 +2752,21 @@ _FIELD_NOTES: dict[str, str] = {
     "Standard",
     "grabs.status_buildup": "max direct per-hit status buildup of grab hits",
     "grabs.status_effects": "statuses a grab inflicts (Margit's grab: bleed)",
+    "critical_hits": "which critical hits the player can land on this enemy (#128), from "
+    "the player's ThrowParam rows for the bound NpcParam row's model; on a multi-phase "
+    "boss, the union over its own phases (Rennala: stance_break from phase 2 only; see "
+    "phases.critical_hits for which phase). All false = no critical at all (Tree "
+    "Sentinel, Rykard). Absent on c0000 humanoids (NPCs, invaders) and unbound docs",
+    "critical_hits.backstab": "a critical from behind is possible (false for Margit, "
+    "Malenia, Crucible Knights)",
+    "critical_hits.riposte": "a critical after a parry is possible; whether any of its "
+    "attacks can be parried is a separate question (Guardian Golem has the row but is "
+    "not parryable)",
+    "critical_hits.stance_break": "a critical after a stance (posture) break is possible "
+    "(the only critical of Radahn, Godrick, Mohg, Placidusax)",
+    "critical_hits.other_throw_types": "raw ThrowParam ThrowType values with no confirmed "
+    "meaning (22 / 24 = eight 45-degree arcs around a downed or seated body, 23 = a "
+    "second rear arc)",
     "team_type": "enemy NpcParam TeamType (#83): the team deciding whose attacks hit whom and "
     "who is targeted, so enemies with the same value are allies. Values without a team "
     "label are Elden Ring factions with no confirmed name (48 = lord soldiers + Mad "
@@ -2818,6 +2844,9 @@ _FIELD_NOTES: dict[str, str] = {
     "two Fia's Champions)",
     "phases.name": "health-bar name of this phase's character",
     "phases.npc_id": "NpcName id shown on this phase's health bar",
+    "phases.critical_hits": "critical_hits of this phase's NpcParam row alone (same "
+    "leaves as the top-level field), e.g. Rennala's phase 1 has none and phase 2 the "
+    "stance-break critical. Absent when the phase has no row or a c0000 humanoid row",
     "phases.npc_param_id": "NpcParam row of this phase's fighting character",
     "phases.hp_scaled": "this character's in-game max HP (area scaling applied, as "
     "hp_scaled)",

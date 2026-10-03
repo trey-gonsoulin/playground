@@ -111,6 +111,12 @@ def test_grouped_leaves_mapped():
         "grabs.attack_power.fire": "integer",
         "grabs.status_buildup.bleed": "integer",
         "grabs.status_effects": "keyword",
+        "critical_hits.backstab": "boolean",
+        "critical_hits.riposte": "boolean",
+        "critical_hits.stance_break": "boolean",
+        "critical_hits.other_throw_types": "integer",
+        "phases.critical_hits.stance_break": "boolean",
+        "phases.critical_hits.other_throw_types": "integer",
         "team_type": "integer",
         "team": "keyword",
         "ai.think_id": "integer",
@@ -309,6 +315,12 @@ def test_builder_doc_shapes_fully_mapped():
                 "attack_power": {"physical": 300, "fire": 150},
                 "status_buildup": {"bleed": 70},
                 "status_effects": ["bleed"],
+            },
+            "critical_hits": {
+                "backstab": True,
+                "riposte": True,
+                "stance_break": True,
+                "other_throw_types": [22, 23],
             },
             "team_type": 7,
             "team": "boss",
@@ -607,3 +619,13 @@ def test_effects_note_documents_stacking_tiers():
     note = _FIELD_NOTES["effects"]
     assert "successive attacks, tier 1" in note and "on hit" in note
     assert "stacking talismans" not in note
+
+
+def test_critical_hits_notes_name_the_confirmed_kinds():
+    # #128: ThrowParam ThrowType 1 / 20 / 25 labelled; the rest stay raw.
+    assert "Tree Sentinel" in _FIELD_NOTES["critical_hits"]
+    for leaf in ("backstab", "riposte", "stance_break", "other_throw_types"):
+        assert f"critical_hits.{leaf}" in _FIELD_NOTES
+    # Multi-phase bosses: per-phase values, top level is their union (Rennala).
+    assert "phases.critical_hits" in _FIELD_NOTES
+    assert "union" in _FIELD_NOTES["critical_hits"]
