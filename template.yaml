@@ -261,9 +261,9 @@ Resources:
   GenealogyHttpApi:
     Type: AWS::Serverless::HttpApi
 
-  # Prerequisite (create before deploying):
-  #   aws ssm put-parameter --name /genealogy/mcp-secret --type String \
-  #     --value "$(openssl rand -hex 32)" --profile personal
+  # No auth for now (like the Elden Ring and Therapist Finder functions): claude.ai
+  # connectors can't send a static bearer header. The app enforces one if
+  # GENEALOGY_MCP_SECRET is set.
   GenealogyMcpFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -280,7 +280,6 @@ Resources:
           TREE_BUCKET: !Ref GenealogyBucket
           # Identifies this app to WikiTree; anonymous callers get stricter limits.
           WIKITREE_APP_ID: genealogy-mcp
-          GENEALOGY_MCP_SECRET: "{{resolve:ssm:/genealogy/mcp-secret}}"
       Events:
         Root:
           Type: HttpApi

@@ -132,7 +132,7 @@ A personal family tree built up through MCP tools and exported as GEDCOM. It is 
   - With `TREE_BUCKET` set, files go to `s3://$TREE_BUCKET/trees/<name>/{tree.json,tree.ged,exports/,resources/}`. Otherwise they go to `$TREE_DIR` (default `~/.genealogy-mcp/trees`).
   - Saves are conditional, so overlapping invocations raise `ConcurrentModification` instead of losing writes.
   - Resources are content-addressed (`resources/<sha256[:16]>-<name>`). The bucket is versioned and retained.
-- **Auth:** set `GENEALOGY_MCP_SECRET` to require `Authorization: Bearer <secret>`, the same pattern as ynab-mcp.
+- **Auth:** none when deployed, like elden-ring and therapist-finder, because claude.ai connectors can't send a static bearer header. The app still requires `Authorization: Bearer <secret>` if `GENEALOGY_MCP_SECRET` is set (same pattern as ynab-mcp), but `template.yaml` leaves it unset.
 
 ## Conventions
 
