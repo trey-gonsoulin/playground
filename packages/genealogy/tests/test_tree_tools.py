@@ -46,14 +46,18 @@ def test_build_tree_and_export(local_store):
 
     # GEDCOM import into a fresh tree name reproduces the shape.
     imported = srv.tree_import_gedcom(gedcom_text=out["gedcom"], tree="copy")
-    assert imported == {"tree": "copy", "people": 3, "families": 1}
+    assert (imported["people"], imported["families"]) == (3, 1)
     assert srv.tree_list()["trees"] == ["copy", "default"]
 
-    # Re-importing the stored export over a populated tree needs replace=True.
-    with pytest.raises(ValueError, match="already has 3 people"):
-        srv.tree_import_gedcom(stored_path="tree.ged")
-    again = srv.tree_import_gedcom(stored_path="tree.ged", replace=True)
-    assert again["people"] == 3
+    # Merging the tree's own export back changes nothing (own ids match)...
+    again = srv.tree_import_gedcom(stored_path="tree.ged")
+    assert (again["created"], again["people"], again["families"]) == (0, 3, 1)
+    got_again = srv.tree_get_person(ann["id"])
+    assert got_again["person"]["events"] == got["person"]["events"]
+    assert "external_ids" not in got_again["person"]  # own ids aren't stored
+    # ...while replace reloads it as-is.
+    replaced = srv.tree_import_gedcom(stored_path="tree.ged", mode="replace")
+    assert (replaced["people"], replaced["families"]) == (3, 1)
 
 
 def test_remove_person_drops_empty_families():
@@ -72,9 +76,11 @@ def test_rejects_bad_input():
         srv.tree_summary(tree="../etc")
     with pytest.raises(ValueError):
         srv.tree_file_url("../../secret")
-    a = srv.tree_add_person(given="A", familysearch_id="X-1")["added"]["id"]
+    a = srv.tree_add_person(given="A", external_ids={"wikitree": "X-1"})["added"]["id"]
     with pytest.raises(ValueError, match="already in the tree"):
-        srv.tree_add_person(given="A again", familysearch_id="X-1")
+        srv.tree_add_person(given="A again", external_ids={"wikitree": "X-1"})
+    with pytest.raises(ValueError, match="mode"):
+        srv.tree_import_gedcom(gedcom_text="0 HEAD\n0 TRLR\n", mode="append")
     with pytest.raises(ValueError):
         srv.tree_link("cousin", a, a)
 
@@ -94,12 +100,12 @@ def test_model_rules_enforced_at_tool_layer():
     assert srv.tree_update_person(a["id"], sex="x")["updated"]["sex"] == "U"
     with pytest.raises(ValueError, match="Unknown event type"):
         srv.tree_set_event(a["id"], "BIRTH", date="1900")
-    b = srv.tree_add_person(given="B", familysearch_id="FS-1")["added"]["id"]
+    b = srv.tree_add_person(given="B", external_ids={"wikitree": "W-1"})["added"]["id"]
     with pytest.raises(ValueError, match="already in the tree"):
-        srv.tree_update_person(a["id"], familysearch_id="FS-1")
+        srv.tree_update_person(a["id"], external_ids={"wikitree": "W-1"})
     with pytest.raises(ValueError, match="No person"):
         srv.tree_link("parent", a["id"], "I999")
-    srv.tree_update_person(b, familysearch_id="")
+    srv.tree_update_person(b, external_ids={"wikitree": ""})
     assert srv.tree_get_person(b)["person"].get("external_ids") is None
 
 
@@ -166,3 +172,49 @@ def test_attach_resources_never_collide_and_retry_is_noop(monkeypatch):
     person = srv.tree_get_person(a)["person"]
     assert person["resources"] == [one["path"], two["path"]]
     assert len(person["citations"]) == 2
+
+
+_ANCESTRY_V1 = """0 HEAD
+1 SOUR Ancestry.com Family Trees
+0 @I101@ INDI
+1 NAME Mary /Walsh/
+1 SEX F
+1 BIRT
+2 DATE 1890
+0 @I102@ INDI
+1 NAME Patrick /Walsh/
+1 SEX M
+0 @F9@ FAM
+1 HUSB @I102@
+1 CHIL @I101@
+0 TRLR
+"""
+# A later export: Mary gained a death, a mother appeared, and a census entry.
+_ANCESTRY_V2 = _ANCESTRY_V1.replace(
+    "2 DATE 1890\n", "2 DATE 1890\n1 DEAT\n2 DATE 1950\n1 CENS\n2 DATE 1910\n"
+).replace(
+    "0 @F9@ FAM\n1 HUSB @I102@\n",
+    "0 @I103@ INDI\n1 NAME Bridget /Burke/\n1 SEX F\n0 @F9@ FAM\n1 HUSB @I102@\n1 WIFE @I103@\n",
+)
+
+
+def test_reimporting_a_newer_app_export_merges_instead_of_duplicating():
+    first = srv.tree_import_gedcom(gedcom_text=_ANCESTRY_V1, source="ancestry")
+    assert (first["created"], first["people"]) == (2, 2)
+    mary = srv.tree_search_people("mary")["people"][0]["id"]
+    srv.tree_update_person(mary, add_note="my own research")
+
+    second = srv.tree_import_gedcom(gedcom_text=_ANCESTRY_V2, source="ancestry")
+    assert (second["created"], second["updated"], second["people"]) == (1, 2, 3)
+    got = srv.tree_get_person(mary)
+    assert got["person"]["notes"] == ["my own research"]
+    assert [e["type"] for e in got["person"]["events"]] == ["BIRT", "DEAT", "CENS"]
+    # The father-only family was completed with the mother, not duplicated.
+    assert {p["name"] for p in got["parents"]} == {"Patrick Walsh", "Bridget Burke"}
+    assert srv.tree_summary()["families"] == 1
+
+    # Without a source key the same file can't be matched, so it duplicates —
+    # which is why the docstring asks for `source` on other apps' files.
+    srv.tree_import_gedcom(gedcom_text=_ANCESTRY_V1, tree="nosource")
+    srv.tree_import_gedcom(gedcom_text=_ANCESTRY_V1, tree="nosource")
+    assert srv.tree_summary(tree="nosource")["people"] == 4

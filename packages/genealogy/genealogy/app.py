@@ -39,7 +39,7 @@ async def _lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
 def create_app() -> FastAPI:
     app = FastAPI(
         title="Genealogy MCP",
-        description="MCP server for FamilySearch lookups and a personal family tree.",
+        description="MCP server for building a personal family tree.",
         version="0.1.0",
         lifespan=_lifespan,
     )

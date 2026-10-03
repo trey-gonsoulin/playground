@@ -1,7 +1,7 @@
 [project]
 name = "genealogy"
 version = "0.1.0"
-description = "MCP server for FamilySearch lookups and building a personal family tree (GEDCOM + S3)"
+description = "MCP server for building a personal family tree (GEDCOM + S3) from WikiTree, newspapers and GEDCOM imports"
 requires-python = ">=3.13"
 dependencies = [
     "httpx>=0.28",
@@ -15,7 +15,6 @@ dependencies = [
 
 [project.scripts]
 genealogy = "genealogy.main:cli"
-genealogy-fs-login = "genealogy.fs_login:cli"
 
 [build-system]
 requires = ["hatchling"]

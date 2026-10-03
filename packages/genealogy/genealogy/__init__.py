@@ -1,1 +1,2 @@
-"""Genealogy MCP: FamilySearch lookups and a personal family tree stored as JSON + GEDCOM."""
+"""Genealogy MCP: a personal family tree (JSON + GEDCOM) fed by WikiTree, historic
+newspapers and GEDCOM imports."""

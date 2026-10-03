@@ -1,9 +1,12 @@
 """MCP server exposing genealogy tools via Streamable HTTP transport.
 
-Two groups of tools:
-- ``familysearch_*``: read-only queries against the FamilySearch Family Tree.
+Tool groups:
+- ``wikitree_*``: read-only queries against WikiTree's free public world tree.
+- ``newspapers_search``: full-text search of historic US newspapers (Library
+  of Congress, Chronicling America).
 - ``tree_*``: build and maintain your own tree (JSON in S3, exported as GEDCOM),
-  including importing people and pedigrees from FamilySearch.
+  including importing WikiTree pedigrees and merging GEDCOM exports from other
+  apps (Ancestry, RootsMagic...).
 
 Every tool returns a dict (bare list returns serialize poorly in some clients).
 """
@@ -14,13 +17,13 @@ from collections import Counter
 from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import UTC, datetime
-from functools import cache
 from urllib.parse import urlparse
 
 import httpx
 from mcp.server.fastmcp import FastMCP
 
-from genealogy import _familysearch as fs
+from genealogy import _newspapers as newspapers
+from genealogy import _wikitree as wikitree
 from genealogy._gedcom import from_gedcom, to_gedcom
 from genealogy._models import Citation, Event, Person, Tree
 from genealogy._storage import get_store
@@ -45,120 +48,138 @@ def _edit(tree_name: str) -> Generator[Tree]:
     store.save(tree, version)
 
 
-@cache
-def _fs() -> fs.FamilySearchClient:
-    """One client per container: reuses connections and the cached token."""
-    return fs.FamilySearchClient()
-
-
-# -- FamilySearch -------------------------------------------------------------------
+# -- WikiTree --------------------------------------------------------------------------
 
 
 @mcp.tool()
-def familysearch_status() -> dict:
-    """Check FamilySearch connectivity and which user the stored token belongs to.
-
-    Returns the configured environment and, when authorized, the signed-in user's
-    display name and their own Family Tree person id (a good root for imports).
-    """
-    client = _fs()
-    try:
-        user = client.current_user()
-    except fs.NotAuthenticated as exc:
-        return {"authenticated": False, "api": client.env.api, "detail": str(exc)}
-    return {
-        "authenticated": True,
-        "api": client.env.api,
-        "display_name": user.get("displayName"),
-        "tree_person_id": user.get("personId"),
-    }
-
-
-@mcp.tool()
-def familysearch_search(
-    given_name: str | None = None,
-    surname: str | None = None,
-    sex: str | None = None,
+def wikitree_search(
+    first_name: str | None = None,
+    last_name: str | None = None,
     birth_date: str | None = None,
-    birth_place: str | None = None,
     death_date: str | None = None,
-    death_place: str | None = None,
-    father_given_name: str | None = None,
-    father_surname: str | None = None,
-    mother_given_name: str | None = None,
-    mother_surname: str | None = None,
-    spouse_given_name: str | None = None,
-    spouse_surname: str | None = None,
-    count: int = 20,
+    birth_location: str | None = None,
+    death_location: str | None = None,
+    gender: str | None = None,
+    father_first_name: str | None = None,
+    father_last_name: str | None = None,
+    mother_first_name: str | None = None,
+    mother_last_name: str | None = None,
+    limit: int = 20,
 ) -> dict:
-    """Search the FamilySearch Family Tree for people matching the given details.
+    """Search WikiTree's public world tree for people matching the given details.
 
-    Dates may be a year ('1850') or a fuller date ('12 March 1850'); matching is
-    fuzzy. Places are free text ('Cork, Ireland'). Provide as many details as
-    you know — relatives' names sharply improve ranking.
+    Matching is fuzzy (name variants, nearby dates). Parents' names sharply
+    improve ranking.
 
     Args:
-        sex: 'Male' or 'Female'.
-        count: Max results (1-100, default 20).
+        last_name: Matches birth or married surname.
+        birth_date / death_date: 'YYYY-MM-DD' or 'YYYY'.
+        gender: 'Male' or 'Female'.
+        limit: Max results (1-100, default 20).
 
-    Returns {'total': int, 'results': [{pid, name, lifespan, birth, death, score, url}]}.
-    Pass a pid to familysearch_get_person or tree_import_familysearch.
+    Returns {'total', 'results': [{wikitree_id, name, birth, death, url, ...}]}.
+    Pass a wikitree_id to wikitree_get_person or tree_import_wikitree.
     """
-    criteria = {
-        "givenName": given_name,
-        "surname": surname,
-        "sex": sex,
-        "birthLikeDate": birth_date,
-        "birthLikePlace": birth_place,
-        "deathLikeDate": death_date,
-        "deathLikePlace": death_place,
-        "fatherGivenName": father_given_name,
-        "fatherSurname": father_surname,
-        "motherGivenName": mother_given_name,
-        "motherSurname": mother_surname,
-        "spouseGivenName": spouse_given_name,
-        "spouseSurname": spouse_surname,
+    data = wikitree.search(
+        limit=limit,
+        FirstName=first_name,
+        LastName=last_name,
+        BirthDate=birth_date,
+        DeathDate=death_date,
+        BirthLocation=birth_location,
+        DeathLocation=death_location,
+        Gender=gender,
+        fatherFirstName=father_first_name,
+        fatherLastName=father_last_name,
+        motherFirstName=mother_first_name,
+        motherLastName=mother_last_name,
+    )
+    matches = data.get("matches") or []
+    return {
+        "total": data.get("total", len(matches)),
+        "results": [wikitree.summary(m) for m in matches],
     }
-    data = _fs().search(count=count, **criteria)
-    results = fs.search_results(data)
-    return {"total": data.get("results", len(results)), "results": results}
 
 
 @mcp.tool()
-def familysearch_get_person(pid: str) -> dict:
-    """Read one FamilySearch Family Tree person with facts and immediate family.
+def wikitree_get_person(wikitree_id: str) -> dict:
+    """Read one WikiTree profile with parents, spouses (with marriage) and children.
 
     Args:
-        pid: FamilySearch person id, e.g. 'KWQ7-ABC'.
-
-    Returns the person's summary, facts (as GEDCOM-style events), and summaries
-    of parents, spouses and children (each with their own pid).
+        wikitree_id: e.g. 'Clemens-1' (the part after /wiki/ in a profile URL).
     """
-    doc = _fs().person(pid)
-    detail = fs.person_detail(doc or {}, pid)
-    if detail is None:
-        raise ValueError(f"FamilySearch person {pid!r} not found")
-    return detail
+    person = wikitree.relatives(wikitree_id)
+    if not person:
+        raise ValueError(f"WikiTree profile {wikitree_id!r} not found or private")
+    return wikitree.detail(person)
 
 
 @mcp.tool()
-def familysearch_get_ancestry(pid: str, generations: int = 4) -> dict:
-    """Read a FamilySearch pedigree (direct ancestors) rooted at a person.
+def wikitree_get_ancestors(wikitree_id: str, generations: int = 4) -> dict:
+    """Read a WikiTree pedigree (direct ancestors) rooted at a profile.
 
     Args:
-        pid: Root FamilySearch person id.
-        generations: 1-8 (default 4).
-
-    Returns {'ancestors': [...]} ordered by Ahnentafel number: 1 = root,
-    2n = father of n, 2n+1 = mother of n.
+        generations: 1-10 (default 4). 1 = parents only.
     """
-    data = _fs().ancestry(pid, generations) or {}
-    ancestors = [
-        {"ahnentafel": fs.ahnentafel(p), **fs.person_summary(p)}
-        for p in data.get("persons", [])
-    ]
-    ancestors.sort(key=lambda a: a["ahnentafel"] or 10**9)
-    return {"root": pid, "generations": generations, "ancestors": ancestors}
+    profiles = wikitree.ancestors(wikitree_id, generations)
+    by_num = {p.get("Id"): p.get("Name") for p in profiles}
+    return {
+        "root": wikitree_id,
+        "ancestors": [
+            {
+                **wikitree.summary(p),
+                "father": by_num.get(p.get("Father")),
+                "mother": by_num.get(p.get("Mother")),
+            }
+            for p in profiles
+        ],
+    }
+
+
+# -- Newspapers -------------------------------------------------------------------------
+
+
+@mcp.tool()
+def newspapers_search(
+    query: str,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    state: str | None = None,
+    exact_phrase: bool = True,
+    count: int = 20,
+    page: int = 1,
+) -> dict:
+    """Full-text search of historic US newspaper pages (1770–1963) at the Library
+    of Congress — obituaries, marriage notices, court and society columns.
+
+    Text is OCR, so spelling is noisy: try name variants, and 'Smith John' as
+    well as 'John Smith' with exact_phrase=False.
+
+    Args:
+        query: Name or phrase to find, e.g. 'mary walsh'.
+        start_date / end_date: 'YYYY-MM-DD' or 'YYYY'.
+        state: Full US state name, e.g. 'Missouri'.
+        exact_phrase: True = exact phrase; False = all words anywhere on the page.
+        count: Results per page (1-100). page: 1-based page number.
+
+    Searches often take 10-30 s at the Library of Congress; a narrow date range
+    and a state make them faster and less likely to time out.
+
+    Returns {'total', 'page', 'pages', 'results': [{title, newspaper, date,
+    location, ocr_excerpt, page_url, image_url}]}. ocr_excerpt is the start of
+    the page's OCR text and often doesn't contain the match — open page_url
+    to read the page. To keep a page, pass its image_url to
+    tree_attach_resource_from_url.
+    """
+    return newspapers.search(
+        query,
+        start_date=start_date,
+        end_date=end_date,
+        state=state,
+        phrase=exact_phrase,
+        count=count,
+        page=page,
+    )
 
 
 # -- Tree: read ------------------------------------------------------------------------
@@ -226,7 +247,7 @@ def tree_add_person(
     death_place: str | None = None,
     living: bool = False,
     note: str | None = None,
-    familysearch_id: str | None = None,
+    external_ids: dict[str, str] | None = None,
     tree: str = "default",
 ) -> dict:
     """Add a person to your tree. Link them to relatives afterwards with tree_link.
@@ -235,7 +256,8 @@ def tree_add_person(
         sex: 'M', 'F' or 'U'.
         birth_date / death_date: GEDCOM date phrases, e.g. '12 MAR 1850',
             'ABT 1850', 'BEF 1900', 'BET 1850 AND 1855'.
-        familysearch_id: Optional FamilySearch pid this person corresponds to.
+        external_ids: Ids of this person elsewhere, e.g. {"wikitree": "Clemens-1",
+            "familysearch": "KWQ7-ABC"}. Imports match people on these.
     """
     with _edit(tree) as t:
         person = Person(
@@ -246,7 +268,8 @@ def tree_add_person(
             living=living,
             notes=[note] if note else [],
         )
-        t.set_external_id(person, fs.SYSTEM, familysearch_id)
+        for system, ext_id in (external_ids or {}).items():
+            t.set_external_id(person, system, ext_id)
         if birth_date or birth_place:
             person.events.append(Event(type="BIRT", date=birth_date, place=birth_place))
         if death_date or death_place:
@@ -263,12 +286,15 @@ def tree_update_person(
     sex: str | None = None,
     living: bool | None = None,
     add_note: str | None = None,
-    familysearch_id: str | None = None,
+    external_ids: dict[str, str] | None = None,
     tree: str = "default",
 ) -> dict:
-    """Change a person's name, sex, living flag or FamilySearch id, or append a note.
+    """Change a person's name, sex, living flag or external ids, or append a note.
 
     Only the arguments you pass are changed. Use tree_set_event for dates/places.
+
+    Args:
+        external_ids: e.g. {"wikitree": "Clemens-1"}; an empty string clears one.
     """
     with _edit(tree) as t:
         p = t.person(person_id)
@@ -282,8 +308,8 @@ def tree_update_person(
             p.living = living
         if add_note:
             p.notes.append(add_note)
-        if familysearch_id is not None:
-            t.set_external_id(p, fs.SYSTEM, familysearch_id)
+        for system, ext_id in (external_ids or {}).items():
+            t.set_external_id(p, system, ext_id)
     return {"updated": p.summary()}
 
 
@@ -353,30 +379,30 @@ def tree_remove_person(person_id: str, tree: str = "default") -> dict:
 
 
 @mcp.tool()
-def tree_import_familysearch(
-    pid: str,
+def tree_import_wikitree(
+    wikitree_id: str,
     generations: int = 4,
     overwrite: bool = False,
     tree: str = "default",
 ) -> dict:
-    """Copy a FamilySearch person and their direct ancestors into your tree.
+    """Copy a WikiTree profile and its direct ancestors into your tree.
 
-    People are matched on FamilySearch id, so re-running is safe: existing
-    people keep your local edits and only gain missing events, unless
-    overwrite=True (which replaces names/events with FamilySearch's, keeping
-    your notes and resources). Living people come through as FamilySearch
-    shows them to you.
+    People are matched on WikiTree id (and any other shared external id), so
+    re-running is safe: existing people keep your local edits and only gain
+    missing data, unless overwrite=True (WikiTree's names/events win; your
+    notes and resources are kept).
 
     Args:
-        pid: Root FamilySearch person id.
-        generations: 1-8 (default 4). 1 = just this person and their parents.
+        wikitree_id: Root profile, e.g. 'Clemens-1'.
+        generations: 1-10 (default 4). 1 = the profile and its parents.
     """
-    data = _fs().ancestry(pid, generations)
-    if not data or not data.get("persons"):
-        raise ValueError(f"FamilySearch returned no pedigree for {pid!r}")
+    profiles = wikitree.ancestors(wikitree_id, generations)
+    if not profiles:
+        raise ValueError(f"WikiTree returned no pedigree for {wikitree_id!r}")
+    incoming = wikitree.ancestors_tree(profiles)
     with _edit(tree) as t:
-        stats = fs.import_ancestry(t, data, overwrite=overwrite)
-        root = t.find_by_external_id(fs.SYSTEM, pid)
+        stats = t.merge_tree(incoming, overwrite=overwrite)
+        root = t.find_by_external_id(wikitree.SYSTEM, wikitree_id)
     return {"tree": tree, "root": root.summary() if root else None, **stats}
 
 
@@ -413,13 +439,28 @@ def tree_import_gedcom(
     gedcom_text: str | None = None,
     stored_path: str | None = None,
     tree: str = "default",
-    replace: bool = False,
+    source: str | None = None,
+    mode: str = "merge",
 ) -> dict:
-    """Load a GEDCOM file into a tree. Refuses to clobber a non-empty tree unless replace=True.
+    """Load a GEDCOM file (e.g. an Ancestry or RootsMagic export) into a tree.
 
     Provide either gedcom_text (the file contents) or stored_path (a file already
-    under the tree's storage, e.g. 'uploads/family.ged'). Ids are renumbered.
-    The FamilySearch id is read from _FSFTID tags when present.
+    in the tree's storage, e.g. 'uploads/ancestry.ged' — large files are best
+    uploaded there directly).
+
+    Args:
+        source: Which app made the file, e.g. 'ancestry' or 'rootsmagic'. Set it
+            for files from other apps: each person is keyed by that app's id for
+            them (_UID, else the GEDCOM xref), so importing a newer export from
+            the same app updates the same people instead of duplicating them.
+            Not needed for a tree_export_gedcom file (edited elsewhere or not),
+            which carries this tree's own ids.
+        mode: 'merge' (default) adds new people and fills gaps in existing
+            ones, keeping your edits — same rules as tree_import_wikitree.
+            'replace' discards the current tree and loads the file as-is.
+
+    People also match on external ids carried in the file (REFN/TYPE pairs,
+    which tree_export_gedcom writes, and FamilySearch _FSFTID tags).
     """
     store = get_store()
     if stored_path:
@@ -428,15 +469,23 @@ def tree_import_gedcom(
         text = gedcom_text
     else:
         raise ValueError("Provide gedcom_text or stored_path")
-    current, version = store.load(tree)
-    if current.people and not replace:
-        raise ValueError(
-            f"Tree {tree!r} already has {len(current.people)} people; pass replace=True "
-            "or import into a new tree name"
-        )
-    new = from_gedcom(text, name=tree)
-    store.save(new, version)
-    return {"tree": tree, "people": len(new.people), "families": len(new.families)}
+    if mode not in ("merge", "replace"):
+        raise ValueError("mode must be 'merge' or 'replace'")
+    incoming = from_gedcom(text, name=tree, source=source or None)
+    if mode == "replace":
+        _, version = store.load(tree)
+        for p in incoming.people.values():  # ids from a previous export are stale
+            p.external_ids.pop(incoming.own_id_system(), None)
+        store.save(incoming, version)
+        return {
+            "tree": tree,
+            "people": len(incoming.people),
+            "families": len(incoming.families),
+        }
+    with _edit(tree) as t:
+        stats = t.merge_tree(incoming)
+        totals = {"people": len(t.people), "families": len(t.families)}
+    return {"tree": tree, **stats, **totals}
 
 
 @mcp.tool()

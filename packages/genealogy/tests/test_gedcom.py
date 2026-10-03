@@ -47,7 +47,8 @@ def test_round_trip_preserves_people_links_and_text():
     assert len(parsed.people) == 3
     ann = next(p for p in parsed.people.values() if p.given == "Ann")
     assert ann.surname == "Walsh" and ann.sex == "F"
-    assert ann.external_ids == {"familysearch": "KWQ7-ABC"}
+    # REFN/TYPE carries every id, including the exporting tree's own.
+    assert ann.external_ids == {"tree:t": "I1", "familysearch": "KWQ7-ABC"}
     birth = ann.event("BIRT")
     assert birth and birth.date == "12 MAR 1890" and birth.place == "Cork, Ireland"
     assert birth.citations[0].url == "https://example.org/r/1"
