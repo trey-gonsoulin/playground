@@ -2877,7 +2877,9 @@ _FIELD_NOTES: dict[str, str] = {
     "trigger_set_when": "on a cutscene doc (#228): for each trigger_flag with no "
     "quest step (unlinked, or linked to a quest only), {flag, when}: what turns it on, as warp gate_set_when (Jerren's "
     "festival scene 60510000: flag 9410 = any_of(talk to Iji / Sellen, Roderika's "
-    "phase 3063)). Flags left out are unresolved (no tracked condition)",
+    "phase 3063) while no other festival flag 9411-9413 is on, plus an "
+    "untracked_wait). A flag is left out when it links to a phase or life_state step, "
+    "or when its set_when would be absent for any of the reasons gate_set_when lists",
     "trigger_items": "on a cutscene doc: the items the player must hold (Dectus "
     "Medallion (Left) / (Right) for the Grand Lift of Dectus)",
     "warp_region": "on a cutscene doc: the MSB region entity the player is moved to "
@@ -3050,14 +3052,16 @@ _FIELD_NOTES: dict[str, str] = {
     "Smithing Master Iji / Sorceress Sellen, Roderika's phase 3063) while no other "
     "festival flag 9411-9413 is on, plus an untracked_wait). An event that waits on a "
     "character's state adds it as kind character + state (dead, attacked, health, "
-    "special_effect; npc / entity_ids), as quest outcome waited_for. kind "
+    "special_effect; npc / entity_ids, npc absent when the entity has no name: entity "
+    "10000 is the player), as quest outcome waited_for. kind "
     "untracked_wait: the event also waits on something not decoded (the player "
     "entering a region, pressing an action button, a flag range), so the other "
     "conditions are needed but not enough on their own. One hop only: a condition's "
     "own flag isn't expanded (kind flag, with set_at). Absent (unresolved) when an "
     "event sets the flag with no tracked condition (only area arrivals or untracked "
     "waits), when its setting events differ by more than one condition each or one "
-    "alternative is a character or untracked wait, or past 8 conditions. Same "
+    "alternative is a character or untracked wait, when one event waits on more than "
+    "one character, or past 8 conditions. Same "
     "shape as "
     "npc_summons / hostile_signs requires_set_when and cutscene trigger_set_when",
     "event_id": "on a warp doc (#94): the EMEVD event that performs the warp: the "
