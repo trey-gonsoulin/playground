@@ -2132,6 +2132,10 @@ def ensure_index(client: OpenSearch, recreate: bool = False) -> None:
         client.indices.create(index=INDEX, body=INDEX_MAPPING)
     else:
         print(f"  Index '{INDEX}' already exists, updating mapping …")
+        limit = INDEX_MAPPING["settings"]["mapping.total_fields.limit"]
+        client.indices.put_settings(
+            index=INDEX, body={"index.mapping.total_fields.limit": limit}
+        )
         client.indices.put_mapping(index=INDEX, body=INDEX_MAPPING["mappings"])
 
 
