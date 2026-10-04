@@ -137,6 +137,28 @@ def test_set_when_fields_mapped():
                     ],
                 },
                 {"flag": 9000, "when": [{"kind": "talk", "flag": 9000}]},
+                # #237: common event 6910 sets its own slot flag for the host
+                {"flag": 6910, "when": [{"kind": "in_own_world"}]},
+                # #238: an event's conditions, or the talk script that sets it too
+                {
+                    "flag": 1042559207,
+                    "when": [
+                        {
+                            "kind": "any_of",
+                            "conditions": [
+                                {
+                                    "kind": "all_of",
+                                    "conditions": [
+                                        {"kind": "life_state", "flag": 4180},
+                                        {"kind": "in_own_world"},
+                                    ],
+                                },
+                                {"kind": "talk", "flag": 1042559207, "npcs": ["x"]},
+                                {"kind": "item_pickup", "flag": 1, "items": ["y"]},
+                            ],
+                        }
+                    ],
+                },
             ],
         },
     )
@@ -162,6 +184,16 @@ def test_set_when_documented():
     # a flag only a talk script or pickup sets (#232)
     assert "item_pickup" in _FIELD_NOTES["gate_set_when"]
     assert "Castellan Jerren" in _FIELD_NOTES["trigger_set_when"]
+
+
+def test_set_when_alternatives_and_own_slot_documented():
+    """#238 talk / pickup alternatives, #237 own slot flags, #236 re-sets."""
+    note = _FIELD_NOTES["gate_set_when"]
+    assert "one more any_of alternative" in note
+    assert "event id + slot" in note
+    assert "already on" in note
+    # an event's own slot flag is no longer named as never resolved
+    assert "(an event's own slot flag, a computed flag)" not in note
 
 
 def test_set_when_progress_and_all_of_documented():
