@@ -230,11 +230,13 @@ _POISE_HANDS = {
     for hand in ("one_handed", "two_handed")
 }
 
-# Player criticals from ThrowParam (#128): enemy docs and their phases[] entries.
+# Player criticals from ThrowParam (#128, #240): enemy docs and their phases[] entries.
 _CRITICAL_HITS = {
     "backstab": {"type": "boolean"},
     "riposte": {"type": "boolean"},
     "stance_break": {"type": "boolean"},
+    "downed": {"type": "boolean"},
+    "sleep": {"type": "boolean"},
     "other_throw_types": {"type": "integer"},
 }
 
@@ -2759,7 +2761,8 @@ _FIELD_NOTES: dict[str, str] = {
     "the player's ThrowParam rows for the bound NpcParam row's model; on a multi-phase "
     "boss, the union over its own phases (Rennala: stance_break from phase 2 only; see "
     "phases.critical_hits for which phase). All false = no critical at all (Tree "
-    "Sentinel, Rykard). Absent on c0000 humanoids (NPCs, invaders) and unbound docs",
+    "Sentinel, Rykard). c0000 humanoids (NPCs, invaders) take the player-vs-player "
+    "rows: backstab + riposte only (#241). Absent on unbound docs",
     "critical_hits.backstab": "a critical from behind is possible (false for Margit, "
     "Malenia, Crucible Knights)",
     "critical_hits.riposte": "a critical after a parry is possible; whether any of its "
@@ -2767,9 +2770,17 @@ _FIELD_NOTES: dict[str, str] = {
     "not parryable)",
     "critical_hits.stance_break": "a critical after a stance (posture) break is possible "
     "(the only critical of Radahn, Godrick, Mohg, Placidusax)",
+    "critical_hits.downed": "a critical on the body on the ground, from any side, is "
+    "possible (ThrowType 22, #240): riders knocked off their mount (Night's Cavalry, "
+    "Godrick Knights, Kaiden Sellsword: the wiki's dismount critical); the same rows "
+    "sit on seated families (merchants, Latenna, Nox)",
+    "critical_hits.sleep": "a critical on the sleeping body, from any side, is possible "
+    "(ThrowType 24, #240; Godskins, Vulgar Militia, Mad Pumpkin Heads, soldiers). A "
+    "model-level row: whether this enemy can be put to sleep is a separate question "
+    "(check immune_to; the dragons have the row but resist sleep)",
     "critical_hits.other_throw_types": "raw ThrowParam ThrowType values with no confirmed "
-    "meaning (22 / 24 = eight 45-degree arcs around a downed or seated body, 23 = a "
-    "second rear arc)",
+    "meaning (23 = a second rear arc with the backstab's reach, 10 = one row reached "
+    "from above)",
     "team_type": "enemy NpcParam TeamType (#83): the team deciding whose attacks hit whom and "
     "who is targeted, so enemies with the same value are allies. Values without a team "
     "label are Elden Ring factions with no confirmed name (48 = lord soldiers + Mad "
@@ -2849,7 +2860,7 @@ _FIELD_NOTES: dict[str, str] = {
     "phases.npc_id": "NpcName id shown on this phase's health bar",
     "phases.critical_hits": "critical_hits of this phase's NpcParam row alone (same "
     "leaves as the top-level field), e.g. Rennala's phase 1 has none and phase 2 the "
-    "stance-break critical. Absent when the phase has no row or a c0000 humanoid row",
+    "stance-break critical. Absent when the phase has no row",
     "phases.npc_param_id": "NpcParam row of this phase's fighting character",
     "phases.hp_scaled": "this character's in-game max HP (area scaling applied, as "
     "hp_scaled)",
