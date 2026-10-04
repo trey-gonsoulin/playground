@@ -77,7 +77,9 @@ def wikitree_search(
         gender: 'Male' or 'Female'.
         limit: Max results (1-100, default 20).
 
-    Returns {'total', 'results': [{wikitree_id, name, birth, death, url, ...}]}.
+    Returns {'total', 'results': [{wikitree_id, name, birth, death, url, ...}],
+    'private_matches_hidden'}. Privacy-restricted profiles have no id or name
+    and are left out (counted in private_matches_hidden; 'total' includes them).
     Pass a wikitree_id to wikitree_get_person or tree_import_wikitree.
     """
     data = wikitree.search(
@@ -94,10 +96,11 @@ def wikitree_search(
         motherFirstName=mother_first_name,
         motherLastName=mother_last_name,
     )
-    matches = data.get("matches") or []
+    matches, hidden = wikitree.split_visible(data.get("matches") or [])
     return {
         "total": data.get("total", len(matches)),
         "results": [wikitree.summary(m) for m in matches],
+        "private_matches_hidden": hidden,
     }
 
 
@@ -122,7 +125,8 @@ def wikitree_get_ancestors(wikitree_id: str, generations: int = 4) -> dict:
         generations: 1-10 (default 4). 1 = parents only.
     """
     profiles = wikitree.ancestors(wikitree_id, generations)
-    by_num = {p.get("Id"): p.get("Name") for p in profiles}
+    visible, hidden = wikitree.split_visible(profiles)
+    by_num = {p.get("Id"): p.get("Name") for p in visible}
     return {
         "root": wikitree_id,
         "ancestors": [
@@ -131,8 +135,9 @@ def wikitree_get_ancestors(wikitree_id: str, generations: int = 4) -> dict:
                 "father": by_num.get(p.get("Father")),
                 "mother": by_num.get(p.get("Mother")),
             }
-            for p in profiles
+            for p in visible
         ],
+        "private_ancestors_hidden": hidden,
     }
 
 

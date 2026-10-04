@@ -213,23 +213,39 @@ def to_person(profile: dict, person_id: str) -> Person:
     )
 
 
+def split_visible(profiles) -> tuple[list[dict], int]:
+    """(profiles we can show, number hidden).
+
+    Privacy-restricted profiles come back as just ``{"Id": n}``: no WikiTree
+    id, name or dates, so they can be neither shown nor imported.
+    """
+    profiles = list(profiles)
+    visible = [p for p in profiles if p.get("Name")]
+    return visible, len(profiles) - len(visible)
+
+
 def detail(person: dict) -> dict:
     """Profile summary plus parents, spouses (with marriage) and children."""
+    hidden = 0
 
     def _group(key: str) -> list[dict]:
-        return [summary(p) for p in (person.get(key) or {}).values()]
+        nonlocal hidden
+        visible, n = split_visible((person.get(key) or {}).values())
+        hidden += n
+        return visible
 
     spouses = []
-    for p in (person.get("Spouses") or {}).values():
+    for p in _group("Spouses"):
         married = to_gedcom_date(p.get("marriage_date"))
         place = p.get("marriage_location") or None
         marriage = ", ".join(x for x in (married, place) if x) or None
         spouses.append({**summary(p), "marriage": marriage})
     return {
         **summary(person),
-        "parents": _group("Parents"),
+        "parents": [summary(p) for p in _group("Parents")],
         "spouses": spouses,
-        "children": _group("Children"),
+        "children": [summary(p) for p in _group("Children")],
+        "private_relatives_hidden": hidden,
     }
 
 
@@ -237,9 +253,8 @@ def ancestors_tree(profiles: list[dict]) -> Tree:
     """Build a Tree from getAncestors output, linking Father/Mother by numeric Id."""
     tree = Tree(name="wikitree")
     by_num: dict[int, str] = {}
-    for profile in profiles:
-        if not profile.get("Name"):
-            continue  # private profiles can come back without an id
+    visible, _ = split_visible(profiles)
+    for profile in visible:
         person = to_person(profile, tree.new_person_id())
         tree.people[person.id] = person
         by_num[profile["Id"]] = person.id

@@ -41,6 +41,8 @@ SAM = _profile(
 )
 JOHN = _profile(5186, "Clemens-2", "John", "Clemens", "Male", BirthDate="1798-08-11")
 JANE = _profile(5188, "Lampton-1", "Jane", "Lampton", "Female")
+# What WikiTree returns for a privacy-restricted profile: the numeric Id only.
+PRIVATE = {"Id": 20082962}
 
 
 @pytest.fixture
@@ -52,11 +54,17 @@ def api(monkeypatch):
             {
                 "status": "",
                 "resultByKey": {"Clemens-1": {"Id": 5185}},
-                "people": {str(p["Id"]): p for p in (JOHN, JANE, SAM)},
+                "people": {str(p["Id"]): p for p in (JOHN, PRIVATE, JANE, SAM)},
             }
         ],
         "searchPerson": [
-            {"status": 0, "matches": [SAM], "total": 7, "start": 0, "limit": 1}
+            {
+                "status": 0,
+                "matches": [{**PRIVATE, "index": 0}, {**SAM, "index": 1}],
+                "total": 230,
+                "start": 0,
+                "limit": 2,
+            }
         ],
         "getRelatives": [
             {
@@ -75,7 +83,7 @@ def api(monkeypatch):
                                     "marriage_location": "Elmira, New York, USA",
                                 }
                             },
-                            "Children": {},
+                            "Children": {"20082962": PRIVATE},
                         },
                     }
                 ],
@@ -129,8 +137,9 @@ def test_to_person_maps_names_dates_and_ids():
 
 def test_search_and_get_person_tools(api):
     found = srv.wikitree_search(first_name="Samuel", last_name="Clemens", limit=500)
-    assert found["total"] == 7
-    assert found["results"][0]["wikitree_id"] == "Clemens-1"
+    assert found["total"] == 230
+    assert [r["wikitree_id"] for r in found["results"]] == ["Clemens-1"]
+    assert found["private_matches_hidden"] == 1
     sent = api[-1]
     assert sent["FirstName"] == "Samuel" and sent["limit"] == "100"
     assert sent["appId"] == "genealogy-mcp" and "BirthDate" not in sent
@@ -138,12 +147,15 @@ def test_search_and_get_person_tools(api):
     person = srv.wikitree_get_person("Clemens-1")
     assert {p["wikitree_id"] for p in person["parents"]} == {"Clemens-2", "Lampton-1"}
     assert person["spouses"][0]["marriage"] == "2 FEB 1870, Elmira, New York, USA"
+    assert person["children"] == [] and person["private_relatives_hidden"] == 1
 
 
 def test_get_ancestors_names_parents(api):
     out = srv.wikitree_get_ancestors("Clemens-1", generations=2)
     sam = out["ancestors"][0]
     assert (sam["father"], sam["mother"]) == ("Clemens-2", "Lampton-1")
+    assert all(a["wikitree_id"] for a in out["ancestors"])
+    assert out["private_ancestors_hidden"] == 1
 
 
 def test_import_is_idempotent_and_merges_with_existing_people(api):
