@@ -272,3 +272,12 @@ def test_set_when_multiplayer_and_character_alternatives_documented():
     ):
         assert word in note, word
     assert _PROPS["gate_set_when"]["properties"]["state"]["type"] == "keyword"
+
+
+def test_shop_unlock_steps_documented():
+    # #201: shop_listings is enabled: false, so its quest-step leaves need no mapping
+    note = _FIELD_NOTES["shop_listings"]
+    assert "unlock_step" in note and "unlock_set_when" in note
+    assert "gate_set_when" in note and "requires_step" in note
+    # #247: a labelled talk id names a quest block
+    assert "Melina" in _FIELD_NOTES["npc"]
