@@ -273,6 +273,8 @@ _SUMMON_STATS = {
     "count": {"type": "integer"},
     **_NPC_STATS,
     "damage_multiplier": {"type": "float"},
+    # Resident NpcParam slot SpEffects' damage cut rates (#181)
+    "damage_taken_multiplier": {"properties": _props("float", _NEGATION_TYPES)},
     "attacks": {"properties": _NPC_ATTACKS},
 }
 
@@ -532,7 +534,19 @@ INDEX_MAPPING = {
             **_NPC_STATS,
             # Enemy attack profile over its model family's move table (#81).
             "attacks": {
-                "properties": {**_NPC_ATTACKS, "shared_with": {"type": "keyword"}}
+                "properties": {
+                    **_NPC_ATTACKS,
+                    "shared_with": {"type": "keyword"},
+                    # Moves other placed rows add under a TAE gate state (#180).
+                    "state_variants": {
+                        "properties": {
+                            **_NPC_ATTACKS,
+                            "special_states": {"type": "integer"},
+                            "placements": {"type": "integer"},
+                            "npc_param_ids": {"type": "integer"},
+                        }
+                    },
+                }
             },
             # Grab subset of that move table, joined to ThrowParam (#82).
             "grabs": {
@@ -2731,8 +2745,24 @@ _FIELD_NOTES: dict[str, str] = {
     "SpEffect state are dropped (Commander Niall loses O'Neil's scarlet rot and keeps "
     "frostbite). Moves the AI alone chooses between stay, so a shared table can still "
     "carry a sibling's move (every soldier doc lists the Frenzied soldiers' madness). "
-    "Moves have no names in the data, so there is no per-move list. Absent on humanoid "
-    "NPCs/invaders, which fight with equipped weapons",
+    "Moves have no names in the data, so there is no per-move list. The profile covers "
+    "every MSB placement of the name on that table: placements that spawn with another "
+    "gate state add their moves here and list them under attacks.state_variants (#180). "
+    "Absent on humanoid NPCs/invaders, which fight with equipped weapons",
+    "attacks.state_variants": "placed variants of the enemy that fire extra moves under "
+    "a TAE gate SpEffect state the doc's bound NpcParam row lacks (#180), most placements "
+    "first. Each entry has the profile (count / damage_types / elements / attack_power "
+    "/ status_buildup / status_effects) of only the moves it adds. Gravebird: 46 "
+    "placements under state 412 add the holy ring and poison tail, 6 under 413 add "
+    "sleep. Where a gate state swaps the whole move set (Crystalian), an entry holds "
+    "the whole alternate set, so attacks.count is a union no one placement fires "
+    "(Crystalian 66 -> 131). Filter attacks.state_variants.status_effects for 'which "
+    "enemies inflict X only in some placements'",
+    "attacks.state_variants.special_states": "SpEffect SpecialState values these rows "
+    "spawn with and the bound row doesn't (empty = same states, a different animation "
+    "set)",
+    "attacks.state_variants.placements": "MSB placements of the name on these rows",
+    "attacks.state_variants.npc_param_ids": "the placed NpcParam rows of this variant",
     "attacks.attack_power": "max base attack power per element across the table (before "
     "per-area scaling; includes grabs and set-piece attacks)",
     "attacks.elements": "elements any move deals: physical / magic / fire / lightning / holy",
@@ -3213,23 +3243,32 @@ _FIELD_NOTES: dict[str, str] = {
     "per distinct spirit with count and the enemy stat groups (stats / defense / resistances "
     "/ immune_to / traits / weak_point_damage_multiplier), from BuddyParam -> NpcParam with "
     "the summon's upgrade-level SpEffect applied (at +0 most base-game spirits get double "
-    "status resistance). A filter like summon_stats.stats.hp matches if any spirit matches. "
+    "status resistance) on top of the spirit row's resident SpEffects (#181; the "
+    "per-spirit balance effects since 1.13, e.g. Gravebird Ashes HP x1.3, Stormhawk "
+    "Deenh x2.2). A filter like summon_stats.stats.hp matches if any spirit matches. "
     "Each spirit also has an attacks profile (summon_stats.attacks). Mimic Tear also "
     "lists its player-copy row. +10 in max_level, every level in upgrade_curve",
     "summon_stats.damage_multiplier": "spirit's outgoing damage multiplier at that upgrade "
-    "level (1.0 at +0, ~3.8 at +10 for most base-game spirits)",
+    "level (1.0 at +0, ~3.8 at +10 for most base-game spirits); the resident per-element "
+    "multipliers are folded into attacks.attack_power instead",
+    "summon_stats.damage_taken_multiplier": "per damage type, the multiplier on damage "
+    "the spirit takes from its resident SpEffects (#181), only where not 1.0: physical "
+    "(standard) / strike / slash / pierce / magic / fire / lightning / holy. Crystalian "
+    "Ashes 0.1 for everything but strike (the crystal body), Bloodhound Knight Floh 0.6 "
+    "physical",
     "summon_stats.attacks": "spirit's attack profile, in the enemy attacks shape "
     "(behavior_variation / count / damage_types / elements / attack_power / "
     "status_buildup / status_effects; no shared_with) (#124). Spirits share their field "
     "enemy's move table (Lone Wolf Ashes = the Lone Wolf's), narrowed to the moves the "
     "spirit's animations fire, so AI-only sibling moves can remain. attack_power is "
     "scaled by that level's damage_multiplier (Black Knife Tiche holy 250 at +0, 949 at "
-    "+10 in max_level.summon_stats.attacks); status_buildup is not scaled by upgrades. "
+    "+10 in max_level.summon_stats.attacks) and by the spirit's resident per-element "
+    "damage multipliers (#181: Gravebird Ashes magic x1.65, 220 -> 363 at +0); "
+    "status_buildup is not scaled. "
     "Per-level attack_power is in upgrade_curve.summon_stats[i].attacks.attack_power. "
-    "A spirit that spawns as a specific enemy variant keeps that variant's moves even "
-    "when the field enemy doc (one representative row) lacks them: Gravebird Ashes is the "
-    "spectral-ring / poison-tail Gravebird (holy + poison), the Gravebird doc the plain "
-    "one. Fingercreeper Ashes keeps its whole model-family table (no animation data "
+    "A spirit that spawns as a specific enemy variant keeps that variant's moves: "
+    "Gravebird Ashes is the spectral-ring / poison-tail Gravebird (holy + poison), which "
+    "the Gravebird doc lists under attacks.state_variants. Fingercreeper Ashes keeps its whole model-family table (no animation data "
     "for that model). Absent on player-copy and human spirits (Mimic Tear's copy, the Puppets, "
     "Jolán and Anna): they fight with equipped weapons. Mimic Tear's first entry is "
     "its Silver Tear form",
