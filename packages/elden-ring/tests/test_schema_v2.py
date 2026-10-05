@@ -128,6 +128,13 @@ def test_grouped_leaves_mapped():
         "grabs.attack_power.fire": "integer",
         "grabs.status_buildup.bleed": "integer",
         "grabs.status_effects": "keyword",
+        # #253: max per-hit poise damage of enemy / summon attack profiles.
+        "attacks.poise_damage": "float",
+        "attacks.state_variants.poise_damage": "float",
+        "attacks.other_tables.poise_damage": "float",
+        "grabs.poise_damage": "float",
+        "summon_stats.attacks.poise_damage": "float",
+        "max_level.summon_stats.attacks.poise_damage": "float",
         "critical_hits.backstab": "boolean",
         "critical_hits.riposte": "boolean",
         "critical_hits.stance_break": "boolean",

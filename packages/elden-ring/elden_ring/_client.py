@@ -264,6 +264,8 @@ _NPC_ATTACKS = {
     "damage_types": {"type": "keyword"},
     "elements": {"type": "keyword"},
     "attack_power": {"properties": _props("integer", _DAMAGE_TYPES)},
+    # Max per-hit AtkParam_Npc poise damage (#253); spirits' x0.05 is folded in.
+    "poise_damage": {"type": "float"},
     "status_buildup": {"properties": _props("integer", _STATUSES)},
     "status_effects": {"type": "keyword"},
 }
@@ -567,6 +569,7 @@ INDEX_MAPPING = {
                     "damage_types": {"type": "keyword"},
                     "elements": {"type": "keyword"},
                     "attack_power": {"properties": _props("integer", _DAMAGE_TYPES)},
+                    "poise_damage": {"type": "float"},
                     "status_buildup": {"properties": _props("integer", _STATUSES)},
                     "status_effects": {"type": "keyword"},
                 }
@@ -2790,6 +2793,10 @@ _FIELD_NOTES: dict[str, str] = {
     "attacks.elements": "elements any move deals: physical / magic / fire / lightning / holy",
     "attacks.damage_types": "physical damage types across moves: Slash / Strike / Pierce / "
     "Standard",
+    "attacks.poise_damage": "max per-hit poise (stance) damage across the table "
+    "(AtkParam_Npc atkSuperArmor, #253), in the units of stats.poise (Black Knife "
+    "Assassin 90, Erdtree Avatar 70, Tree Sentinel 60, Margit 35, Lone Wolf 10). On "
+    "summon_stats.attacks it already includes every spirit's x0.05",
     "attacks.status_buildup": "max direct per-hit status buildup per status",
     "attacks.status_effects": "statuses any move inflicts, including damage-over-time "
     "effects with no per-hit value (Mohg's bloodflame bleed); filter here for 'which "
@@ -2809,6 +2816,7 @@ _FIELD_NOTES: dict[str, str] = {
     "holy",
     "grabs.damage_types": "physical damage types of grab hits: Slash / Strike / Pierce / "
     "Standard",
+    "grabs.poise_damage": "max per-hit poise (stance) damage of grab hits (#253)",
     "grabs.status_buildup": "max direct per-hit status buildup of grab hits",
     "grabs.status_effects": "statuses a grab inflicts (Margit's grab: bleed)",
     "critical_hits": "which critical hits the player can land on this enemy (#128), from "
@@ -3303,7 +3311,7 @@ _FIELD_NOTES: dict[str, str] = {
     "for every status since 1.13",
     "summon_stats.attacks": "spirit's attack profile, in the enemy attacks shape "
     "(behavior_variation / count / damage_types / elements / attack_power / "
-    "status_buildup / status_effects; no shared_with) (#124). Spirits share their field "
+    "poise_damage / status_buildup / status_effects; no shared_with) (#124). Spirits share their field "
     "enemy's move table (Lone Wolf Ashes = the Lone Wolf's), narrowed to the moves the "
     "spirit's animations fire, so AI-only sibling moves can remain. attack_power is "
     "scaled by that level's damage_multiplier and by the spirit's resident per-element "
@@ -3311,6 +3319,9 @@ _FIELD_NOTES: dict[str, str] = {
     "carry their own x0.7 to x1.5 on top) and the 1.13+ balance effects (#181: "
     "Gravebird Ashes magic x1.65, 220 -> 91 at +0). Black Knife Tiche holy 62 at +0, "
     "237 at +10 in max_level.summon_stats.attacks; status_buildup is not scaled. "
+    "poise_damage is x0.05 on every spirit (SpEffect 296000 saAttackPowerRate, all "
+    "patches; #253) and does not change with level: Black Knife Tiche 90 -> 4.5, most "
+    "spirits 0.5 to 1.5. "
     "Per-level attack_power is in upgrade_curve.summon_stats[i].attacks.attack_power. "
     "A spirit that spawns as a specific enemy variant keeps that variant's moves: "
     "Gravebird Ashes is the spectral-ring / poison-tail Gravebird (holy + poison), which "
