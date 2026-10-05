@@ -302,7 +302,7 @@ _QUEST_CONDITION = {
 # kind any_of (#203): at least one of the nested (leaf) conditions holds
 _QUEST_CONDITION = {**_QUEST_CONDITION, "conditions": {"properties": _QUEST_CONDITION}}
 # What an 'event' outcome's script waited for (#213): the conditions above, or kind
-# character (a character's state, named via its MSB entities)
+# character (a character's state, named via its MSB entities); multiplayer_state (#245)
 _QUEST_WAITED_FOR = {
     **_QUEST_CONDITION,
     "state": {"type": "keyword"},
@@ -3295,7 +3295,8 @@ _FIELD_NOTES: dict[str, str] = {
     "summon_stats.poise_damage_taken_multiplier": "multiplier on poise (stance) damage "
     "the spirit takes, from its resident SpEffects (#249), only where not 1.0. 0.5 on "
     "almost every spirit since 1.13 (the patch that made spirits harder to stagger; that "
-    "SpEffect also adds +50 to stats.poise), Taylew the Golem Smith 1.72",
+    "SpEffect also adds +50 to stats.poise; a few spirits' own resident effects add "
+    "+50 to +70 more), Taylew the Golem Smith 1.72",
     "summon_stats.status_buildup_taken_multiplier": "per status, the multiplier on "
     "status buildup the spirit receives, from its resident SpEffects (#249), only where "
     "not 1.0; resistances are left as the raw threshold. Ancient Dragon Florissax 0.7 "
@@ -3306,7 +3307,7 @@ _FIELD_NOTES: dict[str, str] = {
     "enemy's move table (Lone Wolf Ashes = the Lone Wolf's), narrowed to the moves the "
     "spirit's animations fire, so AI-only sibling moves can remain. attack_power is "
     "scaled by that level's damage_multiplier and by the spirit's resident per-element "
-    "damage multipliers: every spirit's x0.25 damage vs enemies (#248; four spirits "
+    "damage multipliers: every spirit's x0.25 damage vs enemies (#248; five spirits "
     "carry their own x0.7 to x1.5 on top) and the 1.13+ balance effects (#181: "
     "Gravebird Ashes magic x1.65, 220 -> 91 at +0). Black Knife Tiche holy 62 at +0, "
     "237 at +10 in max_level.summon_stats.attacks; status_buildup is not scaled. "
