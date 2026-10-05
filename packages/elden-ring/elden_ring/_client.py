@@ -320,6 +320,8 @@ _SET_WHEN_LEAF = {
     "first_flag": {"type": "long"},
     "last_flag": {"type": "long"},
     "range_state": {"type": "keyword"},
+    # kind near_entity (#234): the player within distance of MSB entity_id
+    "distance": {"type": "float"},
 }
 _SET_WHEN = {
     **_SET_WHEN_LEAF,
@@ -3139,12 +3141,19 @@ _FIELD_NOTES: dict[str, str] = {
     "/ subarea / landmark of the region's position when they add a name), flag_range (first_flag..last_flag, "
     "range_state all_on / all_off / any_on / any_off), in_own_world (the player is "
     "the host, not a summoned phantom; negated = not in their own world; also when "
-    "the event only runs on past a check of it, #237), "
+    "the event only runs on past a check of it, #237, or checks that the player's "
+    "character type is Alive, i.e. not a phantom, #242), "
     "armor_equipped (items: the armor piece worn, else item_id; Head / Body / Arms "
-    "/ Legs are the empty slots, i.e. no armor there). kind "
+    "/ Legs are the empty slots, i.e. no armor there), near_entity (#234: the "
+    "player within distance of MSB entity_id; negated = beyond it; map / locations "
+    "/ area / subarea / landmark as in_region). A wait on either of several such "
+    "conditions or flags (Nerijus's two regions), or one only some of the event's "
+    "paths take (the ending prompts), is an any_of of the alternatives, each one "
+    "condition or an all_of (#234/#235; a path that only runs once a flag the "
+    "event sets further on is already on is a re-run and adds no alternative). kind "
     "untracked_wait: the event also waits on something still not decoded (such as "
-    "another character in a region, a distance, either of several regions or prompts, or a "
-    "wait only some of its paths take), so the other conditions are needed but not "
+    "another character in a region, a value comparison, or more alternatives than "
+    "fit), so the other conditions are needed but not "
     "enough on their own. When the setting events need different conditions beyond "
     "the shared ones, the last condition is an any_of of each event's extra: one "
     "condition, or an all_of of several (#233; an all_of holds plain conditions "
