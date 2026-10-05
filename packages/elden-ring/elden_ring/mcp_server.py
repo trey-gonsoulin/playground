@@ -103,7 +103,8 @@ def search_entities(
                            Tip 4", "Map Event 80810"); tags give the kind:
                            action_button (interaction prompts: "Touch grace"),
                            map_event (area/event banners: "Summoned Blaidd…"),
-                           tutorial and loading_tip (display_name = title),
+                           tutorial and loading_tip (display_name = title;
+                           a tutorial's unlock_flag + unlock_set_when, #202),
                            item_dialog (item-use confirmations: "Use Stonesword
                            Key?"; #90)
             enemy      — bosses, creatures, and named enemies (from the NpcName roster)
