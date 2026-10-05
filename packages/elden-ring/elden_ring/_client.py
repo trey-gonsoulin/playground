@@ -273,8 +273,11 @@ _SUMMON_STATS = {
     "count": {"type": "integer"},
     **_NPC_STATS,
     "damage_multiplier": {"type": "float"},
-    # Resident NpcParam slot SpEffects' damage cut rates (#181)
+    # Resident NpcParam slot SpEffects' damage cut rates (#181) x the vs-enemy damage
+    # correction (#248); poise damage / status buildup received rates (#249)
     "damage_taken_multiplier": {"properties": _props("float", _NEGATION_TYPES)},
+    "poise_damage_taken_multiplier": {"type": "float"},
+    "status_buildup_taken_multiplier": {"properties": _props("float", _STATUSES)},
     "attacks": {"properties": _NPC_ATTACKS},
 }
 
@@ -3250,21 +3253,35 @@ _FIELD_NOTES: dict[str, str] = {
     "lists its player-copy row. +10 in max_level, every level in upgrade_curve",
     "summon_stats.damage_multiplier": "spirit's outgoing damage multiplier at that upgrade "
     "level (1.0 at +0, ~3.8 at +10 for most base-game spirits); the resident per-element "
-    "multipliers are folded into attacks.attack_power instead",
+    "multipliers, including every spirit's x0.25 damage vs enemies (#248), are folded "
+    "into attacks.attack_power instead. Mimic Tear's player copy has no attacks, so its "
+    "damage vs enemies is the player's x damage_multiplier x 0.25 (+10: 2.473 x 0.25 "
+    "~= 0.62)",
     "summon_stats.damage_taken_multiplier": "per damage type, the multiplier on damage "
     "the spirit takes from its resident SpEffects (#181), only where not 1.0: physical "
-    "(standard) / strike / slash / pierce / magic / fire / lightning / holy. Crystalian "
-    "Ashes 0.1 for everything but strike (the crystal body), Bloodhound Knight Floh 0.6 "
+    "(standard) / strike / slash / pierce / magic / fire / lightning / holy. Every spirit "
+    "takes x0.5 damage from enemies (SpEffect 296000, all patches; the Mimic Tear's "
+    "observed flat 50% negation, #248), times its own cut rates: Crystalian Ashes 0.05 "
+    "for everything but strike 0.5 (the crystal body), Bloodhound Knight Floh 0.3 "
     "physical",
+    "summon_stats.poise_damage_taken_multiplier": "multiplier on poise (stance) damage "
+    "the spirit takes, from its resident SpEffects (#249), only where not 1.0. 0.5 on "
+    "almost every spirit since 1.13 (the patch that made spirits harder to stagger; that "
+    "SpEffect also adds +50 to stats.poise), Taylew the Golem Smith 1.72",
+    "summon_stats.status_buildup_taken_multiplier": "per status, the multiplier on "
+    "status buildup the spirit receives, from its resident SpEffects (#249), only where "
+    "not 1.0; resistances are left as the raw threshold. Ancient Dragon Florissax 0.7 "
+    "for every status since 1.13",
     "summon_stats.attacks": "spirit's attack profile, in the enemy attacks shape "
     "(behavior_variation / count / damage_types / elements / attack_power / "
     "status_buildup / status_effects; no shared_with) (#124). Spirits share their field "
     "enemy's move table (Lone Wolf Ashes = the Lone Wolf's), narrowed to the moves the "
     "spirit's animations fire, so AI-only sibling moves can remain. attack_power is "
-    "scaled by that level's damage_multiplier (Black Knife Tiche holy 250 at +0, 949 at "
-    "+10 in max_level.summon_stats.attacks) and by the spirit's resident per-element "
-    "damage multipliers (#181: Gravebird Ashes magic x1.65, 220 -> 363 at +0); "
-    "status_buildup is not scaled. "
+    "scaled by that level's damage_multiplier and by the spirit's resident per-element "
+    "damage multipliers: every spirit's x0.25 damage vs enemies (#248; four spirits "
+    "carry their own x0.7 to x1.5 on top) and the 1.13+ balance effects (#181: "
+    "Gravebird Ashes magic x1.65, 220 -> 91 at +0). Black Knife Tiche holy 62 at +0, "
+    "237 at +10 in max_level.summon_stats.attacks; status_buildup is not scaled. "
     "Per-level attack_power is in upgrade_curve.summon_stats[i].attacks.attack_power. "
     "A spirit that spawns as a specific enemy variant keeps that variant's moves: "
     "Gravebird Ashes is the spectral-ring / poison-tail Gravebird (holy + poison), which "
