@@ -549,6 +549,15 @@ INDEX_MAPPING = {
                             "npc_param_ids": {"type": "integer"},
                         }
                     },
+                    # Placed rows of the name on another move table (#250).
+                    "other_tables": {
+                        "properties": {
+                            **_NPC_ATTACKS,
+                            "placements": {"type": "integer"},
+                            "npc_param_ids": {"type": "integer"},
+                            "shared_with": {"type": "keyword"},
+                        }
+                    },
                 }
             },
             # Grab subset of that move table, joined to ThrowParam (#82).
@@ -2751,7 +2760,8 @@ _FIELD_NOTES: dict[str, str] = {
     "Moves have no names in the data, so there is no per-move list. The profile covers "
     "every MSB placement of the name on that table: placements that spawn with another "
     "gate state add their moves here and list them under attacks.state_variants (#180). "
-    "Absent on humanoid NPCs/invaders, which fight with equipped weapons",
+    "Placements on another model's move table are not merged in; they are listed under "
+    "attacks.other_tables (#250). Absent on humanoid NPCs/invaders, which fight with equipped weapons",
     "attacks.state_variants": "placed variants of the enemy that fire extra moves under "
     "a TAE gate SpEffect state the doc's bound NpcParam row lacks (#180), most placements "
     "first. Each entry has the profile (count / damage_types / elements / attack_power "
@@ -2766,6 +2776,15 @@ _FIELD_NOTES: dict[str, str] = {
     "set)",
     "attacks.state_variants.placements": "MSB placements of the name on these rows",
     "attacks.state_variants.npc_param_ids": "the placed NpcParam rows of this variant",
+    "attacks.other_tables": "placements of the same name on a different move table "
+    "(BehaviorVariationID), one entry per table, most placements first (#250). Each entry "
+    "has its behavior_variation, placements, npc_param_ids, the docs bound to that table "
+    "(shared_with) and the profile of that table's moves. These moves are not in the "
+    "top-level attacks, which stays the bound row's table. A boss's phase rows are "
+    "left to phases",
+    "attacks.other_tables.placements": "MSB placements of the name on this table",
+    "attacks.other_tables.npc_param_ids": "the placed NpcParam rows on this table",
+    "attacks.other_tables.shared_with": "enemy docs whose own attacks use this table",
     "attacks.attack_power": "max base attack power per element across the table (before "
     "per-area scaling; includes grabs and set-piece attacks)",
     "attacks.elements": "elements any move deals: physical / magic / fire / lightning / holy",
