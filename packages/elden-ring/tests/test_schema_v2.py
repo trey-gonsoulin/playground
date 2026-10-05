@@ -102,6 +102,7 @@ def test_grouped_leaves_mapped():
         "attacks.other_tables.shared_with": "keyword",
         "attacks.other_tables.attack_power.physical": "integer",
         "attacks.other_tables.status_effects": "keyword",
+        "attacks.all_status_effects": "keyword",
         "poise_damage.one_handed.r1": "float",
         "poise_damage.two_handed.guard_counter": "float",
         "poise_damage.pvp.two_handed.charged_r2": "float",
