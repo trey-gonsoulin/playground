@@ -80,6 +80,8 @@ def test_grouped_leaves_mapped():
         "max_level.summon_stats.stats.hp": "integer",
         "max_level.summon_stats.resistances.sleep": "integer",
         "max_level.summon_stats.damage_multiplier": "float",
+        "summon_stats.damage_vs_enemies_multiplier": "float",
+        "max_level.summon_stats.damage_vs_enemies_multiplier": "float",
         "summon_stats.attacks.behavior_variation": "integer",
         "summon_stats.attacks.attack_power.holy": "integer",
         "summon_stats.attacks.status_buildup.bleed": "integer",

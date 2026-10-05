@@ -275,6 +275,8 @@ _SUMMON_STATS = {
     "count": {"type": "integer"},
     **_NPC_STATS,
     "damage_multiplier": {"type": "float"},
+    # damage_multiplier x the resident vs-enemy corrections common to every element (#254)
+    "damage_vs_enemies_multiplier": {"type": "float"},
     # Resident NpcParam slot SpEffects' damage cut rates (#181) x the vs-enemy damage
     # correction (#248); poise damage / status buildup received rates (#249)
     "damage_taken_multiplier": {"properties": _props("float", _NEGATION_TYPES)},
@@ -3308,8 +3310,17 @@ _FIELD_NOTES: dict[str, str] = {
     "level (1.0 at +0, ~3.8 at +10 for most base-game spirits); the resident per-element "
     "multipliers, including every spirit's x0.25 damage vs enemies (#248), are folded "
     "into attacks.attack_power instead. Mimic Tear's player copy has no attacks, so its "
-    "damage vs enemies is the player's x damage_multiplier x 0.25 (+10: 2.473 x 0.25 "
+    "damage vs enemies is the player's x damage_vs_enemies_multiplier (+10: 2.473 x 0.25 "
     "~= 0.62)",
+    "summon_stats.damage_vs_enemies_multiplier": "the spirit's overall multiplier on "
+    "damage dealt to enemies at that upgrade level (#254): damage_multiplier x the "
+    "resident corrections that apply to every damage type alike (x0.25 on every spirit, "
+    "SpEffect 296000, all patches; #248, times five spirits' own x0.7 to x1.5: Lhutel "
+    "the Headless 0.312 at +0). Element-specific resident multipliers (e.g. "
+    "Gravebird Ashes magic x1.65) are left out and appear only in attacks.attack_power. "
+    "attacks.attack_power already includes it, so don't multiply the two. Mainly for "
+    "Mimic Tear's player copy, which has no attacks: the player's damage x 0.25 at +0, "
+    "x 0.618 at +10",
     "summon_stats.damage_taken_multiplier": "per damage type, the multiplier on damage "
     "the spirit takes from its resident SpEffects (#181), only where not 1.0: physical "
     "(standard) / strike / slash / pierce / magic / fire / lightning / holy. Every spirit "
