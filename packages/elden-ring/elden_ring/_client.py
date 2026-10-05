@@ -333,6 +333,8 @@ _SET_WHEN_LEAF = {
     "range_state": {"type": "keyword"},
     # kind near_entity (#234): the player within distance of MSB entity_id
     "distance": {"type": "float"},
+    # kind enemy_killed (#202): the NpcParam rows whose death sets the flag
+    "npc_param_ids": {"type": "integer"},
 }
 _SET_WHEN = {
     **_SET_WHEN_LEAF,
@@ -688,7 +690,8 @@ INDEX_MAPPING = {
             "position": {"properties": _props("float", ("x", "y", "z"))},
             "world_position": {"properties": _props("float", ("x", "y", "z"))},
             "entity_id": {"type": "long"},
-            "unlock_flag": {"type": "long"},
+            "unlock_flag": {"type": "long"},  # also on tutorial game_text (#202)
+            "unlock_set_when": {"properties": _SET_WHEN},  # #202
             "bosses": {"type": "keyword"},
             # Locations (map-menu regions + WorldMapPointParam markers, #77); name /
             # region / parent_region / map / positions / bosses shared with graces.
@@ -3281,7 +3284,29 @@ _FIELD_NOTES: dict[str, str] = {
     "warps_from": "on site_of_grace and location docs (#94): the places whose warps "
     "arrive here (reverse of warps_to)",
     "entity_id": "on a site_of_grace doc: the grace's MSB entity id (BonfireEntityId)",
-    "unlock_flag": "on a site_of_grace doc: the event flag set when the grace is lit",
+    "unlock_flag": "on a site_of_grace doc: the event flag set when the grace is lit; "
+    "on a tutorial game_text doc (#202): the TutorialParam UnlockEventFlagId of the "
+    "row showing this text, the event flag that unlocks the tutorial (Sites of "
+    "Grace: 710020; common event 1720 and map events like it wait on the flag, then "
+    "show the tutorial's pop-up). Two tutorials can share one (Adding Skills and "
+    "Adding Affinities: 710600). Absent when no TutorialParam row with a flag shows "
+    "the text",
+    "unlock_set_when": "on a tutorial game_text doc (#202): what turns unlock_flag "
+    "on, shaped as warp gate_set_when: the event scripts' set_when (Sites of Grace: "
+    "in_own_world + in_region of the Stranded Graveyard), plus the game's own "
+    "setters as more any_of alternatives: item_acquired (items: the goods or Ashes "
+    "of War whose ItemGetTutorialFlagId it is, a spirit ash's +N copies under its "
+    "base name, cut names left out; Summoning Spirits: every spirit ash), "
+    "enemy_killed (npc_param_ids: the NpcParam rows whose ChrDeadTutorialFlagId it "
+    "is; Teardrop Scarabs), and three GameSystemCommonParam flags: telescope_view "
+    "(TutorialFlagOnAccessDistView; Birdseye Telescopes), enemy_group_reward "
+    "(TutorialFlagOnGetGroupReward; Vanquishing Enemy Groups) and "
+    "spiritspring_region (TutorialFlagOnEnterRideJumpRegion; Spiritspring "
+    "Jumping). Before patch 1.12 those three come from the current patch's table, "
+    "which those patches' GameSystemCommonParam layout doesn't match. Absent when "
+    "nothing found sets the flag (Multiplayer 710760, the untitled Stranded "
+    "Graveyard tutorial 101120) or when an event sets it under conditions "
+    "gate_set_when can't describe (the untitled 101050)",
     "bosses": "on a site_of_grace doc: the boss docs whose nearest grace it is; on a "
     "location doc: the boss docs in it (by region, or a dungeon's map)",
     "arena_position": "on a boss doc: the arena's position in its map's local "
