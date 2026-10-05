@@ -59,6 +59,15 @@ _PROGRESS = [
     {"kind": "in_own_world"},
     {"kind": "armor_equipped", "items": ["Head"]},
     {"kind": "armor_equipped", "item_id": 10000},
+    # #234: the player within distance of an entity (Godskin Duo signs)
+    {
+        "kind": "near_entity",
+        "entity_id": 13002721,
+        "distance": 10.0,
+        "map": "m13_00_00_00",
+        "locations": ["Crumbling Farum Azula"],
+        "negated": True,
+    },
     {"kind": "untracked_wait"},
 ]
 _ALTERNATIVES = [
@@ -223,3 +232,17 @@ def test_set_when_progress_and_all_of_documented():
     assert "more than one condition" not in note
     assert "'Examine'" in note
     assert "all_of" in _FIELD_NOTES["trigger_set_when"]
+
+
+def test_set_when_or_groups_and_paths_documented():
+    """#234 near_entity and OR groups, #235 per-path alternatives, #242 the
+    player's character type."""
+    note = _FIELD_NOTES["gate_set_when"]
+    for word in ("near_entity", "distance", "only some of the event's", "re-run"):
+        assert word in note, word
+    assert "character type is Alive" in note
+    # distances and either-of waits are decoded now, no longer untracked examples
+    assert "a distance, either of several regions" not in note
+    assert _PROPS["gate_set_when"]["properties"]["distance"]["type"] == "float"
+    when = _PROPS["trigger_set_when"]["properties"]["when"]["properties"]
+    assert when["conditions"]["properties"]["distance"]["type"] == "float"
