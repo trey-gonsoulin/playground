@@ -540,6 +540,8 @@ INDEX_MAPPING = {
                 "properties": {
                     **_NPC_ATTACKS,
                     "shared_with": {"type": "keyword"},
+                    # status_effects + every other_tables[].status_effects (#255).
+                    "all_status_effects": {"type": "keyword"},
                     # Moves other placed rows add under a TAE gate state (#180).
                     "state_variants": {
                         "properties": {
@@ -2761,7 +2763,9 @@ _FIELD_NOTES: dict[str, str] = {
     "every MSB placement of the name on that table: placements that spawn with another "
     "gate state add their moves here and list them under attacks.state_variants (#180). "
     "Placements on another model's move table are not merged in; they are listed under "
-    "attacks.other_tables (#250). Absent on humanoid NPCs/invaders, which fight with equipped weapons",
+    "attacks.other_tables (#250), whose statuses only attacks.all_status_effects folds "
+    "in (#255). A name bound to a row with no move table takes its most-placed table "
+    "(#256). Absent on humanoid NPCs/invaders, which fight with equipped weapons",
     "attacks.state_variants": "placed variants of the enemy that fire extra moves under "
     "a TAE gate SpEffect state the doc's bound NpcParam row lacks (#180), most placements "
     "first. Each entry has the profile (count / damage_types / elements / attack_power "
@@ -2780,8 +2784,8 @@ _FIELD_NOTES: dict[str, str] = {
     "(BehaviorVariationID), one entry per table, most placements first (#250). Each entry "
     "has its behavior_variation, placements, npc_param_ids, the docs bound to that table "
     "(shared_with) and the profile of that table's moves. These moves are not in the "
-    "top-level attacks, which stays the bound row's table. A boss's phase rows are "
-    "left to phases",
+    "top-level attacks, which stays the bound row's table; their statuses are in "
+    "attacks.all_status_effects (#255). A boss's phase rows are left to phases",
     "attacks.other_tables.placements": "MSB placements of the name on this table",
     "attacks.other_tables.npc_param_ids": "the placed NpcParam rows on this table",
     "attacks.other_tables.shared_with": "enemy docs whose own attacks use this table",
@@ -2792,8 +2796,12 @@ _FIELD_NOTES: dict[str, str] = {
     "Standard",
     "attacks.status_buildup": "max direct per-hit status buildup per status",
     "attacks.status_effects": "statuses any move inflicts, including damage-over-time "
-    "effects with no per-hit value (Mohg's bloodflame bleed); filter here for 'which "
-    "enemies inflict X'",
+    "effects with no per-hit value (Mohg's bloodflame bleed). Covers the bound table "
+    "and attacks.state_variants, not attacks.other_tables",
+    "attacks.all_status_effects": "statuses any of the enemy's placements inflict: "
+    "attacks.status_effects plus every attacks.other_tables entry's (#255). Filter "
+    "here for 'which enemies inflict X' (Demi-Human gains bleed from its second "
+    "model's table)",
     "attacks.shared_with": "other enemies sharing this move table; non-empty means the "
     "profile may still include a move only their AI uses",
     "attacks.count": "distinct attack + projectile rows this enemy's moves reach",
