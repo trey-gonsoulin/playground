@@ -3204,7 +3204,7 @@ _FIELD_NOTES: dict[str, str] = {
     "character's state adds it as kind character + state (dead, attacked, health, "
     "special_effect + special_effect_id, negated = the SpEffect absent, #251; npc / "
     "entity_ids, npc absent when the entity has no name: entity 10000 is the player, "
-    "also for entity 20000, #252), as quest outcome waited_for. Waits on the player's "
+    "its alias 20000 is shown as 10000, #252), as quest outcome waited_for. Waits on the player's "
     "progress (#231): action_button (the player presses a prompt: action_button_id, "
     "prompt (its text, absent when the param row has none), entity_id the prompt "
     "is on), in_region (the player inside MSB region entity_id; negated = outside: "
