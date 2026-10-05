@@ -68,6 +68,8 @@ _PROGRESS = [
         "locations": ["Crumbling Farum Azula"],
         "negated": True,
     },
+    # #245: not in multiplayer (the Divine Tower of Leyndell gate)
+    {"kind": "multiplayer_state", "state": "multiplayer", "negated": True},
     {"kind": "untracked_wait"},
 ]
 _ALTERNATIVES = [
@@ -246,3 +248,19 @@ def test_set_when_or_groups_and_paths_documented():
     assert _PROPS["gate_set_when"]["properties"]["distance"]["type"] == "float"
     when = _PROPS["trigger_set_when"]["properties"]["when"]["properties"]
     assert when["conditions"]["properties"]["distance"]["type"] == "float"
+
+
+def test_set_when_multiplayer_and_character_alternatives_documented():
+    """#243 distance to entity 20000, #244 a character's state as an any_of
+    alternative, #245 multiplayer_state."""
+    note = _FIELD_NOTES["gate_set_when"]
+    for word in (
+        "multiplayer_state",
+        "host / client / multiplayer / multiplayer_pending / singleplayer / "
+        "invasion / invasion_pending",
+        "20000",
+        "or character states",
+        "past 12 conditions",
+    ):
+        assert word in note, word
+    assert _PROPS["gate_set_when"]["properties"]["state"]["type"] == "keyword"
