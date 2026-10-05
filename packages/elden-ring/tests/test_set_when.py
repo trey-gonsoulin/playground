@@ -231,7 +231,7 @@ def test_set_when_progress_and_all_of_documented():
     # the #228 "differ by more than one condition" absence rule is gone
     assert "more than one condition" not in note
     assert "'Examine'" in note
-    assert "all_of" in _FIELD_NOTES["trigger_set_when"]
+    assert "with 9410 already on" in _FIELD_NOTES["trigger_set_when"]
 
 
 def test_set_when_or_groups_and_paths_documented():

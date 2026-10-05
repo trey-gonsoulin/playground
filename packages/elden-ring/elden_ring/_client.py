@@ -2953,7 +2953,7 @@ _FIELD_NOTES: dict[str, str] = {
     "quest step (unlinked, or linked to a quest only), {flag, when}: what turns it on, as warp gate_set_when (Jerren's "
     "festival scene 60510000: flag 9410 = any_of(talk to Iji / Sellen, Roderika's "
     "phase 3063) while no other festival flag 9411-9413 is on, with the player in "
-    "their own world; flag 9411 = an any_of of all_of alternatives; the Frenzied "
+    "their own world; flag 9411 = talk to Castellan Jerren with 9410 already on; the Frenzied "
     "Flame endings' flag 108 = the player wearing no armor (armor_equipped Head, "
     "Body, Arms, Legs: the empty slots) and pressing 'Open door' on entity "
     "35001500, in their own world; flag 1051362702 = talk to Castellan Jerren, "
