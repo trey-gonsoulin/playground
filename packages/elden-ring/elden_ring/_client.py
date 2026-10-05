@@ -306,6 +306,8 @@ _QUEST_CONDITION = {**_QUEST_CONDITION, "conditions": {"properties": _QUEST_COND
 _QUEST_WAITED_FOR = {
     **_QUEST_CONDITION,
     "state": {"type": "keyword"},
+    # state special_effect: the SpEffectParam row waited for (#251)
+    "special_effect_id": {"type": "long"},
 }
 # One condition of a world-state flag's set_when (#228): the above, plus the
 # decoded progress waits (#231) and, inside any_of, all_of (#233; one level).
@@ -3184,8 +3186,9 @@ _FIELD_NOTES: dict[str, str] = {
     "while no other festival flag 9411-9413 is on, with the player in their own "
     "world). An event that waits on a "
     "character's state adds it as kind character + state (dead, attacked, health, "
-    "special_effect; npc / entity_ids, npc absent when the entity has no name: entity "
-    "10000 is the player), as quest outcome waited_for. Waits on the player's "
+    "special_effect + special_effect_id, negated = the SpEffect absent, #251; npc / "
+    "entity_ids, npc absent when the entity has no name: entity 10000 is the player, "
+    "also for entity 20000, #252), as quest outcome waited_for. Waits on the player's "
     "progress (#231): action_button (the player presses a prompt: action_button_id, "
     "prompt (its text, absent when the param row has none), entity_id the prompt "
     "is on), in_region (the player inside MSB region entity_id; negated = outside: "
@@ -3385,8 +3388,8 @@ _FIELD_NOTES: dict[str, str] = {
     "outcomes.waited_for": "on an outcome with trigger event: what its event script "
     "waited for before setting the flag (any one of them, or several together, ends "
     "the wait). kind character = a character's state (state dead / alive / "
-    "attacked / health / special_effect; npc = its name, entity_ids = its MSB "
-    "entities; one entry per character, in the most telling state checked), else a "
+    "attacked / health / special_effect, with special_effect_id when one SpEffect "
+    "is checked; npc = its name, entity_ids = its MSB entities; one entry per character, in the most telling state checked), else a "
     "condition shaped as steps.when. The NPC's own block flags are left out",
 }
 

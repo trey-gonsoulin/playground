@@ -119,6 +119,14 @@ def test_set_when_fields_mapped():
                             "state": "special_effect",
                             "entity_ids": [1052380800],
                         },
+                        # #251: the player without SpEffect 9646 (Godrick 10000800)
+                        {
+                            "kind": "character",
+                            "state": "special_effect",
+                            "special_effect_id": 9646,
+                            "entity_ids": [10000],
+                            "negated": True,
+                        },
                     ],
                 }
             ],
