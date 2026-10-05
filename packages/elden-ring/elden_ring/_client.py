@@ -2752,8 +2752,10 @@ _FIELD_NOTES: dict[str, str] = {
     "first. Each entry has the profile (count / damage_types / elements / attack_power "
     "/ status_buildup / status_effects) of only the moves it adds. Gravebird: 46 "
     "placements under state 412 add the holy ring and poison tail, 6 under 413 add "
-    "sleep. Filter attacks.state_variants.status_effects for 'which enemies inflict X "
-    "only in some placements'",
+    "sleep. Where a gate state swaps the whole move set (Crystalian), an entry holds "
+    "the whole alternate set, so attacks.count is a union no one placement fires "
+    "(Crystalian 66 -> 131). Filter attacks.state_variants.status_effects for 'which "
+    "enemies inflict X only in some placements'",
     "attacks.state_variants.special_states": "SpEffect SpecialState values these rows "
     "spawn with and the bound row doesn't (empty = same states, a different animation "
     "set)",
