@@ -2783,13 +2783,15 @@ _FIELD_NOTES: dict[str, str] = {
     "from above)",
     "team_type": "enemy NpcParam TeamType (#83): the team deciding whose attacks hit whom and "
     "who is targeted, so enemies with the same value are allies. Values without a team "
-    "label are Elden Ring factions with no confirmed name (48 = lord soldiers + Mad "
-    "Pumpkin Heads, 51 = demi-humans / imps / albinaurics, 11 = dragons, 9 = Runebear / "
-    "trolls)",
+    "label are Elden Ring factions with no confirmed name (51 = demi-humans / imps / "
+    "albinaurics / Rotten Stray, 9 = Runebear / trolls / Bols, 24 = Theodorix, 50 = "
+    "Burial Watchdogs, 59 = Wormface, 60 = Misbegotten, 64 = Ghostflame Dragon)",
     "team": "readable team_type label where confirmed: enemy (6), boss (7, health-bar field "
     "bosses), arch_enemy (33, marquee bosses like Malenia and Radahn), friendly_npc (26), "
     "hostile_npc (27, invaders), none (0, untargetable NPCs/objects), cooperator (2, "
-    "summonable-ally rows), spirit_summon (47)",
+    "summonable-ally rows), spirit_summon (47), soldier (48, lord soldiers, Black Knights "
+    "and Mad Pumpkin Heads), dragon (11), player (1, the host player's own team, joined "
+    "by DLC NPC summons such as Ansbach)",
     "ai": "enemy AI perception profile (#83) from NpcThinkParam, the think row most used by "
     "the enemy's MSB placements; a tie goes to the row placed with the doc's stat row "
     "(the primary encounter: Belurat's Divine Beast Dancing Lion, not Rauh's), then "
