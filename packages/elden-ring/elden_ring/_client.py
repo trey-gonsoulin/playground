@@ -3293,7 +3293,8 @@ _FIELD_NOTES: dict[str, str] = {
     "the text",
     "unlock_set_when": "on a tutorial game_text doc (#202): what turns unlock_flag "
     "on, shaped as warp gate_set_when: the event scripts' set_when (Sites of Grace: "
-    "in_own_world + in_region of the Stranded Graveyard), plus the game's own "
+    "in_own_world + in_region of the Stranded Graveyard; 710050, #259: also item_held "
+    "negated over 27 staffs and seals, i.e. holding none), plus the game's own "
     "setters as more any_of alternatives: item_acquired (items: the goods or Ashes "
     "of War whose ItemGetTutorialFlagId it is, a spirit ash's +N copies under its "
     "base name, cut names left out; Summoning Spirits: every spirit ash), "
@@ -3428,8 +3429,9 @@ _FIELD_NOTES: dict[str, str] = {
     "checks the phase flag",
     "steps.when": "the other conditions of the transition, all required. kind: "
     "boss_defeated (bosses), invasion (an NPC-invasion defeat flag, #138), item_pickup "
-    "(items: the pickup lot's items), item_held (items), talk (a flag the npcs' talk "
-    "scripts set: a dialogue choice or hand-over), quest_phase / life_state (npc, "
+    "(items: the pickup lot's items), item_held (items; negated with several items: "
+    "the player holds none of them, #259), talk (a flag the npcs' talk "
+    "scripts set: a dialogue choice, hand-over or line, #257), quest_phase / life_state (npc, "
     "quest when that NPC has several blocks), hit_count (a map flag set once the "
     "player has hit the npc that many times while friendly: hits, entity_ids = its "
     "MSB entities; the hostility counter Ranni / Iji / Seluvis wait on), flag "
