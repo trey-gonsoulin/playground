@@ -240,6 +240,27 @@ _CRITICAL_HITS = {
     "other_throw_types": {"type": "integer"},
 }
 
+# In-game enemy stats over MSB placements (#108, #131): HP / stamina min-max, the
+# per-key min-max of area-scaled defenses and resistances, and NG+1..NG+7 HP lists.
+_MIN_MAX = {"properties": _props("integer", ("min", "max"))}
+_NPC_SCALED_RANGES = {
+    "hp_scaled": {"properties": _props("integer", ("min", "max", "placements"))},
+    "stamina_scaled": _MIN_MAX,
+    "defense_scaled": {
+        "properties": {k: _MIN_MAX for k in _DAMAGE_TYPES[1:]},
+    },
+    "resistances_scaled": {"properties": {k: _MIN_MAX for k in _STATUSES}},
+    "hp_ng_plus": _MIN_MAX,
+}
+# The same for one placed row (multi-phase boss phases, #132).
+_NPC_SCALED = {
+    "hp_scaled": {"type": "integer"},
+    "stamina_scaled": {"type": "integer"},
+    "defense_scaled": {"properties": _props("integer", _DAMAGE_TYPES[1:])},
+    "resistances_scaled": {"properties": _props("integer", _STATUSES)},
+    "hp_ng_plus": {"type": "integer"},
+}
+
 # NpcParam stat groups (#84), shared by enemy docs and spirit-ash summon_stats (#86).
 _NPC_STATS = {
     "stats": {
@@ -605,10 +626,9 @@ INDEX_MAPPING = {
                     "guards": {"type": "boolean"},
                 }
             },
-            # In-game HP range over MSB placements, area scaling applied (#108).
-            "hp_scaled": {
-                "properties": _props("integer", ("min", "max", "placements"))
-            },
+            # In-game stat ranges over MSB placements, area scaling applied (#108),
+            # and NG+ HP (#131).
+            **_NPC_SCALED_RANGES,
             # Enemies: distinct stat blocks over a name's health-bar placements (#110).
             # Item bases: one summary entry per variant naming it in base_item (#111).
             "variants": {
@@ -629,9 +649,7 @@ INDEX_MAPPING = {
                     "npc_ids": {"type": "keyword"},
                     "npc_param_ids": {"type": "integer"},
                     **_NPC_STATS,
-                    "hp_scaled": {
-                        "properties": _props("integer", ("min", "max", "placements"))
-                    },
+                    **_NPC_SCALED_RANGES,
                     "maps": {"type": "keyword"},
                 }
             },
@@ -643,7 +661,7 @@ INDEX_MAPPING = {
                     "npc_id": {"type": "keyword"},
                     "npc_param_id": {"type": "integer"},
                     **_NPC_STATS,
-                    "hp_scaled": {"type": "integer"},
+                    **_NPC_SCALED,
                     "ends_at_hp_ratio": {"type": "float"},
                     "hp_pool_shared_with": {"type": "keyword"},
                     "heals_on_entry": {"type": "boolean"},
@@ -2760,9 +2778,10 @@ _FIELD_NOTES: dict[str, str] = {
     "hp_scaled)",
     "stats.poise": "enemy max poise; absent when poise is disabled",
     "defense": "enemy elemental defense (NpcParam): magic, fire, lightning, holy. NpcParam has "
-    "no physical defense",
+    "no physical defense. Base values, before per-area scaling (in-game: defense_scaled)",
     "resistances": "enemy status buildup resistances (NpcParam): poison / scarlet_rot / bleed "
-    "/ frostbite / sleep / madness / death_blight. 999 = immune; higher = more buildup needed",
+    "/ frostbite / sleep / madness / death_blight. 999 = immune; higher = more buildup needed. "
+    "Base values, before per-area scaling (in-game: resistances_scaled)",
     "immune_to": "enemy statuses at 999 resistance (immune), e.g. madness, death_blight",
     "traits": "enemy weakness classes from NpcParam flags: weak_to_gravity (bonus damage from "
     "gravity weapons), lives_in_death (Golden Order weapons), ancient_dragon, dragon "
@@ -2894,13 +2913,37 @@ _FIELD_NOTES: dict[str, str] = {
     "hp_scaled": "enemy in-game max HP (#108) over its MSB placements: each placement's "
     "NpcParam row is base HP times its SpEffect HP multipliers (the per-area scaling, plus "
     "e.g. x2 on field-boss versions of regular enemies), floored after each. First "
-    "playthrough, solo: NG+ and multiplayer scaling are not applied. A phase-2 boss "
+    "playthrough, solo: multiplayer scaling is not applied; NG+ is in hp_ng_plus. A "
+    "phase-2 boss "
     "sharing phase 1's character shows phase 1's HP; see phases for per-phase HP. "
     "Absent = never placed",
     "hp_scaled.min": "lowest in-game HP over the enemy's placements",
     "hp_scaled.max": "highest in-game HP over the enemy's placements (min = max when one "
     "encounter or all placements scale alike)",
     "hp_scaled.placements": "number of MSB placements the range covers",
+    "stamina_scaled": "enemy in-game max stamina (#131) over its MSB placements: "
+    "stats.stamina times the same SpEffect stamina multipliers as hp_scaled, floored "
+    "after each. min / max like hp_scaled",
+    "defense_scaled": "enemy in-game elemental defenses (#131) over its MSB placements, "
+    "per element (magic / fire / lightning / holy) a min / max: defense times the "
+    "placement's area-scaling defense multiplier, floored (Malenia 100 -> 123, as the "
+    "wiki). NpcParam has no physical defense field, so there is none here either",
+    "resistances_scaled": "enemy in-game status buildup resistances (#131) over its MSB "
+    "placements, per status a min / max: resistances times the area-scaling resistance "
+    "multiplier, rounded (Malenia bleed 154 -> 421, poison 542 -> 1481, as the wiki). "
+    "Even the unscaled base-game area doubles them, so these are the values to compare "
+    "with a weapon's status_buildup. 999 = immune, never scaled",
+    "hp_ng_plus": "enemy in-game max HP on NG+1 .. NG+7 (#131): two 7-entry lists, index "
+    "0 = NG+1 and 6 = NG+7 (later journeys play as NG+7). NG+1 = the hp_scaled value "
+    "times the row's NG+ SpEffect (NpcParam NewGamePlusSpecialEffect; base-game rows "
+    "7400s, DLC 20007400s, on top of the area scaling); NG+2..7 multiply that by "
+    "ClearCountCorrectParam's per-journey HP rate (x1.1, 1.15, 1.2, 1.3, 1.35, 1.4), "
+    "floored after each step. Matches the wiki's NG+ tables to within a few HP (they "
+    "floor once): Malenia NG+7 26,250 per phase (wiki 47,249 for both), Messmer NG+ "
+    "41,093 (wiki 41,094). The DLC-clear SpEffect (DlcGameClearSpEffectID) is not "
+    "applied: when it applies is unknown",
+    "hp_ng_plus.min": "lowest NG+1..NG+7 HP over the enemy's placements, one per journey",
+    "hp_ng_plus.max": "highest NG+1..NG+7 HP over the enemy's placements, one per journey",
     "variants": "variants of one entity. Named variants are separate docs (Heavy Halberd, "
     "Erdtree's Favor +2), so on an item base this is a summary: one entry per doc naming it "
     "in base_item, in sort order, with name, affinity or rank, differs, and the values of "
@@ -2915,7 +2958,8 @@ _FIELD_NOTES: dict[str, str] = {
     "area scaling share an entry. Absent = one stat block (e.g. Night's Cavalry), or the "
     "enemy isn't bound by a health bar (humanoids, spirit-ash labels). Each entry has the "
     "enemy stat groups (stats / defense / resistances / immune_to / traits / "
-    "weak_point_damage_multiplier) plus hp_scaled; a filter like variants.stats.hp matches "
+    "weak_point_damage_multiplier) plus hp_scaled, stamina_scaled, defense_scaled, "
+    "resistances_scaled and hp_ng_plus; a filter like variants.stats.hp matches "
     "if any variant matches",
     "variants.name": "item variant doc's name (get_entity it for the full doc)",
     "variants.affinity": "weapon variant's affinity (Heavy, Keen, … Occult)",
@@ -2926,6 +2970,14 @@ _FIELD_NOTES: dict[str, str] = {
     "variants.npc_ids": "NpcName ids whose health bar shows this stat block",
     "variants.npc_param_ids": "NpcParam rows in this stat block",
     "variants.hp_scaled": "in-game HP range over this block's placements (as hp_scaled)",
+    "variants.stamina_scaled": "in-game stamina range over this block's placements (as "
+    "stamina_scaled)",
+    "variants.defense_scaled": "in-game defense ranges over this block's placements (as "
+    "defense_scaled)",
+    "variants.resistances_scaled": "in-game resistance ranges over this block's "
+    "placements (as resistances_scaled)",
+    "variants.hp_ng_plus": "NG+1..NG+7 HP ranges over this block's placements (as "
+    "hp_ng_plus)",
     "variants.maps": "MSB map ids of this block's placements (e.g. m12_01_00_00 for the "
     "Lake of Rot; DLC maps such as m61 are resolved too, #133)",
     "phases": "multi-phase boss fight (#132), the same list on every phase's doc: one "
@@ -2934,7 +2986,9 @@ _FIELD_NOTES: dict[str, str] = {
     "Hoarah Loux, Malenia's two bars, Rennala's two phases, Fia's Champions -> Rogier -> "
     "Lionel. Each entry has the enemy stat groups of that character's placed NpcParam "
     "row (stats / defense / resistances / immune_to / traits / "
-    "weak_point_damage_multiplier) plus hp_scaled. Total HP to beat the fight: sum "
+    "weak_point_damage_multiplier) plus hp_scaled and the other in-game values "
+    "(stamina_scaled, defense_scaled, resistances_scaled, hp_ng_plus) as single values. "
+    "Total HP to beat the fight: sum "
     "hp_scaled x (1 - ends_at_hp_ratio) over the entries, counting a shared HP pool once "
     "(skip entries with hp_pool_shared_with; the pool's own entry carries it). Absent = "
     "one-phase fight, a duo (co-bosses on one bar event), or a hand-off the scripts "
@@ -2949,6 +3003,13 @@ _FIELD_NOTES: dict[str, str] = {
     "phases.npc_param_id": "NpcParam row of this phase's fighting character",
     "phases.hp_scaled": "this character's in-game max HP (area scaling applied, as "
     "hp_scaled)",
+    "phases.stamina_scaled": "this character's in-game max stamina (as stamina_scaled)",
+    "phases.defense_scaled": "this character's in-game defenses per element (as "
+    "defense_scaled)",
+    "phases.resistances_scaled": "this character's in-game status resistances (as "
+    "resistances_scaled)",
+    "phases.hp_ng_plus": "this character's max HP on NG+1 .. NG+7, a 7-entry list (as "
+    "hp_ng_plus); use it in place of hp_scaled for the NG+ fight total",
     "phases.ends_at_hp_ratio": "HP ratio at which the fight moves to the next phase: "
     "0.55 = at 55% HP left (Beast Clergyman), 0.0 = on death. Absent on the last phase or "
     "when the hand-off waits on something other than this character's HP",
