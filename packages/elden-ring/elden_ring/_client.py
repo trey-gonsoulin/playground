@@ -3269,7 +3269,9 @@ _FIELD_NOTES: dict[str, str] = {
     "own region map at that spot (#80: the map-name texture, or a map-name volume "
     "that renames the spot on entry), which can differ from the nearest grace's region "
     "at borders (Stormhill vs Limgrave) and in stacked DLC areas (Rauh Base vs Scadu "
-    "Altus); location is the landmark whose MSB footprint holds it (Castle Morne, "
+    "Altus). Where the texture names no area (the stacked Scadu Altus / Rauh Base "
+    "band, unpainted map edges; #264) it is the map-name volume holding the spot, else "
+    "the nearest name the texture paints within 128 m; location is the landmark whose MSB footprint holds it (Castle Morne, "
     "Caria Manor). In other maps, subarea is the map-name banner of the volume holding "
     "it when that differs from its location and region (Ainsel River Main, Nokron, "
     "Eternal City). An enemy that exists only in an NPC-invasion instance of the map "
@@ -3312,7 +3314,8 @@ _FIELD_NOTES: dict[str, str] = {
     "region/character the script checks), grace its nearest site_of_grace, region / "
     "parent_region that grace's, location the dungeon location doc (or, for an "
     "evergaol, the evergaol, with both ends taking the grace and region nearest "
-    "its marker). A scripted warp with no placed trigger (a trap chest, "
+    "its marker; on an open-world tile, the landmark whose MSB footprint holds the "
+    "end, #190). A scripted warp with no placed trigger (a trap chest, "
     "a quest step in common scripts) has only the map of its script, or nothing; "
     "on an open-world tile its region is then that of the tile's only world-map "
     "landmark, which also names the warp (Dragon-Burnt Ruins -> Sellia Crystal "
@@ -3552,7 +3555,8 @@ _FIELD_NOTES: dict[str, str] = {
     "betray)",
     "steps.entered_from": "the same NPC's phase the transition requires",
     "steps.locations": "where the phase plays out: the dungeon location docs, else the "
-    "region of the grace nearest the map's centre, of every map whose event script "
+    "landmarks whose MSB footprint is centred on the open-world tile (#190), else the "
+    "region of the grace nearest the tile's centre, of every map whose event script "
     "checks the phase flag",
     "steps.when": "the other conditions of the transition, all required. kind: "
     "boss_defeated (bosses), invasion (an NPC-invasion defeat flag, #138), item_pickup "
