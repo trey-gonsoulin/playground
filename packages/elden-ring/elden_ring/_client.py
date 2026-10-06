@@ -747,6 +747,8 @@ INDEX_MAPPING = {
             "maps": {"type": "keyword"},
             # Placement region / dungeon location summaries (#140).
             "regions": {"type": "keyword"},
+            # The placements' region-map areas (#194).
+            "areas": {"type": "keyword"},
             "locations": {"type": "keyword"},
             "drop_regions": {"type": "keyword"},
             "drop_locations": {"type": "keyword"},
@@ -1329,8 +1331,8 @@ PLACEMENTS_LIMIT = 50
 
 def trim_placements(doc: dict | None, limit: int = PLACEMENTS_LIMIT) -> dict | None:
     """Drop a doc's ``placements`` list (and its variant_docs') when it is longer
-    than ``limit``, keeping the count as ``placements_total``; maps, regions and
-    locations still summarize where it is."""
+    than ``limit``, keeping the count as ``placements_total``; maps, regions, areas
+    and locations still summarize where it is."""
     if not doc:
         return doc
     pls = doc.get("placements")
@@ -3241,8 +3243,8 @@ _FIELD_NOTES: dict[str, str] = {
     "Old Knight Istvan, Millicent): it is absent from the normal world, where "
     "host is the instance's invader (see the location's invasion_instances). "
     "Returned, not searchable; filter on maps, "
-    "regions or locations. get_entity returns the list only when it has at most 50 "
-    "entries, else placements_total (include_placements=True for all)",
+    "regions, areas or locations. get_entity returns the list only when it has at most "
+    "50 entries, else placements_total (include_placements=True for all)",
     "maps": "on enemy and item docs (#76): the distinct MSB map ids of its placements, "
     "e.g. maps='m10_00_00_00' finds everything placed in Stormveil Castle. DLC maps "
     "(m20-m28, m40-m45, m61) are resolved too",
@@ -3251,6 +3253,12 @@ _FIELD_NOTES: dict[str, str] = {
     "regions='Limgrave' also finds things in Stormhill and regions='Caelid' finds what "
     "is placed anywhere in Caelid. Every value is a location doc. Item regions cover "
     "pickups only; enemy drops are in drop_regions",
+    "areas": "on enemy and item docs (#194): the distinct area values of its "
+    "open-world placements (the game's own region map at each spot, #80), so "
+    "areas='Stormhill' finds what is placed inside Stormhill's border even where the "
+    "nearest grace is in Limgrave. No tabs are added (areas='Limgrave' doesn't match "
+    "Stormhill) and dungeon placements have none. Item areas cover pickups only. "
+    "Older patches may be resolved with the current patch's region-map texture",
     "locations": "on enemy and item docs (#140): the dungeon location docs its "
     "placements are in (catacombs, caves, tunnels, gaols, legacy dungeons: "
     "locations='Murkwater Catacombs') and the open-world landmarks whose MSB footprint "
