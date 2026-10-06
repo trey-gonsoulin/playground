@@ -3391,8 +3391,9 @@ _FIELD_NOTES: dict[str, str] = {
     "the doc name, e.g. 'Moore (4380–4399)'. A different character sharing the NPC "
     "number keeps its own name (Lightseeker Hyetta, not Irina of Morne). A talk script "
     "with an unnamed NPC number counts under its #239 label (#247): Melina's talk 3000 "
-    "names 4640–4659 'Melina', the grace menu (talk 1000) 4820–4839 'Site of Grace'. "
-    "availability "
+    "names 4640–4659 'Melina', the grace menu (talk 1000) 4820–4839 'Site of Grace'; "
+    "their name_ja is the JP FMG entry naming the same thing (NpcName 110000 メリナ, "
+    "TutorialTitle 301020 祝福; #258). availability "
     "is 'cut' when the NPC's enemy doc is cut (Asimi, Silver Tear)",
     "npc_names": "on a quest doc: every NpcName persona of that NPC "
     "(['Heartbroken Maiden', 'Roderika', 'Roderika, Spirit Tuner'])",
