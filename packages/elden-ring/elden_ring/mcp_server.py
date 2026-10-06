@@ -136,7 +136,8 @@ def search_entities(
                            instance stands (map + world_position in the open world,
                            else map-local position; #76) and maps the distinct maps;
                            regions / locations name the map-menu regions (+ tabs)
-                           and dungeon location docs they fall in (#140).
+                           and dungeon location docs they fall in (#140); areas the
+                           game's own region-map areas of the open-world ones (#194).
                            Generic mobs are named per model from their spirit ash
                            (Godrick Soldier, Demi-Human, …; name_source="spirit_ash",
                            chr_models) — model-level labels, not individual characters.
@@ -294,6 +295,7 @@ def search_entities(
                            gathering nodes flagged gathering: true, #135)
       regions / locations — map-menu regions (+ tabs) and dungeon location docs of
                            those placements (#140)
+      areas              — the game's region-map areas of those placements (#194)
       drop_regions / drop_locations — the same, for the dropped_by enemies'
                            placements that carry the item (#141)
     Item variants (weapon affinities, talisman ranks, flask +N, altered armor) are their
@@ -374,8 +376,8 @@ def get_entity(
 
     placements (MSB world positions) are returned only when there are at most 50;
     a longer list (common gathering materials have thousands of nodes, busy enemy
-    types hundreds) is replaced by placements_total, and maps / regions / locations
-    still say where. Pass include_placements=True for the full list.
+    types hundreds) is replaced by placements_total, and maps / regions / areas /
+    locations still say where. Pass include_placements=True for the full list.
 
     Returns the full document dict, or null if the entity is not in the index
     ({"error": ...} for an entity_type that isn't loaded).
