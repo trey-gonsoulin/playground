@@ -58,3 +58,23 @@ def test_quest_links_documented():
     assert "phase_flag" in _FIELD_NOTES["trigger_steps"]
     assert "quest (" in _FIELD_NOTES["trigger_kind"]
     assert "warp" in _FIELD_NOTES["cutscene"]
+
+
+def test_in_exchange_gate_mapped_and_documented():
+    """#200: Gurranq's 5th-9th Deathroot rewards carry his aggression flag + step."""
+    _mapped(
+        _PROPS,
+        {
+            "in_exchange_count": 5,
+            "in_exchange_flag": 3647,
+            "in_exchange_step": {
+                "quest": "Gurranq, Beast Clergyman",
+                "phase_flag": 3647,
+                "order": 3,
+            },
+        },
+    )
+    assert _PROPS["in_exchange_flag"]["type"] == "long"
+    assert "in_exchange_flag" in _FIELD_NOTES["in_exchange_count"]
+    assert "isn't modeled" not in _FIELD_NOTES["in_exchange_count"]
+    assert "in_exchange_step" in _FIELD_NOTES["in_exchange_flag"]

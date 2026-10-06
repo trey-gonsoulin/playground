@@ -270,7 +270,9 @@ def search_entities(
       given_by           — NPCs whose dialogue gives this item (talk scripts, #23)
       in_exchange_for    — the item the giving NPC takes for it (turn-in, #97);
                            exchanged_for is the reverse, on the handed-in item;
-                           in_exchange_count = the n-th hand-in (Gurranq's Deathroot, #193)
+                           in_exchange_count = the n-th hand-in (Gurranq's Deathroot, #193);
+                           in_exchange_flag / in_exchange_step = the flag that hand-in
+                           also needs on (his aggression event 3647 for the 5th–9th, #200)
       duplication        — a duplication menu for an item you hold, not a sale (#223):
                            {service, where, also_at, only_at_bell_mausoleums, price,
                            currency, quantity, unlock_flag, unlocked_by_defeating}; Ashes

@@ -892,6 +892,8 @@ INDEX_MAPPING = {
             "given_by": {"type": "keyword"},
             "in_exchange_for": {"type": "keyword"},  # #97
             "in_exchange_count": {"type": "integer"},  # #193
+            "in_exchange_flag": {"type": "long"},  # #200
+            "in_exchange_step": {"properties": _QUEST_LINK},  # #200
             "exchanged_for": {"type": "keyword"},  # #97
             # Duplication menus (#223): Ash of War / remembrance copies.
             "duplication": {
@@ -2432,8 +2434,17 @@ _FIELD_NOTES: dict[str, str] = {
     "in_exchange_for item buys it, counting every one handed over so far (Gurranq takes all "
     "Deathroot held and keeps a running total), e.g. Clawmark Seal and Beast Eye: 1, Bestial "
     "Sling: 2, Ash of War: Beast's Roar: 4, Beast Claw: 5, Ancient Dragon Smithing Stone: 9. "
-    "The fifth onward also need Gurranq's aggression event, which isn't modeled. Absent on "
-    "one-to-one turn-ins",
+    "The fifth onward also need Gurranq's aggression event (in_exchange_flag 3647, #200). "
+    "Absent on one-to-one turn-ins",
+    "in_exchange_flag": "on a counted turn-in reward (#200): the event flag the talk "
+    "script's branch for that hand-in also checks is on, beside in_exchange_count. Gurranq "
+    "gives the fifth to ninth Deathroot rewards (Beast Claw, Stone of Gurranq, Beastclaw "
+    "Greathammer, Gurranq's Beast Claw, Ancient Dragon Smithing Stone) only once his "
+    "aggression event (flag 3647; he turns hostile after the fourth) has run. "
+    "in_exchange_step names its quest "
+    "step in the requires_step shape: {quest: 'Gurranq, Beast Clergyman', phase_flag: 3647, "
+    "order: 3}. Absent when the hand-in needs no flag",
+    "in_exchange_step": "see in_exchange_flag (#200)",
     "exchanged_for": "on a handed-in item doc: the NPC gift(s) handing it over gets (#97), the "
     "reverse of in_exchange_for, e.g. Rya's Necklace: [Volcano Manor Invitation]; a counted "
     "turn-in lists them in hand-in order (#193), e.g. Deathroot: [Clawmark Seal, Beast Eye, "
