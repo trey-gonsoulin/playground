@@ -2420,7 +2420,8 @@ _FIELD_NOTES: dict[str, str] = {
     "quest flag: a painting taken off its wall, a restored Great Rune at a "
     "Divine Tower, a DLC Ruined Forge furnace (its Ancient Dragon Smithing Stone and "
     "Anvil Hammer, Taylew the Golem Smith...), the Sanctified "
-    "Whetblade, the Mirage Riddle, a Seed Talisman +1 swap, the Stone-Sheathed Sword / "
+    "Whetblade, the Mirage Riddle, a Seed Talisman +1 for ringing a Finger Ruins bell "
+    "(Hole-Laden Necklace held), the Stone-Sheathed Sword / "
     "Sword of Light / Sword of Darkness swaps; #147). found_in_world still shows for "
     "these, since their lots are map lots",
     "acquisition_sources": "named sources: merchant names, boss/named-enemy names (see "
