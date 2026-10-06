@@ -702,6 +702,14 @@ def test_effects_note_documents_stacking_tiers():
     assert "stacking talismans" not in note
 
 
+def test_acquisition_types_note_lists_interaction_reward():
+    # #147: interaction-only scripted awards get their own type.
+    note = _FIELD_NOTES["acquisition_types"]
+    assert "interaction_reward" in note and "Great Rune" in note
+    assert "carry neither" not in note
+    assert _PROPS["acquisition_types"]["type"] == "keyword"
+
+
 def test_critical_hits_notes_name_the_confirmed_kinds():
     # #128: ThrowParam ThrowType 1 / 20 / 25 labelled; the rest stay raw.
     assert "Tree Sentinel" in _FIELD_NOTES["critical_hits"]
