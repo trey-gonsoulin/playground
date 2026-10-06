@@ -168,6 +168,14 @@ def test_grouped_leaves_mapped():
         "phases.stats_scaled.defense.fire": "integer",
         "phases.stats_scaled.resistances.sleep": "integer",
         "phases.stats_scaled.hp_ng_plus": "integer",
+        "stats_scaled.stamina_ng_plus.min": "integer",
+        "stats_scaled.defense_ng_plus.lightning.max": "integer",
+        "stats_scaled.resistances_ng_plus.death_blight.min": "integer",
+        "variants.stats_scaled.defense_ng_plus.magic.min": "integer",
+        "variants.stats_scaled.resistances_ng_plus.frostbite.max": "integer",
+        "phases.stats_scaled.stamina_ng_plus": "integer",
+        "phases.stats_scaled.defense_ng_plus.holy": "integer",
+        "phases.stats_scaled.resistances_ng_plus.bleed": "integer",
         "variants.npc_ids": "keyword",
         "variants.npc_param_ids": "integer",
         "variants.stats.hp": "integer",
@@ -384,6 +392,11 @@ def test_builder_doc_shapes_fully_mapped():
                 "defense": {"magic": {"min": 100, "max": 123}},
                 "resistances": {"bleed": {"min": 308, "max": 421}},
                 "hp_ng_plus": {"min": [1391, 1530], "max": [5460, 6006]},
+                "stamina_ng_plus": {"min": [50, 55], "max": [106, 116]},
+                "defense_ng_plus": {"magic": {"min": [100, 102], "max": [147, 151]}},
+                "resistances_ng_plus": {
+                    "bleed": {"min": [308, 312], "max": [421, 427]}
+                },
             },
             "variants": [
                 {
@@ -436,6 +449,13 @@ def test_builder_doc_shapes_fully_mapped():
                         "defense": {"holy": 123},
                         "resistances": {"bleed": 421},
                         "hp_ng_plus": [18750, 20625, 21562, 22500, 24375, 25312, 26250],
+                        "stamina_ng_plus": [106, 116, 119, 127, 129, 132, 135],
+                        "defense_ng_plus": {
+                            "holy": [147, 151, 155, 162, 170, 177, 192]
+                        },
+                        "resistances_ng_plus": {
+                            "bleed": [421, 427, 434, 440, 446, 452, 459]
+                        },
                     },
                     "heals_on_entry": True,
                 },

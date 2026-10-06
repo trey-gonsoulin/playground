@@ -113,8 +113,9 @@ def search_entities(
                            immune_to, and traits (dragon, undead, …; #84) as base
                            values; stats_scaled groups the in-game (area-scaled)
                            hp / stamina / defense / resistances ranges over its
-                           placements and hp_ng_plus, its NG+1..NG+7 HP
-                           (#108, #131), plus an
+                           placements and hp_ng_plus / stamina_ng_plus /
+                           defense_ng_plus / resistances_ng_plus, their
+                           NG+1..NG+7 values (#108, #131, #261), plus an
                            attacks profile (elements, damage types, status effects
                            of the moves its animations fire; shared_with for
                            model-family move tables; #81, #123) and a
