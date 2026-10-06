@@ -39,6 +39,23 @@ _DOCS = [
         ],
     },
     {"unlock_flag": 710610, "unlock_set_when": [{"kind": "telescope_view"}]},
+    {
+        "unlock_flag": 710050,  # #259: holding none of 27 staffs and seals
+        "unlock_set_when": [
+            {
+                "kind": "item_held",
+                "items": ["Glintstone Staff", "Finger Seal"],
+                "negated": True,
+            },
+            {"kind": "in_own_world"},
+            {
+                "kind": "in_region",
+                "entity_id": 18002654,
+                "map": "m18_00_00_00",
+                "locations": ["Fringefolk Hero's Grave", "Stranded Graveyard"],
+            },
+        ],
+    },
     {"unlock_flag": 710760},  # Multiplayer: nothing found sets it
 ]
 
@@ -77,5 +94,7 @@ def test_tutorial_unlock_documented():
         "enemy_group_reward",
         "spiritspring_region",
         "1.12",
+        "holding none",
     ):
         assert word in note, word
+    assert "holds none of them" in _FIELD_NOTES["steps.when"]
