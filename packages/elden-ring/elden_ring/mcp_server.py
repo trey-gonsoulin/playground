@@ -111,9 +111,9 @@ def search_entities(
                            with EN + JP names (name_ja); most also carry NpcParam
                            HP/stamina/poise/elemental defenses, status resistances +
                            immune_to, and traits (dragon, undead, …; #84) as base
-                           values; hp_scaled / stamina_scaled / defense_scaled /
-                           resistances_scaled give the in-game (area-scaled) ranges
-                           over its placements and hp_ng_plus its NG+1..NG+7 HP
+                           values; stats_scaled groups the in-game (area-scaled)
+                           hp / stamina / defense / resistances ranges over its
+                           placements and hp_ng_plus, its NG+1..NG+7 HP
                            (#108, #131), plus an
                            attacks profile (elements, damage types, status effects
                            of the moves its animations fire; shared_with for
