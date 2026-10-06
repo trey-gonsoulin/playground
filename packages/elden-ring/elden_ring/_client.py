@@ -242,7 +242,7 @@ _CRITICAL_HITS = {
 
 # In-game enemy stats over MSB placements, one stats_scaled group (#108, #131): HP /
 # stamina min-max, the per-key min-max of area-scaled defenses and resistances, and
-# NG+1..NG+7 HP lists.
+# their NG+1..NG+7 lists (#261).
 _MIN_MAX = {"properties": _props("integer", ("min", "max"))}
 _NPC_SCALED_RANGES = {
     "stats_scaled": {
@@ -252,6 +252,9 @@ _NPC_SCALED_RANGES = {
             "defense": {"properties": {k: _MIN_MAX for k in _DAMAGE_TYPES[1:]}},
             "resistances": {"properties": {k: _MIN_MAX for k in _STATUSES}},
             "hp_ng_plus": _MIN_MAX,
+            "stamina_ng_plus": _MIN_MAX,
+            "defense_ng_plus": {"properties": {k: _MIN_MAX for k in _DAMAGE_TYPES[1:]}},
+            "resistances_ng_plus": {"properties": {k: _MIN_MAX for k in _STATUSES}},
         }
     }
 }
@@ -264,6 +267,9 @@ _NPC_SCALED = {
             "defense": {"properties": _props("integer", _DAMAGE_TYPES[1:])},
             "resistances": {"properties": _props("integer", _STATUSES)},
             "hp_ng_plus": {"type": "integer"},
+            "stamina_ng_plus": {"type": "integer"},
+            "defense_ng_plus": {"properties": _props("integer", _DAMAGE_TYPES[1:])},
+            "resistances_ng_plus": {"properties": _props("integer", _STATUSES)},
         }
     }
 }
@@ -2931,8 +2937,9 @@ _FIELD_NOTES: dict[str, str] = {
     "attack at the same time. Not friendly fire",
     "ai.guards": "raises its guard while acting (returning home, facing the target)",
     "stats_scaled": "enemy in-game stats over its MSB placements (#108, #131): hp, "
-    "stamina, defense and resistances as min / max ranges, and hp_ng_plus for NG+1 .. "
-    "NG+7. Each placement's NpcParam row is scaled by its SpEffect multipliers (the "
+    "stamina, defense and resistances as min / max ranges, and hp_ng_plus / "
+    "stamina_ng_plus / defense_ng_plus / resistances_ng_plus for NG+1 .. NG+7. Each "
+    "placement's NpcParam row is scaled by its SpEffect multipliers (the "
     "per-area scaling, plus e.g. x2 HP on field-boss versions of regular enemies). First "
     "playthrough, solo: multiplayer scaling is not applied. The top-level stats / "
     "defense / resistances stay the base values. A phase-2 boss sharing phase 1's "
@@ -2957,7 +2964,10 @@ _FIELD_NOTES: dict[str, str] = {
     "placements, per status a min / max: resistances times the area-scaling resistance "
     "multiplier, rounded (Malenia bleed 154 -> 421, poison 542 -> 1481, as the wiki). "
     "Even the unscaled base-game area doubles them, so these are the values to compare "
-    "with a weapon's status_buildup. 999 = immune, never scaled",
+    "with a weapon's status_buildup. 999 = immune, never scaled. Some wiki pages floor "
+    "instead and read 1 lower (Radahn 334 / 243, ours 335 / 244). A multi-phase boss "
+    "shows phase 1's row here: Messmer's frostbite is 435, while the wiki's 316 is his "
+    "phase-2 row (base 112, see phases)",
     "stats_scaled.hp_ng_plus": "enemy in-game max HP on NG+1 .. NG+7 (#131): two "
     "7-entry lists, index 0 = NG+1 and 6 = NG+7 (later journeys play as NG+7). NG+1 = "
     "the stats_scaled.hp value "
@@ -2972,6 +2982,27 @@ _FIELD_NOTES: dict[str, str] = {
     "one per journey",
     "stats_scaled.hp_ng_plus.max": "highest NG+1..NG+7 HP over the enemy's placements, "
     "one per journey",
+    "stats_scaled.stamina_ng_plus": "enemy in-game max stamina on NG+1 .. NG+7 (#261), "
+    "min / max 7-entry lists like stats_scaled.hp_ng_plus: the stats_scaled.stamina "
+    "value times the NG+ SpEffect's stamina multiplier, then ClearCountCorrectParam's "
+    "per-journey stamina rate (x1.1, 1.125, 1.2, 1.225, 1.25, 1.275), floored after "
+    "each step",
+    "stats_scaled.defense_ng_plus": "enemy in-game elemental defenses on NG+1 .. NG+7 "
+    "(#261), per element a min / max pair of 7-entry lists (index 0 = NG+1): "
+    "defense times the area and NG+ SpEffect defense multipliers, then "
+    "ClearCountCorrectParam's per-journey defense rate (x1.025, 1.05, 1.1, 1.15, 1.2, "
+    "1.3), floored once as stats_scaled.defense. Malenia 147 at NG+1 and 192 at NG+7, "
+    "Messmer 126 / 164, as the wiki. The NG+ SpEffect stacks on the area one, as for "
+    "HP; the wiki's NG+ defenses for Margit (117), Radahn (118) and Black Knife "
+    "Assassin drop the area multiplier instead and read lower (ours 122 / 133)",
+    "stats_scaled.resistances_ng_plus": "enemy in-game status buildup resistances on "
+    "NG+1 .. NG+7 (#261), per status a min / max pair of 7-entry lists (index 0 = "
+    "NG+1): resistances times the area and NG+ SpEffect resistance multipliers, then "
+    "ClearCountCorrectParam's per-journey resistance rate (x1.015, 1.03, 1.045, 1.06, "
+    "1.075, 1.09), rounded as stats_scaled.resistances. 999 = immune, never scaled. "
+    "Malenia NG+7 bleed 459 and poison 1615, Messmer NG+ poison 474, as the wiki; "
+    "Margit NG+ 345 (wiki 344, floored). The wiki's Radahn NG+ row (165) drops the "
+    "area multiplier and reads below his NG 334 (ours 361)",
     "variants": "variants of one entity. Named variants are separate docs (Heavy Halberd, "
     "Erdtree's Favor +2), so on an item base this is a summary: one entry per doc naming it "
     "in base_item, in sort order, with name, affinity or rank, differs, and the values of "
@@ -2998,7 +3029,8 @@ _FIELD_NOTES: dict[str, str] = {
     "variants.npc_ids": "NpcName ids whose health bar shows this stat block",
     "variants.npc_param_ids": "NpcParam rows in this stat block",
     "variants.stats_scaled": "in-game stat ranges over this block's placements (as "
-    "the top-level stats_scaled: hp, stamina, defense, resistances, hp_ng_plus)",
+    "the top-level stats_scaled: hp, stamina, defense, resistances and their *_ng_plus "
+    "lists)",
     "variants.maps": "MSB map ids of this block's placements (e.g. m12_01_00_00 for the "
     "Lake of Rot; DLC maps such as m61 are resolved too, #133)",
     "phases": "multi-phase boss fight (#132), the same list on every phase's doc: one "
@@ -3008,7 +3040,7 @@ _FIELD_NOTES: dict[str, str] = {
     "Lionel. Each entry has the enemy stat groups of that character's placed NpcParam "
     "row (stats / defense / resistances / immune_to / traits / "
     "weak_point_damage_multiplier) plus its in-game values in stats_scaled (hp, "
-    "stamina, defense, resistances, hp_ng_plus) as single values. "
+    "stamina, defense, resistances and their *_ng_plus lists) as single values. "
     "Total HP to beat the fight: sum "
     "stats_scaled.hp x (1 - ends_at_hp_ratio) over the entries, counting a shared HP pool once "
     "(skip entries with hp_pool_shared_with; the pool's own entry carries it). Absent = "
@@ -3035,6 +3067,12 @@ _FIELD_NOTES: dict[str, str] = {
     "phases.stats_scaled.hp_ng_plus": "this character's max HP on NG+1 .. NG+7, a "
     "7-entry list (as stats_scaled.hp_ng_plus); use it in place of stats_scaled.hp for "
     "the NG+ fight total",
+    "phases.stats_scaled.stamina_ng_plus": "this character's max stamina on NG+1 .. "
+    "NG+7, a 7-entry list (as stats_scaled.stamina_ng_plus)",
+    "phases.stats_scaled.defense_ng_plus": "this character's defenses on NG+1 .. NG+7, "
+    "a 7-entry list per element (as stats_scaled.defense_ng_plus)",
+    "phases.stats_scaled.resistances_ng_plus": "this character's status resistances on "
+    "NG+1 .. NG+7, a 7-entry list per status (as stats_scaled.resistances_ng_plus)",
     "phases.ends_at_hp_ratio": "HP ratio at which the fight moves to the next phase: "
     "0.55 = at 55% HP left (Beast Clergyman), 0.0 = on death. Absent on the last phase or "
     "when the hand-off waits on something other than this character's HP",
