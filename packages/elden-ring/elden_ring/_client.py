@@ -2415,9 +2415,14 @@ _FIELD_NOTES: dict[str, str] = {
     "Bell Bearing, the Volcano Manor rewards; #137) / invader_drop (awarded for defeating "
     "an NPC invader, e.g. Hoslow's Petal Whip, Millicent's Prosthesis; #138) / altered (an "
     "(Altered) armor piece, made from its base piece, see altered_from, by the alteration "
-    "service at a site of grace; not a sale, so no sold_by; #224). Scripted "
-    "awards that wait only on an interaction (paintings, Great Rune restoration) carry "
-    "neither",
+    "service at a site of grace; not a sale, so no sold_by; #224) / interaction_reward "
+    "(a map event script awards it when the player interacts with something, with no "
+    "quest flag: a painting taken off its wall, a restored Great Rune at a "
+    "Divine Tower, a DLC Ruined Forge furnace (its Ancient Dragon Smithing Stone and "
+    "Anvil Hammer, Taylew the Golem Smith...), the Sanctified "
+    "Whetblade, the Mirage Riddle, a Seed Talisman +1 swap, the Stone-Sheathed Sword / "
+    "Sword of Light / Sword of Darkness swaps; #147). found_in_world still shows for "
+    "these, since their lots are map lots",
     "acquisition_sources": "named sources: merchant names, boss/named-enemy names (see "
     "dropped_by) and gift-giving NPC names (see given_by)",
     "given_by": "on an item doc: NPCs whose talk script gives the item (#23), named via the "
