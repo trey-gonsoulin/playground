@@ -252,6 +252,11 @@ def test_grouped_leaves_mapped():
         "equipment.ashes_of_war": "keyword",
         "equipment.spells": "keyword",
         "equipment.ammo": "keyword",
+        "weapon_attacks.weapon": "keyword",
+        "weapon_attacks.reinforce_level": "integer",
+        "weapon_attacks.attack_power.physical": "integer",
+        "weapon_attacks.status_buildup.bleed": "integer",
+        "weapon_attacks.poise_damage": "float",
         "equipped_by": "keyword",
         "given_by": "keyword",
         "in_exchange_for": "keyword",
@@ -468,6 +473,18 @@ def test_builder_doc_shapes_fully_mapped():
                 "talismans": ["Sacred Scorpion Charm"],
                 "ammo": ["Arrow"],
             },
+            "weapon_attacks": [
+                {
+                    "weapon": "Reduvia",
+                    "reinforce_level": 10,
+                    "hands": ["right", "left"],
+                    "damage_types": ["Slash", "Pierce"],
+                    "attack_power": {"physical": 124},
+                    "status_buildup": {"bleed": 65},
+                    "poise_damage": 19.8,
+                    "poise_damage_by_attack": {"one_handed": {"r1": 6.6}},
+                }
+            ],
         },
         {"equipped_by": ["Recusant Henricus"]},
         {

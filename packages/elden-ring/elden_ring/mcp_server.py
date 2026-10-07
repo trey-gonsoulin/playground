@@ -132,7 +132,10 @@ def search_entities(
                            hostile_signs its NPC invasions / red-sign duels (#93).
                            Humanoid NPCs/invaders carry equipment (weapons, ashes of
                            war, armor, spells, talismans, ammo; #85); items carry the
-                           reciprocal equipped_by. placements lists where each
+                           reciprocal equipped_by. Their weapon_attacks (#127) list
+                           each loadout weapon's level, attack power, status
+                           buildup and poise damage (they have no `attacks`).
+                           placements lists where each
                            instance stands (map + world_position in the open world,
                            else map-local position; #76) and maps the distinct maps;
                            regions / locations name the map-menu regions (+ tabs)
