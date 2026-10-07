@@ -609,8 +609,9 @@ def analyze_text(text: str) -> dict:
     - kuromoji_lemmatizer: dictionary segmentation + baseform reduction (use_lemmatize=True)
 
     Use this to diagnose unexpected zeros before concluding a morpheme is absent.
-    In particular, single-kanji suru-verbs that lack IPADIC entries (e.g. 模す, 象る)
-    may be split differently than expected — see the use_kuromoji docstring on
+    In particular, single-kanji suru-verbs that lack IPADIC entries (e.g. 模す)
+    may be split differently than expected, while game terms in the user dictionary
+    (褪せ人, 黄金樹) stay whole — see the use_kuromoji docstring on
     search_entities_literal for details. Also use this to verify what baseform a verb
     reduces to before using use_lemmatize=True.
 
@@ -684,12 +685,17 @@ def search_entities_literal(
       象徴 (symbol) or 象牙 (ivory). Use this when counting a specific morpheme and
       false positives from compound words would inflate the count.
 
-    Important: kuromoji mode uses IPADIC, which lacks entries for many game-specific
-    verbs. Single-kanji suru-verbs (e.g. 模す, 象る, 擬す) are particularly affected:
-    IPADIC splits 模した as 模 (noun) + し (suru conjugation) + た, so the stem 模し is
-    never a token and a query for it returns zero. In these cases, use the bare kanji
-    instead (模, not 模し) — and use analyze_text() to verify tokenization before
-    trusting a zero result from kuromoji mode.
+    Game vocabulary: a user dictionary keeps lore terms such as 褪せ人, 黄金樹, 二本指,
+    結晶人, しろがね人, 遺灰, 戦技 and 霊体 as single tokens. So a kuromoji or lemma
+    search for a fragment (黄金, 霊) does NOT match them; search the whole term, or use
+    the default mode for substring matches.
+
+    Important: kuromoji mode uses IPADIC, which lacks entries for some game-specific
+    verbs, and the user dictionary can't give verbs a base form. 模す is the known
+    case: IPADIC splits 模した as 模 (noun) + し (suru conjugation) + た, so the stem
+    模し is never a token and a query for it returns zero. Use the bare kanji instead
+    (模, not 模し), and use analyze_text() to verify tokenization before trusting a
+    zero result from kuromoji mode.
 
     Note: regex patterns are not supported.
 
@@ -758,7 +764,7 @@ def search_entities_literal(
             Uses segmentation + kuromoji_baseform only (no stopword/POS removal), so
             phrase queries across word boundaries work correctly. Takes precedence over
             use_kuromoji when both are True. Use analyze_text() to verify the expected
-            baseform before querying — IPADIC-unknown verbs (e.g. 模す, 象る) may not
+            baseform before querying — IPADIC-unknown verbs (e.g. 模す) may not
             reduce to the expected baseform.
         include_unavailable: By default, unavailable content (availability="cut" or
             "unobtainable", e.g. Millicent's set / the Ragged set) is excluded. Pass True to
