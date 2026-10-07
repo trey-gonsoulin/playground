@@ -849,6 +849,7 @@ INDEX_MAPPING = {
                 },
             },
             "talk_ids": {"type": "long"},
+            "speakers": {"type": "keyword"},  # #191
             # Back-link on npc_dialogue subtitle lines (#192); cutscene_id shared.
             "cutscene": {"type": "keyword"},
             "cutscenes": {
@@ -3273,8 +3274,10 @@ _FIELD_NOTES: dict[str, str] = {
     "variant_ids": "on a cutscene doc: the other cutscene ids folded into this scene",
     "asset": "on a cutscene doc: the cutscenebnd asset name (s10_00_0010 for "
     "10000010); absent when the current game files hold no such asset (15000020)",
-    "label": "on a cutscene doc: a native label, no hand-written scene names. The boss "
-    "and trigger kind ('Margit, the Fell Omen: boss intro'), else the quest of a quest "
+    "label": "on a cutscene doc: a hand-written scene name for 22 scenes whose "
+    "subtitles, warp or item gate identify them (#191: 'Melina's first meeting', "
+    "'Age of the Stars ending', 'Grand Lift of Dectus', 'Opening cinematic'), else a "
+    "native label: the boss and trigger kind ('Margit, the Fell Omen: boss intro'), else the quest of a quest "
     "scene ('Dung Eater: quest', #189), else the kind and first "
     "subtitle line ('scripted: Greetings.'), else the kind and map",
     "trigger_kind": "on a cutscene doc: how its map scripts trigger it. boss_intro (in "
@@ -3311,11 +3314,16 @@ _FIELD_NOTES: dict[str, str] = {
     "unskippable": "on a cutscene doc: the cutscene flags forbid skipping (flag 2)",
     "subtitles": "on a cutscene doc: the spoken lines in timeline order (EN), from the "
     "scene's timeline (current-patch MQB) joined through TalkParam to the patch's "
-    "TalkMsg text; no speaker names. Every line is also an npc_dialogue doc "
+    "TalkMsg text; who speaks them is in speakers. Every line is also an npc_dialogue doc "
     "(see talk_ids). About half the scenes have none (no dialogue)",
     "subtitles_ja": "on a cutscene doc: the Japanese lines matching subtitles",
     "talk_ids": "on a cutscene doc: the TalkMsg ids of its subtitles, in order; the "
     "npc_dialogue doc for a line is named 'Dialogue <id>'",
+    "speakers": "on a cutscene doc (#191): who speaks its subtitles, in order of their "
+    "first line (Margit's intro: ['Margit, the Fell Omen']; the opening cinematic: "
+    "['Narrator']). Hand-mapped from the TalkMsg id bank (talk_id // 10000: 2003 = "
+    "Margit, 2049 = Ranni the Witch), since TalkParam names no speaker; a bank with "
+    "two voices names its main one. Absent with no subtitles or an unmapped bank",
     "cutscenes": "on a boss doc (#92): the cutscene docs linked to the encounter, each "
     "{id: cutscene_id, kind: boss_intro / boss_defeat / ending}",
     "region": "on a site_of_grace doc: the grace's map-menu region (Stormhill, Liurnia "
