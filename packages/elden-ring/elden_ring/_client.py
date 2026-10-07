@@ -800,6 +800,20 @@ INDEX_MAPPING = {
                     "poise_damage_by_attack": {"type": "object", "enabled": False},
                 }
             },
+            # Humanoid attacks from the loadout spells (#267): one entry per spell,
+            # the `attacks` aggregate over its own Magic row's bullets / AtkParam_Pc
+            # rows. Buildup numbers are stored, not indexed (status_effects is).
+            "spell_attacks": {
+                "properties": {
+                    **_props(
+                        "keyword",
+                        ("spell", "damage_types", "elements", "status_effects"),
+                    ),
+                    "attack_power": {"properties": _props("integer", _DAMAGE_TYPES)},
+                    "poise_damage": {"type": "float"},
+                    "status_buildup": {"type": "object", "enabled": False},
+                }
+            },
             # Spirit-ash summons: one entry per distinct summoned NpcParam row (#86).
             "summon_count": {"type": "integer"},
             "summon_stats": {"properties": _SUMMON_STATS},
@@ -2556,6 +2570,18 @@ _FIELD_NOTES: dict[str, str] = {
     "first-hit poise over the weapon's attacks in stats.poise units (PvE, #119); "
     "poise_damage_by_attack holds each attack's first hit by hand (stored, not "
     "searchable). Bows/crossbows have no poise (the ammo decides)",
+    "spell_attacks": "on a humanoid enemy/NPC/invader doc: its attacks from the spells "
+    "in its loadout (#267), one entry per spell (spell = the item doc name). Read from the "
+    "NPC's own Magic row: its bullets (+ the bullets they spawn) and, for melee spells "
+    "(Carian Slicer, Dragonmaw), its attack rows, aggregated like `attacks`: "
+    "attack_power = the largest per-hit flat power per element, i.e. the spell's base "
+    "before catalyst scaling (Glintstone Pebble magic 152 = the wiki's 'Sorcery Scaling "
+    "x 1.52'); elements lists every element it deals, physical included (unlike "
+    "weapon_attacks.elements); poise_damage = the largest per-hit flat poise in "
+    "stats.poise units; status_effects the statuses it inflicts, status_buildup the "
+    "largest per-hit buildup (stored, not searchable; Frenzied Burst madness 105). "
+    "Buffs and heals (no damaging or status-inflicting hit, e.g. Golden Vow, Bloodflame "
+    "Blade) are left out",
     "name_source": "on an enemy doc: where the name comes from — 'npc_name' (the per-character "
     "NpcName roster) or 'spirit_ash' (a generic-mob model label taken from its spirit ash, "
     "e.g. 'Godrick Soldier'; covers every placement of that model, #104)",
