@@ -377,6 +377,75 @@ _SET_WHEN = {
     },
 }
 
+# Kuromoji user dictionary (#53): game coinages IPADIC lacks, kept as one token
+# instead of fragments (霊/体), wrong words (輝/石頭) or misread verbs (遺灰 →
+# 遺る/灰, しろがね → する/が/ね). Picked from the 1.17.1 corpus: lore terms in
+# >= ~20 texts. Descriptive compounds (大剣, 赤獅子) keep their split so 剣
+# still matches 大剣. Rows are "surface,segmentation,reading,POS"; the custom
+# POS isn't in kuromoji_part_of_speech's stoptags, so .ja keeps these tokens.
+# User-dict tokens carry no base form, so this can't fix verb lemmas (模す).
+# Changing the rules needs a new concrete index (tokenizer settings are static).
+KUROMOJI_USER_DICTIONARY = [
+    f"{surface},{surface},{reading},{pos}"
+    for surface, reading, pos in [
+        ("褪せ人", "アセビト", "カスタム名詞"),
+        ("黄金樹", "オウゴンジュ", "カスタム名詞"),
+        ("黄金律", "オウゴンリツ", "カスタム名詞"),
+        ("二本指", "ニホンユビ", "カスタム名詞"),
+        ("三本指", "サンボンユビ", "カスタム名詞"),
+        ("結晶人", "ケッショウジン", "カスタム名詞"),
+        ("しろがね", "シロガネ", "カスタム名詞"),
+        ("しろがね人", "シロガネビト", "カスタム名詞"),
+        ("遺灰", "イハイ", "カスタム名詞"),
+        ("戦灰", "センハイ", "カスタム名詞"),
+        ("戦技", "センギ", "カスタム名詞"),
+        ("霊体", "レイタイ", "カスタム名詞"),
+        ("霊姿", "レイシ", "カスタム名詞"),
+        ("霊馬", "レイバ", "カスタム名詞"),
+        ("霊炎", "レイエン", "カスタム名詞"),
+        ("聖杯瓶", "セイハイビン", "カスタム名詞"),
+        ("鈴玉", "スズダマ", "カスタム名詞"),
+        ("古竜", "コリュウ", "カスタム名詞"),
+        ("調香師", "チョウコウシ", "カスタム名詞"),
+        ("狂い火", "クルイビ", "カスタム名詞"),
+        ("朱い", "アカイ", "カスタム形容詞"),
+        ("デミゴッド", "デミゴッド", "カスタム名詞"),
+        ("影樹", "エイジュ", "カスタム名詞"),
+        ("幻影樹", "ゲンエイジュ", "カスタム名詞"),  # else 幻/影樹
+        ("聖樹", "セイジュ", "カスタム名詞"),
+        ("角人", "ツノビト", "カスタム名詞"),
+        ("鍛石", "タンセキ", "カスタム名詞"),
+        ("竜餐", "リュウサン", "カスタム名詞"),
+        ("神肌", "カミハダ", "カスタム名詞"),
+        ("指読み", "ユビヨミ", "カスタム名詞"),
+        ("卑兵", "ヒヘイ", "カスタム名詞"),
+        ("鉤指", "カギユビ", "カスタム名詞"),
+        ("根脂", "ネアブラ", "カスタム名詞"),
+        ("亜人", "アジン", "カスタム名詞"),
+        ("忌み子", "イミコ", "カスタム名詞"),
+        ("忌み鬼", "イミオニ", "カスタム名詞"),
+        ("祖霊", "ソレイ", "カスタム名詞"),
+        ("黒炎", "コクエン", "カスタム名詞"),
+        ("封牢", "フウロウ", "カスタム名詞"),
+        ("神授塔", "シンジュトウ", "カスタム名詞"),
+        ("夜騎兵", "ヨルキヘイ", "カスタム名詞"),
+        ("緋雫", "ヒシズク", "カスタム名詞"),
+        ("青雫", "アオシズク", "カスタム名詞"),
+        ("背律者", "ハイリツシャ", "カスタム名詞"),
+        ("指巫女", "ユビミコ", "カスタム名詞"),
+        ("瘤脂", "コブアブラ", "カスタム名詞"),
+        ("調霊", "チョウレイ", "カスタム名詞"),
+        ("死衾", "シフスマ", "カスタム名詞"),
+        ("輝剣", "キケン", "カスタム名詞"),
+        ("百智卿", "ヒャクチキョウ", "カスタム名詞"),
+        ("輝石頭", "キセキアタマ", "カスタム名詞"),
+        ("死王子", "シオウジ", "カスタム名詞"),
+        ("指様", "ユビサマ", "カスタム名詞"),
+        ("指痕", "ユビアト", "カスタム名詞"),
+        ("混種", "コンシュ", "カスタム名詞"),
+    ]
+]
+
 INDEX_MAPPING = {
     "settings": {
         "number_of_shards": 1,
@@ -392,14 +461,22 @@ INDEX_MAPPING = {
                 "kuromoji_normal": {
                     "type": "kuromoji_tokenizer",
                     "mode": "normal",
-                }
+                    "user_dictionary_rules": KUROMOJI_USER_DICTIONARY,
+                },
+                # The built-in kuromoji_tokenizer (search mode) plus the same user
+                # dictionary, for the .ja relevance analyzer.
+                "kuromoji_search": {
+                    "type": "kuromoji_tokenizer",
+                    "mode": "search",
+                    "user_dictionary_rules": KUROMOJI_USER_DICTIONARY,
+                },
             },
             "analyzer": {
                 # Relevance analyzer for .ja subfields used by search(). Full filter
                 # chain: baseform lemmatization, stopword removal, stemming.
                 "kuromoji_analyzer": {
                     "type": "custom",
-                    "tokenizer": "kuromoji_tokenizer",
+                    "tokenizer": "kuromoji_search",
                     "filter": [
                         "kuromoji_baseform",
                         "kuromoji_part_of_speech",
