@@ -3359,7 +3359,9 @@ _FIELD_NOTES: dict[str, str] = {
     "subtitle line ('scripted: Greetings.'), else the kind and map",
     "trigger_kind": "on a cutscene doc: how its map scripts trigger it. boss_intro (in "
     "a boss's 28xx fight-event block, before the fight), boss_defeat (waits on / sets "
-    "a boss's defeat flag), ending (cutscene flag 64 or an ending-choice flag "
+    "a boss's defeat flag, and doesn't also play with it off: the Siofra Aqueduct "
+    "coffin waits on the Valiant Gargoyles' defeat, but the Grand Cloister coffin to "
+    "Astel plays either way so is scripted; #271), ending (cutscene flag 64 or an ending-choice flag "
     "9400-9409; keeps the Elden Beast boss link), item (gated on holding an item: the "
     "medallions of the Dectus / Rold / Haligtree lifts, but also e.g. any Flask of "
     "Crimson Tears or Messmer's Kindling), quest (a trigger flag is an NPC quest step, "
