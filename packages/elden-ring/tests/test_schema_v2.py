@@ -710,6 +710,13 @@ def test_acquisition_types_note_lists_interaction_reward():
     assert _PROPS["acquisition_types"]["type"] == "keyword"
 
 
+def test_corpse_acquisition_type_and_placement_flag_documented():
+    # #136: corpse type + placements[].on_corpse (placements isn't indexed).
+    assert "corpse (looted from a body" in _FIELD_NOTES["acquisition_types"]
+    assert "on_corpse" in _FIELD_NOTES["placements"]
+    assert _PROPS["placements"] == {"type": "object", "enabled": False}
+
+
 def test_critical_hits_notes_name_the_confirmed_kinds():
     # #128: ThrowParam ThrowType 1 / 20 / 25 labelled; the rest stay raw.
     assert "Tree Sentinel" in _FIELD_NOTES["critical_hits"]

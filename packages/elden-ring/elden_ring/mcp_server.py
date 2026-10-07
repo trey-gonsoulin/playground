@@ -282,7 +282,8 @@ def search_entities(
                            DLC Stone Coffin Altars, 1.12+; demigods' only at the bell ones)
       starting_classes   — starting classes whose initial loadout includes it (#23)
       acquisition_types  — how it's obtained: merchant / enemy_drop / found_in_world /
-                           chest / given_by_npc / starting_equipment / keepsake / crafted /
+                           chest / corpse (looted from a body, #136) /
+                           given_by_npc / starting_equipment / keepsake / crafted /
                            gathered (gathering-node pickup, #142) /
                            quest_reward (scripted quest award, #137) /
                            invader_drop (defeating an NPC invader, #138) /
@@ -297,6 +298,7 @@ def search_entities(
                            they unlock (#144)
       placements / maps  — where it is picked up in the world (MSB treasure: map,
                            world_position or map-local position, in_chest; #76;
+                           on_corpse when looted from a body, #136;
                            gathering nodes flagged gathering: true, #135)
       regions / locations — map-menu regions (+ tabs) and dungeon location docs of
                            those placements (#140)
