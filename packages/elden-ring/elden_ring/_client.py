@@ -2442,7 +2442,9 @@ _FIELD_NOTES: dict[str, str] = {
     "Anvil Hammer, Taylew the Golem Smith...), the Sanctified "
     "Whetblade, the Mirage Riddle, a Seed Talisman +1 for ringing a Finger Ruins bell "
     "(Hole-Laden Necklace held), the Stone-Sheathed Sword / "
-    "Sword of Light / Sword of Darkness swaps; #147). found_in_world still shows for "
+    "Sword of Light / Sword of Darkness swaps; #147) / strike_reward (a map event "
+    "script awards it for striking a character or object, e.g. the Golden Runes from "
+    "hitting certain open-world characters; #266). found_in_world still shows for "
     "these, since their lots are map lots",
     "acquisition_sources": "named sources: merchant names, boss/named-enemy names (see "
     "dropped_by) and gift-giving NPC names (see given_by)",
