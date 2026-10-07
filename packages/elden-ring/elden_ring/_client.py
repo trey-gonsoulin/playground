@@ -3334,8 +3334,7 @@ _FIELD_NOTES: dict[str, str] = {
     "open-world placements (the game's own region map at each spot, #80), so "
     "areas='Stormhill' finds what is placed inside Stormhill's border even where the "
     "nearest grace is in Limgrave. No tabs are added (areas='Limgrave' doesn't match "
-    "Stormhill) and dungeon placements have none. Item areas cover pickups only. "
-    "Older patches may be resolved with the current patch's region-map texture",
+    "Stormhill) and dungeon placements have none. Item areas cover pickups only",
     "locations": "on enemy and item docs (#140): the dungeon location docs its "
     "placements are in (catacombs, caves, tunnels, gaols, legacy dungeons: "
     "locations='Murkwater Catacombs') and the open-world landmarks whose MSB footprint "
