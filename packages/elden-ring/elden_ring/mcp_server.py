@@ -74,7 +74,10 @@ def search_entities(
                            heals, catalyst spell-school boosts, regen; #163)
             armor        — all armor pieces with weight, defense, and negation values
             spell        — sorceries and incantations with FP cost, requirements and
-                           decoded effects (buffs, heals, on-hit buildup; #88)
+                           decoded effects (buffs, heals, on-hit buildup; #88);
+                           damaging ones carry spell_attacks, their base power
+                           per element before catalyst scaling (#130; scale it
+                           with calculate_attack_rating(spell=))
             ash_of_war   — weapon skills / ashes of war with effect descriptions
             item         — talismans (with SpEffect-derived effect / effects)
             ammo         — arrows, greatarrows, bolts, and ballista bolts (attack
@@ -135,7 +138,8 @@ def search_entities(
                            reciprocal equipped_by. Their weapon_attacks (#127) list
                            each loadout weapon's level, attack power, status
                            buildup and poise damage, and spell_attacks (#267) each
-                           loadout spell's base power, statuses and poise
+                           loadout spell's base power, statuses and poise (an
+                           unnamed NPC-only spell by magic_id; #268)
                            (they usually have no `attacks`).
                            placements lists where each
                            instance stands (map + world_position in the open world,
@@ -414,6 +418,7 @@ def calculate_attack_rating(
     two_handed: bool = False,
     affinity: str | None = None,
     patch_version: str | None = None,
+    spell: str | None = None,
 ) -> dict:
     """Compute a weapon's attack rating and status buildup for given character stats.
 
@@ -427,7 +432,12 @@ def calculate_attack_rating(
       and ballistae are always two-handed;
     - poison, bleed, sleep and madness buildup scale with Arcane (not two-handed
       Str); rot, frost and death blight don't scale;
-    - staves and seals also return spell_scaling per damage type;
+    - staves and seals also return spell_scaling per damage type, and with
+      spell= that spell's attack power: its base per damage type (the spell doc's
+      spell_attacks attack_power, the largest hit, charged casts included) x
+      spell_scaling / 100 (Glintstone Pebble 152 from a Meteorite Staff at 80 Int,
+      scaling 272 -> 413). Every hit is scaled, though the wiki measures Law of
+      Causality's counter (holy 487) as flat;
     - thrown consumables (Fire Pot, Kukri, Poisonbone Dart) scale their flat hit
       power and buildup the same way through a hidden weapon row, at level 0 with
       no requirements (Fire Pot 230 fire -> 284 at 10 Str / 10 Dex).
@@ -447,6 +457,8 @@ def calculate_attack_rating(
             "Blood", "Occult"; same as passing "Heavy Halberd" as weapon.
         patch_version: Compute with that patch's data (e.g. "1.07.0", resolved to
             the latest loaded patch at or before it); default newest.
+        spell: Optional sorcery or incantation to cast with the weapon (a staff or
+            seal), e.g. "Glintstone Pebble"; read at the weapon's patch.
 
     Returns a dict with:
         weapon, patch_version, level, max_level, two_handed, stats, requirements
@@ -457,8 +469,10 @@ def calculate_attack_rating(
         spell_scaling: {type: value} for staves and seals, else null
         unmet_requirements: stats below requirement, else null
         penalized: types dealt at x0.6 for an unmet requirement, else null
-    Or {"error": "..."} for an unknown weapon, bad level/stats, or a patch
-    without the data.
+        spell, spell_attack_power ({type: {base, total}}), spell_total: with spell=
+        notes: e.g. a staff given an incantation (the seal/staff can't cast it)
+    Or {"error": "..."} for an unknown weapon or spell, bad level/stats, a patch
+    without the data, spell= on a non-catalyst, or a spell that deals no damage.
     """
     return _os.calculate_attack_rating(
         _os.get_client(),
@@ -468,6 +482,7 @@ def calculate_attack_rating(
         two_handed,
         affinity,
         patch_version,
+        spell,
     )
 
 

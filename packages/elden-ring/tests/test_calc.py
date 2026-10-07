@@ -2,7 +2,7 @@
 
 import math
 
-from elden_ring._calc import attack_rating, effective_stats, graph_value
+from elden_ring._calc import attack_rating, effective_stats, graph_value, spell_damage
 
 # CalcCorrectGraph 0 (damage) and 6 (status) as the 1.17 regulation defines them.
 _G0 = [[1, 0, 1.2], [18, 25, -1.2], [60, 75, 1], [80, 90, 1], [150, 110, 1]]
@@ -219,3 +219,81 @@ def test_calculate_attack_rating_ignores_two_handed_for_consumable(monkeypatch):
     assert two["attack_power"]["fire"]["total"] == 332, two  # wiki, 20 Str / 10 Dex
     assert two["two_handed"] is False and "notes" not in one, two
     assert any("two_handed ignored" in n for n in two["notes"]), two
+
+
+def test_spell_damage_wiki_pebble():
+    """Glintstone Pebble (magic 152, the wiki's x1.52) from a Meteorite Staff at
+    80 Int, whose spell scaling the wiki gives as 272: 413 (#130)."""
+    scaling = dict.fromkeys(("physical", "magic", "fire", "lightning", "holy"), 272)
+    assert spell_damage({"magic": 152}, scaling) == {
+        "magic": {"base": 152, "total": 413}
+    }
+
+
+def test_calculate_attack_rating_with_spell(monkeypatch):
+    """spell= scales the spell doc's spell_attacks base by the catalyst (#130)."""
+    from elden_ring import _client
+
+    staff = {
+        "name": "Test Staff",
+        "menu_category": "Glintstone Staff",
+        "requirements": {"int": 10},
+        "ar_inputs": _inputs(
+            spell_tool="sorcery",
+            scaling={"int": [100.0]},
+            correct={"physical": [], "magic": ["int"]},
+            attack={"physical": [25.0]},
+            graph_ids={
+                t: 0 for t in ("physical", "magic", "fire", "lightning", "holy")
+            },
+        ),
+    }
+    spells = {
+        "Glintstone Pebble": {
+            "name": "Glintstone Pebble",
+            "menu_category": "Sorcery",
+            "spell_attacks": [{"spell": "x", "attack_power": {"magic": 152}}],
+        },
+        "Lightning Spear": {
+            "name": "Lightning Spear",
+            "menu_category": "Incantation",
+            "spell_attacks": [{"spell": "x", "attack_power": {"lightning": 293}}],
+        },
+        "Golden Vow": {"name": "Golden Vow", "menu_category": "Incantation"},
+    }
+
+    class Client:
+        def search(self, index, body):
+            terms = {
+                k: v
+                for f in body["query"]["bool"]["filter"]
+                for k, v in f["term"].items()
+            }
+            if terms["entity_type"] == "spell":
+                doc = spells[terms["name.keyword"]]
+            else:
+                doc = staff
+            return {"hits": {"hits": [{"_source": doc}]}}
+
+    monkeypatch.setattr(
+        _client, "_resolve_entity_name", lambda c, n, t=None: None if n == "Nope" else n
+    )
+    monkeypatch.setattr(_client, "_entity_versions", lambda c, t: ["1.17.0"])
+    stats = {**_TENS, "int": 60}
+    r = _client.calculate_attack_rating(
+        Client(), "Test Staff", dict(stats), spell="Glintstone Pebble"
+    )
+    assert r["spell_scaling"]["magic"] == 175, r
+    assert r["spell"] == "Glintstone Pebble", r
+    assert r["spell_attack_power"] == {"magic": {"base": 152, "total": 266}}, r
+    assert r["spell_total"] == 266 and "notes" not in r, r
+    # A staff given an incantation still computes, with a note.
+    r = _client.calculate_attack_rating(
+        Client(), "Test Staff", dict(stats), spell="Lightning Spear"
+    )
+    # (this staff's lightning spell scaling is the unscaled 100)
+    assert r["spell_attack_power"]["lightning"]["total"] == 293, r
+    assert any("can't cast incantations" in n for n in r["notes"]), r
+    for name, msg in (("Golden Vow", "deals no damage"), ("Nope", "not found")):
+        r = _client.calculate_attack_rating(Client(), "Test Staff", stats, spell=name)
+        assert msg in r["error"], r
