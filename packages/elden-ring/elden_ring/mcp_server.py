@@ -134,7 +134,9 @@ def search_entities(
                            war, armor, spells, talismans, ammo; #85); items carry the
                            reciprocal equipped_by. Their weapon_attacks (#127) list
                            each loadout weapon's level, attack power, status
-                           buildup and poise damage (they usually have no `attacks`).
+                           buildup and poise damage, and spell_attacks (#267) each
+                           loadout spell's base power, statuses and poise
+                           (they usually have no `attacks`).
                            placements lists where each
                            instance stands (map + world_position in the open world,
                            else map-local position; #76) and maps the distinct maps;
