@@ -1,6 +1,7 @@
 """Schema v2 checks (#115): grouped stat objects, keyword cleanup, strict mapping.
 No OpenSearch needed."""
 
+from elden_ring import mcp_server
 from elden_ring._client import _FIELD_NOTES, _flatten, INDEX_MAPPING
 
 _PROPS = INDEX_MAPPING["mappings"]["properties"]
@@ -725,6 +726,13 @@ def test_acquisition_types_note_lists_interaction_reward():
     assert "interaction_reward" in note and "Great Rune" in note
     assert "carry neither" not in note
     assert _PROPS["acquisition_types"]["type"] == "keyword"
+
+
+def test_acquisition_types_note_lists_strike_reward():
+    # #266: awards for striking a character get their own type, not interaction.
+    note = _FIELD_NOTES["acquisition_types"]
+    assert "strike_reward (a map event script awards it for striking" in note
+    assert "strike_reward" in mcp_server.search_entities.__doc__
 
 
 def test_corpse_acquisition_type_and_placement_flag_documented():

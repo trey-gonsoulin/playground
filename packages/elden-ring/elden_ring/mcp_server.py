@@ -293,7 +293,9 @@ def search_entities(
                            altered ((Altered) armor made from its base piece, #224) /
                            interaction_reward (awarded on an interaction alone: a
                            painting taken off its wall, a restored Great Rune, a DLC
-                           Ruined Forge furnace, #147)
+                           Ruined Forge furnace, #147) /
+                           strike_reward (awarded for striking a character or
+                           object, #266)
       crafted_from       — crafting recipe materials [{item, quantity}], with
                            crafted_yield and recipe_unlock (cookbooks) (#87)
       used_in / unlocks_recipes — on materials / cookbooks: the items they craft (#87)
