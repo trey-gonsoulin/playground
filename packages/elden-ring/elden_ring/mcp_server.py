@@ -171,9 +171,11 @@ def search_entities(
                            other flags on, #228) / trigger_items (e.g. the Dectus medallion
                            halves), is_ending / unskippable, and its subtitles (EN +
                            subtitles_ja, in playback order; talk_ids join the
-                           npc_dialogue lines). label is native (boss + kind, or the
-                           first line); there are no hand-written scene names or
-                           speakers. Search a quote to find the scene it's spoken in.
+                           npc_dialogue lines; speakers names who says them, #191).
+                           label is a hand-written scene name for 22 identified
+                           scenes ("Melina's first meeting", "Age of the Stars
+                           ending"), else native (boss + kind, or the first line).
+                           Search a quote to find the scene it's spoken in.
             site_of_grace — one doc per named Site of Grace (#78, BonfireWarpParam):
                            region + parent_region (the map-menu grouping), map,
                            position (map-local) or world_position (open world),
