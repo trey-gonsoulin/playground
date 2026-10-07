@@ -257,6 +257,11 @@ def test_grouped_leaves_mapped():
         "weapon_attacks.attack_power.physical": "integer",
         "weapon_attacks.status_buildup.bleed": "integer",
         "weapon_attacks.poise_damage": "float",
+        "spell_attacks.spell": "keyword",
+        "spell_attacks.elements": "keyword",
+        "spell_attacks.status_effects": "keyword",
+        "spell_attacks.attack_power.magic": "integer",
+        "spell_attacks.poise_damage": "float",
         "equipped_by": "keyword",
         "given_by": "keyword",
         "in_exchange_for": "keyword",
@@ -483,6 +488,17 @@ def test_builder_doc_shapes_fully_mapped():
                     "status_buildup": {"bleed": 65},
                     "poise_damage": 19.8,
                     "poise_damage_by_attack": {"one_handed": {"r1": 6.6}},
+                }
+            ],
+            "spell_attacks": [
+                {
+                    "spell": "Frenzied Burst",
+                    "damage_types": ["Standard"],
+                    "elements": ["fire"],
+                    "attack_power": {"fire": 309},
+                    "poise_damage": 12.02,
+                    "status_buildup": {"madness": 105},
+                    "status_effects": ["madness"],
                 }
             ],
         },
