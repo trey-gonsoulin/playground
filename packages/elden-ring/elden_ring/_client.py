@@ -1002,6 +1002,14 @@ INDEX_MAPPING = {
             "acquisition_types": {"type": "keyword"},
             "acquisition_sources": {"type": "keyword"},
             "dropped_by": {"type": "keyword"},
+            # Per-killer drop scope (#230): placement vs type-wide, + chance.
+            "drop_sources": {
+                "properties": {
+                    "enemy": {"type": "keyword"},
+                    "scope": {"type": "keyword"},
+                    "chance": {"type": "float"},
+                }
+            },
             "drops": {"type": "keyword"},
             "sold_by": {"type": "keyword"},
             "shop_listings": {"type": "object", "enabled": False},  # #89
@@ -2694,6 +2702,17 @@ _FIELD_NOTES: dict[str, str] = {
     "enemy_drop item can have no dropped_by when the game data gives its killer no name "
     "(Teardrop Scarabs, the Fort Haight Godrick Knight dropping Ash of War: Bloody Slash; "
     "#153)",
+    "drop_sources": "on item docs (#230): how each killer drops it, a list of "
+    "{enemy, scope, chance}. scope 'placement' = a map-script award or death lot one "
+    "placed instance gives (Commander O'Neil -> Commander's Standard); scope 'type' = "
+    "the NpcParam death lot every enemy of that type rolls, with chance = its drop "
+    "chance (0-1) when it's one simple roll (Godrick Soldier -> Smithing Stone [1], "
+    "0.04; omitted when the item is in several slots, uses pity points, or the "
+    "merged lots disagree). A unique character's own NpcParam lot is also 'type' "
+    "(Blaidd the Half-Wolf -> Royal Greatsword, 1.0). One enemy can have both scopes. "
+    "An entry with no enemy is a placement drop whose killer has no name in the data "
+    "(Ash of War: Bloody Slash). Base chance only: Discovery (item discovery) raises it. "
+    "Generic unnamed mobs' type drops have no entry; the names match dropped_by",
     "drops": "on an enemy doc: items this enemy drops (EMEVD awards + MSB death lots), "
     "merged over every encounter of the name; on a boss doc: the items awarded for that "
     "one encounter. Includes defeat rewards (remembrances, great runes) awarded when the "
