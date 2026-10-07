@@ -257,7 +257,29 @@ def test_calculate_attack_rating_with_spell(monkeypatch):
         "Lightning Spear": {
             "name": "Lightning Spear",
             "menu_category": "Incantation",
-            "spell_attacks": [{"spell": "x", "attack_power": {"lightning": 293}}],
+            "spell_attacks": [
+                {
+                    "spell": "x",
+                    "attack_power": {"lightning": 293},
+                    "hit_count": 1,
+                    "uncharged": {"attack_power": {"lightning": 234}, "hit_count": 1},
+                    "charged": {"attack_power": {"lightning": 293}, "hit_count": 1},
+                }
+            ],
+        },
+        "Rock Sling": {
+            "name": "Rock Sling",
+            "menu_category": "Sorcery",
+            "spell_attacks": [
+                {"spell": "x", "attack_power": {"physical": 102}, "hit_count": 3}
+            ],
+        },
+        "Comet Azur": {
+            "name": "Comet Azur",
+            "menu_category": "Sorcery",
+            "spell_attacks": [
+                {"spell": "x", "attack_power": {"magic": 100}, "channeled": True}
+            ],
         },
         "Golden Vow": {"name": "Golden Vow", "menu_category": "Incantation"},
     }
@@ -287,12 +309,29 @@ def test_calculate_attack_rating_with_spell(monkeypatch):
     assert r["spell"] == "Glintstone Pebble", r
     assert r["spell_attack_power"] == {"magic": {"base": 152, "total": 266}}, r
     assert r["spell_total"] == 266 and "notes" not in r, r
+    assert "spell_hit_count" not in r and "spell_charged" not in r, r
+    # Hits per cast (#270): the strongest hit x its hit_count.
+    r = _client.calculate_attack_rating(
+        Client(), "Test Staff", dict(stats), spell="Rock Sling"
+    )
+    assert r["spell_hit_count"] == 3 and r["spell_total_per_cast"] == 3 * 102, r
+    r = _client.calculate_attack_rating(
+        Client(), "Test Staff", dict(stats), spell="Comet Azur"
+    )
+    assert r["spell_channeled"] is True and "spell_hit_count" not in r, r
     # A staff given an incantation still computes, with a note.
     r = _client.calculate_attack_rating(
         Client(), "Test Staff", dict(stats), spell="Lightning Spear"
     )
     # (this staff's lightning spell scaling is the unscaled 100)
     assert r["spell_attack_power"]["lightning"]["total"] == 293, r
+    # The uncharged / charged casts of a chargeable spell (#269).
+    assert r["spell_uncharged"] == {
+        "attack_power": {"lightning": {"base": 234, "total": 234}},
+        "total": 234,
+        "hit_count": 1,
+    }, r
+    assert r["spell_charged"]["total"] == 293, r
     assert any("can't cast incantations" in n for n in r["notes"]), r
     for name, msg in (("Golden Vow", "deals no damage"), ("Nope", "not found")):
         r = _client.calculate_attack_rating(Client(), "Test Staff", stats, spell=name)

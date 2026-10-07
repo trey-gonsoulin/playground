@@ -77,7 +77,9 @@ def search_entities(
                            decoded effects (buffs, heals, on-hit buildup; #88);
                            damaging ones carry spell_attacks, their base power
                            per element before catalyst scaling (#130; scale it
-                           with calculate_attack_rating(spell=))
+                           with calculate_attack_rating(spell=)), hit_count per
+                           cast (#270) and, on chargeable spells, the uncharged /
+                           charged casts (#269)
             ash_of_war   — weapon skills / ashes of war with effect descriptions
             item         — talismans (with SpEffect-derived effect / effects)
             ammo         — arrows, greatarrows, bolts, and ballista bolts (attack
@@ -478,6 +480,12 @@ def calculate_attack_rating(
         unmet_requirements: stats below requirement, else null
         penalized: types dealt at x0.6 for an unmet requirement, else null
         spell, spell_attack_power ({type: {base, total}}), spell_total: with spell=
+            (the largest hit per type, a charged cast included)
+        spell_hit_count, spell_total_per_cast: hits per cast of that strongest hit
+            and spell_total x hits (an upper bound: every projectile connects);
+            spell_channeled=true instead for hold-to-continue spells (Comet Azur)
+        spell_uncharged, spell_charged: {attack_power, total, hit_count} for each
+            cast of a chargeable spell (Lightning Spear x2.34 / x2.93)
         notes: e.g. a staff given an incantation (the seal/staff can't cast it)
     Or {"error": "..."} for an unknown weapon or spell, bad level/stats, a patch
     without the data, spell= on a non-catalyst, or a spell that deals no damage.
