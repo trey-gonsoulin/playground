@@ -484,7 +484,8 @@ def calculate_attack_rating(
             (the largest hit per type, a charged cast included)
         spell_hit_count, spell_total_per_cast: every hit of one cast and their
             summed total (Glintstone Stars 3 stars; an upper bound: every
-            projectile connects); spell_channeled=true instead for
+            projectile connects, random-interval spawners at their shortest
+            interval); spell_channeled=true instead for
             hold-to-continue spells (Comet Azur)
         spell_uncharged, spell_charged: {attack_power, total, hit_count,
             total_per_cast} for each cast of a chargeable spell (Lightning Spear
