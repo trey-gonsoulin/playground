@@ -2546,7 +2546,7 @@ _FIELD_NOTES: dict[str, str] = {
     "regular upgrade path: physical 124, not the somber 193): attack_power and "
     "status_buildup are the weapon's numbers at that level, before stat scaling and "
     "the move's motion value, so they are NOT comparable with `attacks` (absolute "
-    "per-hit AtkParam_Npc power, which humanoids lack); damage_types is the weapon's "
+    "per-hit AtkParam_Npc power, which humanoids usually lack); damage_types is the weapon's "
     "physical type, elements its non-physical damage. poise_damage = the largest "
     "first-hit poise over the weapon's attacks in stats.poise units (PvE, #119); "
     "poise_damage_by_attack holds each attack's first hit by hand (stored, not "
