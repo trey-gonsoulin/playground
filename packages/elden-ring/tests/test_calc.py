@@ -262,16 +262,30 @@ def test_calculate_attack_rating_with_spell(monkeypatch):
                     "spell": "x",
                     "attack_power": {"lightning": 293},
                     "hit_count": 1,
-                    "uncharged": {"attack_power": {"lightning": 234}, "hit_count": 1},
-                    "charged": {"attack_power": {"lightning": 293}, "hit_count": 1},
+                    "attack_power_per_cast": {"lightning": 293},
+                    "uncharged": {
+                        "attack_power": {"lightning": 234},
+                        "hit_count": 2,
+                        "attack_power_per_cast": {"lightning": 284},
+                    },
+                    "charged": {
+                        "attack_power": {"lightning": 293},
+                        "hit_count": 1,
+                        "attack_power_per_cast": {"lightning": 293},
+                    },
                 }
             ],
         },
-        "Rock Sling": {
-            "name": "Rock Sling",
+        "Glintstone Stars": {
+            "name": "Glintstone Stars",
             "menu_category": "Sorcery",
             "spell_attacks": [
-                {"spell": "x", "attack_power": {"physical": 102}, "hit_count": 3}
+                {
+                    "spell": "x",
+                    "attack_power": {"magic": 87},
+                    "hit_count": 3,
+                    "attack_power_per_cast": {"magic": 87 + 78 + 68},
+                }
             ],
         },
         "Comet Azur": {
@@ -310,11 +324,12 @@ def test_calculate_attack_rating_with_spell(monkeypatch):
     assert r["spell_attack_power"] == {"magic": {"base": 152, "total": 266}}, r
     assert r["spell_total"] == 266 and "notes" not in r, r
     assert "spell_hit_count" not in r and "spell_charged" not in r, r
-    # Hits per cast (#270): the strongest hit x its hit_count.
+    # Hits per cast (#270): every star's power summed, then scaled (233 x 1.75).
     r = _client.calculate_attack_rating(
-        Client(), "Test Staff", dict(stats), spell="Rock Sling"
+        Client(), "Test Staff", dict(stats), spell="Glintstone Stars"
     )
-    assert r["spell_hit_count"] == 3 and r["spell_total_per_cast"] == 3 * 102, r
+    assert r["spell_total"] == 152, r  # the strongest star, 87 x 1.75
+    assert r["spell_hit_count"] == 3 and r["spell_total_per_cast"] == 407, r
     r = _client.calculate_attack_rating(
         Client(), "Test Staff", dict(stats), spell="Comet Azur"
     )
@@ -329,7 +344,8 @@ def test_calculate_attack_rating_with_spell(monkeypatch):
     assert r["spell_uncharged"] == {
         "attack_power": {"lightning": {"base": 234, "total": 234}},
         "total": 234,
-        "hit_count": 1,
+        "hit_count": 2,
+        "total_per_cast": 284,
     }, r
     assert r["spell_charged"]["total"] == 293, r
     assert any("can't cast incantations" in n for n in r["notes"]), r
