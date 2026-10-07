@@ -784,6 +784,22 @@ INDEX_MAPPING = {
                 )
             },
             "equipped_by": {"type": "keyword"},
+            # Humanoid attacks from the loadout weapons (#127): one entry per weapon
+            # row + level + ash; weapon numbers, not AtkParam_Npc absolutes, so kept
+            # apart from `attacks`. Per-attack poise is stored, not indexed.
+            "weapon_attacks": {
+                "properties": {
+                    **_props(
+                        "keyword",
+                        ("weapon", "ash_of_war", "hands", "damage_types", "elements"),
+                    ),
+                    "reinforce_level": {"type": "integer"},
+                    "attack_power": {"properties": _props("integer", _DAMAGE_TYPES)},
+                    "status_buildup": {"properties": _props("integer", _STATUSES)},
+                    "poise_damage": {"type": "float"},
+                    "poise_damage_by_attack": {"type": "object", "enabled": False},
+                }
+            },
             # Spirit-ash summons: one entry per distinct summoned NpcParam row (#86).
             "summon_count": {"type": "integer"},
             "summon_stats": {"properties": _SUMMON_STATS},
@@ -2527,6 +2543,18 @@ _FIELD_NOTES: dict[str, str] = {
     "with several encounters lists the union. Absent on bosses/creatures without a loadout",
     "equipped_by": "on an item doc: enemies whose loadout includes it (reverse of "
     "equipment). A weapon's Standard doc carries it, not its affinity variants",
+    "weapon_attacks": "on a humanoid enemy/NPC/invader doc: its attacks from the weapons "
+    "in its loadout (#127), one entry per weapon + upgrade level + Ash of War (weapon, "
+    "ash_of_war, reinforce_level, hands right/left). Read from the NPC's own weapon row, "
+    "which can differ from the player's copy (Bloody Finger Nerijus's Reduvia +10 uses a "
+    "regular upgrade path: physical 124, not the somber 193): attack_power and "
+    "status_buildup are the weapon's numbers at that level, before stat scaling and "
+    "the move's motion value, so they are NOT comparable with `attacks` (absolute "
+    "per-hit AtkParam_Npc power, which humanoids usually lack); damage_types is the weapon's "
+    "physical type, elements its non-physical damage. poise_damage = the largest "
+    "first-hit poise over the weapon's attacks in stats.poise units (PvE, #119); "
+    "poise_damage_by_attack holds each attack's first hit by hand (stored, not "
+    "searchable). Bows/crossbows have no poise (the ammo decides)",
     "name_source": "on an enemy doc: where the name comes from — 'npc_name' (the per-character "
     "NpcName roster) or 'spirit_ash' (a generic-mob model label taken from its spirit ash, "
     "e.g. 'Godrick Soldier'; covers every placement of that model, #104)",
