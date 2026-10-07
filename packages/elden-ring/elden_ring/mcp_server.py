@@ -278,6 +278,12 @@ def search_entities(
                            handed_to (the NPC the goods are given to); resold_from /
                            resale_flags on Twin Maiden Husks re-sales (bell bearing, #145)
       dropped_by         — boss / named enemies that drop this item (EMEVD-derived, #68)
+      drop_sources       — per killer, [{enemy, scope, chance}] (#230): scope "placement"
+                           = a script or one placed instance gives it (no enemy when the
+                           killer is unnamed, e.g. Ash of War: Bloody Slash); "type" = the
+                           NpcParam death lot every enemy of that type rolls, chance 0-1
+                           when it's a simple roll (Godrick Soldier → Smithing Stone [1]:
+                           0.04). Filter e.g. {"drop_sources.scope": "type"}
       equipped_by        — humanoid enemies/NPCs whose loadout includes it (#85)
       given_by           — NPCs whose dialogue gives this item (talk scripts, #23)
       in_exchange_for    — the item the giving NPC takes for it (turn-in, #97);
