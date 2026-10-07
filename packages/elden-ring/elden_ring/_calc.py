@@ -117,3 +117,18 @@ def attack_rating(
         "penalized": penalized or None,
         "effective_stats": adjusted,
     }
+
+
+def spell_damage(base: dict, spell_scaling: dict) -> dict:
+    """A spell's attack power cast from a catalyst (#130): each damage type's flat
+    base (the spell doc's spell_attacks attack_power) x the catalyst's spell scaling
+    for that type / 100, floored. Glintstone Pebble's magic 152 from a Meteorite
+    Staff at 80 Int (spell scaling 272) = 413, the wiki's "Sorcery Scaling x 1.52".
+    """
+    return {
+        t: {
+            "base": b,
+            "total": math.floor(b * spell_scaling.get(t, 100) / 100 + _EPS),
+        }
+        for t, b in base.items()
+    }

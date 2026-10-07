@@ -259,6 +259,7 @@ def test_grouped_leaves_mapped():
         "weapon_attacks.status_buildup.bleed": "integer",
         "weapon_attacks.poise_damage": "float",
         "spell_attacks.spell": "keyword",
+        "spell_attacks.magic_id": "integer",  # #268
         "spell_attacks.elements": "keyword",
         "spell_attacks.status_effects": "keyword",
         "spell_attacks.attack_power.magic": "integer",
@@ -500,7 +501,14 @@ def test_builder_doc_shapes_fully_mapped():
                     "poise_damage": 12.02,
                     "status_buildup": {"madness": 105},
                     "status_effects": ["madness"],
-                }
+                },
+                {
+                    "magic_id": 2050090,  # an unnamed NPC-only row (#268)
+                    "damage_types": ["Standard"],
+                    "elements": ["physical"],
+                    "attack_power": {"physical": 190},
+                    "poise_damage": 14.0,
+                },
             ],
         },
         {"equipped_by": ["Recusant Henricus"]},

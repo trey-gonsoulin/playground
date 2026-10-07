@@ -12,7 +12,7 @@ import boto3
 import requests
 from opensearchpy import OpenSearch, RequestsHttpConnection
 
-from elden_ring._calc import STATS, attack_rating
+from elden_ring._calc import STATS, attack_rating, spell_damage
 
 # ---------------------------------------------------------------------------
 # Module-level cache — survives across warm Lambda invocations.
@@ -803,12 +803,15 @@ INDEX_MAPPING = {
             # Humanoid attacks from the loadout spells (#267): one entry per spell,
             # the `attacks` aggregate over its own Magic row's bullets / AtkParam_Pc
             # rows. Buildup numbers are stored, not indexed (status_effects is).
+            # Spell docs carry their own single entry (#130); a hitting loadout row
+            # no item name resolves is keyed by magic_id instead of spell (#268).
             "spell_attacks": {
                 "properties": {
                     **_props(
                         "keyword",
                         ("spell", "damage_types", "elements", "status_effects"),
                     ),
+                    "magic_id": {"type": "integer"},
                     "attack_power": {"properties": _props("integer", _DAMAGE_TYPES)},
                     "poise_damage": {"type": "float"},
                     "status_buildup": {"type": "object", "enabled": False},
@@ -2074,11 +2077,13 @@ def calculate_attack_rating(
     two_handed: bool = False,
     affinity: str | None = None,
     patch_version: str | None = None,
+    spell: str | None = None,
 ) -> dict:
     """Attack rating / status buildup / spell scaling of one weapon for character
     ``stats`` at ``level`` (default max), from its doc's ar_inputs (#120). A name
     that isn't a weapon falls back to a thrown consumable (#178: Fire Pot, Kukri),
-    whose ar_inputs have a single level scaled by its virtual weapon."""
+    whose ar_inputs have a single level scaled by its virtual weapon. With
+    ``spell``, a staff or seal also returns that spell's attack power (#130)."""
     bad = {s: v for s, v in stats.items() if not 1 <= v <= 99}
     if bad:
         return {"error": f"stats must be 1-99: {bad}"}
@@ -2154,9 +2159,74 @@ def calculate_attack_rating(
         "requirements": doc.get("requirements"),
         **attack_rating(inputs, doc.get("requirements") or {}, full, level, two_handed),
     }
+    if spell:
+        cast = _spell_cast(client, spell, doc, result["spell_scaling"], version)
+        if "error" in cast:
+            return cast
+        notes += cast.pop("notes", [])
+        result.update(cast)
     if notes:
         result["notes"] = notes
     return result
+
+
+# Catalyst menu_category -> the spell menu_category it casts (#130).
+_CASTS = {"Glintstone Staff": "Sorcery", "Sacred Seal": "Incantation"}
+
+
+def _spell_cast(
+    client: OpenSearch, spell: str, catalyst: dict, scaling: dict | None, version: str
+) -> dict:
+    """A spell's attack power cast from ``catalyst`` (#130): the spell doc's own
+    ``spell_attacks`` base (as of the catalyst's patch) x the catalyst's
+    ``spell_scaling`` per damage type."""
+    if scaling is None:
+        return {
+            "error": f"'{catalyst['name']}' is not a staff or seal: no spell scaling"
+        }
+    name = _resolve_entity_name(client, spell, "spell")
+    if name is None:
+        return {"error": f"spell '{spell}' not found"}
+    spell_version = _resolve_asof(version, _entity_versions(client, "spell"))
+    hits = (
+        client.search(
+            index=INDEX,
+            body={
+                "size": 1,
+                "query": {
+                    "bool": {
+                        "filter": [
+                            {"term": {"name.keyword": name}},
+                            {"term": {"entity_type": "spell"}},
+                            {"term": {"patch_version": spell_version}},
+                        ]
+                    }
+                },
+            },
+        )["hits"]["hits"]
+        if spell_version
+        else []
+    )
+    if not hits:
+        return {"error": f"spell '{name}' not present at or before {version}"}
+    doc = hits[0]["_source"]
+    base = ((doc.get("spell_attacks") or [{}])[0]).get("attack_power")
+    if not base:
+        return {
+            "error": f"'{name}' deals no damage (a buff, heal or status-only spell)"
+        }
+    power = spell_damage(base, scaling)
+    out = {
+        "spell": name,
+        "spell_attack_power": power,
+        "spell_total": sum(v["total"] for v in power.values()),
+    }
+    casts = _CASTS.get(catalyst.get("menu_category"))
+    if casts and doc.get("menu_category") and doc["menu_category"] != casts:
+        out["notes"] = [
+            f"a {catalyst['menu_category']} can't cast {doc['menu_category'].lower()}s"
+        ]
+    return out
 
 
 def text_changed_between(
@@ -2571,12 +2641,19 @@ _FIELD_NOTES: dict[str, str] = {
     "poise_damage_by_attack holds each attack's first hit by hand (stored, not "
     "searchable). Bows/crossbows have no poise (the ammo decides)",
     "spell_attacks": "on a humanoid enemy/NPC/invader doc: its attacks from the spells "
-    "in its loadout (#267), one entry per spell (spell = the item doc name). Read from the "
-    "NPC's own Magic row: its bullets (+ the bullets they spawn) and, for melee spells "
-    "(Carian Slicer, Dragonmaw), its attack rows, aggregated like `attacks`: "
+    "in its loadout (#267), one entry per spell (spell = the item doc name; an NPC-only "
+    "copy is named after the player spell it copies, e.g. Shabriri's two Unendurable "
+    "Frenzy rows, fire 125 and 600; a hitting row no item name matches has magic_id "
+    "instead, #268). On a spell doc: one entry, the spell's own hits (#130), the base "
+    "calculate_attack_rating(spell=) scales by a catalyst. Read from the "
+    "Magic row: its bullets (+ the bullets they spawn), for melee spells "
+    "(Carian Slicer, Dragonmaw) its attack rows, and the hits its effects fire "
+    "(Law of Causality's counter, holy 487; Carian Retaliation's parry glintblades), "
+    "aggregated like `attacks`: "
     "attack_power = the largest per-hit flat power per element, i.e. the spell's base "
     "before catalyst scaling (Glintstone Pebble magic 152 = the wiki's 'Sorcery Scaling "
-    "x 1.52'); elements lists every element it deals, physical included (unlike "
+    "x 1.52'; a charged cast counts, so Lightning Spear 293 is its charged x 2.93); "
+    "elements lists every element it deals, physical included (unlike "
     "weapon_attacks.elements); poise_damage = the largest per-hit flat poise in "
     "stats.poise units; status_effects the statuses it inflicts, status_buildup the "
     "largest per-hit buildup (stored, not searchable; Frenzied Burst madness 105). "
