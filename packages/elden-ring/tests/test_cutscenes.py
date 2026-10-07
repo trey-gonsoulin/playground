@@ -27,6 +27,7 @@ _DOC = {
     "subtitles": ["Foul Tarnished,", "In search of the Elden Ring."],
     "subtitles_ja": ["褪せ人よ", "エルデンリングを求める"],
     "talk_ids": [20030000, 20030100],
+    "speakers": ["Margit, the Fell Omen"],
     "text_content": "Margit, the Fell Omen: boss intro\nFoul Tarnished,",
     "text_content_ja": "褪せ人よ",
 }
@@ -63,6 +64,7 @@ def test_cutscene_fields_documented():
         "subtitles",
         "subtitles_ja",
         "talk_ids",
+        "speakers",
         "cutscenes",
     ):
         assert field in _FIELD_NOTES, field
@@ -70,6 +72,15 @@ def test_cutscene_fields_documented():
     assert "Dialogue <id>" in _FIELD_NOTES["talk_ids"]
     assert "boss_intro" in _FIELD_NOTES["trigger_kind"]
     assert "EMEVD" in _FIELD_NOTES["source"]
+
+
+def test_scene_labels_and_speakers_documented():
+    # #191: hand-written scene names and the TalkMsg-bank speakers
+    assert _PROPS["speakers"] == {"type": "keyword"}
+    assert "Melina's first meeting" in _FIELD_NOTES["label"]
+    assert "no hand-written" not in _FIELD_NOTES["label"]
+    assert "2003 = Margit" in _FIELD_NOTES["speakers"]
+    assert "no speaker names" not in _FIELD_NOTES["subtitles"]
 
 
 def test_dialogue_cutscene_back_link():
