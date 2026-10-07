@@ -892,9 +892,12 @@ INDEX_MAPPING = {
                     "attack_power": {"properties": _props("integer", _DAMAGE_TYPES)},
                     "poise_damage": {"type": "float"},
                     "status_buildup": {"type": "object", "enabled": False},
-                    # hits per cast (#270), channelled spells, and the uncharged /
-                    # charged casts of a chargeable spell (#269)
+                    # hits per cast and their summed power (#270), channelled
+                    # spells, and the uncharged / charged casts (#269)
                     "hit_count": {"type": "integer"},
+                    "attack_power_per_cast": {
+                        "properties": _props("integer", _DAMAGE_TYPES)
+                    },
                     "channeled": {"type": "boolean"},
                     **{
                         cast: {
@@ -904,6 +907,9 @@ INDEX_MAPPING = {
                                 },
                                 "poise_damage": {"type": "float"},
                                 "hit_count": {"type": "integer"},
+                                "attack_power_per_cast": {
+                                    "properties": _props("integer", _DAMAGE_TYPES)
+                                },
                             }
                         }
                         for cast in ("uncharged", "charged")
@@ -2324,10 +2330,23 @@ def _spell_cast(
         "spell_attack_power": power,
         "spell_total": sum(v["total"] for v in power.values()),
     }
-    # Hits per cast (#270) and the uncharged / charged casts (#269).
-    if entry.get("hit_count"):
-        out["spell_hit_count"] = entry["hit_count"]
-        out["spell_total_per_cast"] = out["spell_total"] * entry["hit_count"]
+
+    # Hits per cast and their summed power (#270), the uncharged / charged casts
+    # (#269). Scaling is linear per type, so the summed base scales as one.
+    def per_cast(e: dict) -> dict:
+        r = {}
+        if e.get("hit_count"):
+            r["hit_count"] = e["hit_count"]
+        if e.get("attack_power_per_cast"):
+            p = spell_damage(e["attack_power_per_cast"], scaling)
+            r["total_per_cast"] = sum(v["total"] for v in p.values())
+        return r
+
+    cast_out = per_cast(entry)
+    if "hit_count" in cast_out:
+        out["spell_hit_count"] = cast_out["hit_count"]
+    if "total_per_cast" in cast_out:
+        out["spell_total_per_cast"] = cast_out["total_per_cast"]
     if entry.get("channeled"):
         out["spell_channeled"] = True
     for key in ("uncharged", "charged"):
@@ -2336,7 +2355,7 @@ def _spell_cast(
             out[f"spell_{key}"] = {
                 "attack_power": p,
                 "total": sum(v["total"] for v in p.values()),
-                "hit_count": cast.get("hit_count"),
+                **per_cast(cast),
             }
     casts = _CASTS.get(catalyst.get("menu_category"))
     if casts and doc.get("menu_category") and doc["menu_category"] != casts:
@@ -2785,19 +2804,28 @@ _FIELD_NOTES: dict[str, str] = {
     "weapon_attacks.elements); poise_damage = the largest per-hit flat poise in "
     "stats.poise units; status_effects the statuses it inflicts, status_buildup the "
     "largest per-hit buildup (stored, not searchable; Frenzied Burst madness 105). "
-    "hit_count (#270) = how many times the strongest hit (the one behind "
-    "attack_power) lands on one target per cast (Rock Sling 3 rocks, Carian "
-    "Retaliation 3 glintblades, Carian Phalanx / Oracle Bubbles / Collapsing Stars 9; "
-    "every projectile assumed to connect, so an upper bound; which Magic slots one "
+    "hit_count (#270) = every hit one cast lands on one target, and "
+    "attack_power_per_cast those hits' flat power summed per element (Glintstone "
+    "Stars 3 stars, magic 87 + 78 + 68; Stars of Ruin 12; Rock Sling 3 rocks; "
+    "Carian Phalanx 9 glintblades x 48), taken from the cast with the larger sum "
+    "(the charged one, when there is one). Every projectile, lingering hitbox and "
+    "follow-on burst is assumed to connect, so both are upper bounds (Lightning "
+    "Spear's 50-power burst, Elden Stars' lingering stars); which Magic slots one "
     "cast fires is inferred from the bullets' aim: slots aimed apart add up, "
-    "same-aim or mirrored left/right slots count once); "
-    "channelled hold-to-continue spells (Comet Azur, the "
-    "dragon breaths, Meteorite of Astel) have channeled=true and no hit_count, as "
-    "their ticks depend on how long the cast is held. A chargeable spell also has "
-    "uncharged and charged = {attack_power, poise_damage, hit_count} per cast (#269; "
-    "Lightning Spear lightning 234 / 293, the wiki's x2.34 / x2.93), told apart by "
-    "the Magic row's bullet ids (n >= 50 is the charged cast); attack_power stays "
-    "the larger of the two. "
+    "same-aim or mirrored left/right slots are alternates (the strongest counts), "
+    "and a swing (AtkParam ref) adds to the projectiles. Channelled "
+    "hold-to-continue spells (Comet Azur, the dragon breaths, Meteorite of Astel) "
+    "have channeled=true and no hit_count, as their ticks depend on how long the "
+    "cast is held. A chargeable spell (Magic Staminacharge > 0) also has uncharged "
+    "and charged = {attack_power, poise_damage, hit_count, attack_power_per_cast} "
+    "per cast (#269; Lightning Spear lightning 234 / 293, the wiki's x2.34 / "
+    "x2.93). The charged cast is the Magic row's bullets with id n >= 50 (1e7 + "
+    "Magic id x 100 + n), its AtkParam refs with id % 10 >= 5 (DLC rows: % 100 >= "
+    "50; Carian Piercer, the Crucible aspects) and its SpEffect refs whose hits are "
+    "all charged rows; the split is kept only when the charged cast's strongest hit "
+    "is stronger (equal power, as on Burn, O Flame! or Magic Downpour, or a weaker "
+    "one, as on Roar of Rugalea, stays unsplit). attack_power stays the larger of "
+    "the two. "
     "Buffs and heals (no damaging or status-inflicting hit, e.g. Golden Vow, Bloodflame "
     "Blade) are left out",
     "name_source": "on an enemy doc: where the name comes from — 'npc_name' (the per-character "
