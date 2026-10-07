@@ -249,6 +249,9 @@ def test_grouped_leaves_mapped():
         "locations": "keyword",
         "drop_regions": "keyword",
         "drop_locations": "keyword",
+        "drop_sources.enemy": "keyword",  # #230
+        "drop_sources.scope": "keyword",
+        "drop_sources.chance": "float",
         "equipment.weapons": "keyword",
         "equipment.ashes_of_war": "keyword",
         "equipment.spells": "keyword",
