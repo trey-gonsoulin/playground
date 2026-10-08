@@ -37,3 +37,15 @@ def test_resistance_and_trait_fields_documented():
     assert "immune_to" in _FIELD_NOTES
     assert "weak_point_damage_multiplier" in _FIELD_NOTES
     assert "humanoid subset" not in _FIELD_NOTES["stats.hp"]
+
+
+def test_npc_param_values_mapped_and_documented():
+    # Humanoids' own NpcParam poise / resistances, replaced by their armor (#285).
+    props = INDEX_MAPPING["mappings"]["properties"]["npc_param_values"]["properties"]
+    assert props["poise"] == {"type": "float"}
+    resist = props["resistances"]["properties"]
+    assert set(resist) == _RESISTS
+    assert all(v == {"type": "integer"} for v in resist.values())
+    assert "#285" in _FIELD_NOTES["npc_param_values"]
+    assert "npc_param_values" in _FIELD_NOTES["resistances"]
+    assert "npc_param_values" in _FIELD_NOTES["stats.poise"]

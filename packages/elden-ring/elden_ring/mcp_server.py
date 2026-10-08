@@ -117,7 +117,9 @@ def search_entities(
                            with EN + JP names (name_ja); most also carry NpcParam
                            HP/stamina/poise/elemental defenses, status resistances +
                            immune_to, and traits (dragon, undead, …; #84) as base
-                           values; stats_scaled groups the in-game (area-scaled)
+                           values (humanoids with armor take poise / resistances
+                           from it, own NpcParam values in npc_param_values;
+                           #285); stats_scaled groups the in-game (area-scaled)
                            hp / stamina / defense / resistances ranges over its
                            placements and, under ng_plus, the same stats
                            for NG+1..NG+7 (#108, #131, #261), plus an
