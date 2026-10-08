@@ -2565,8 +2565,9 @@ _FIELD_NOTES: dict[str, str] = {
     "Not 1:1 with entity_type (EquipParamGoods backs ten goods types; EMEVD backs warp, "
     "cutscene and quest). All data is first-party native extraction; the retired 'erdb' "
     "/ 'fextralife' values and any other unknown value return an error",
-    "availability": "'cut' for content whose in-game name row is [ERROR]-marked (scrapped, "
-    "e.g. Millicent's set); 'unobtainable' for real-named armor with no acquisition path — "
+    "availability": "'cut' for scrapped content: an [ERROR]-marked in-game name row (e.g. "
+    "Millicent's set), item text whose param row is gone (Storm Arrow, Golden Dung), or a "
+    "key item nothing hands out (Keep Wall Key, Erdtree Codex); 'unobtainable' for real-named armor with no acquisition path — "
     "enemy-only gear / reused assets like the Ragged set (#71); absent for normal obtainable "
     "content. Both flagged states are excluded from search by default — pass "
     "include_unavailable=True to include them.",

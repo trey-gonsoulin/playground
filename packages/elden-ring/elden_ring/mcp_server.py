@@ -256,7 +256,8 @@ def search_entities(
             describe_fields() has the live list.
         include_unavailable: By default, content that exists in the game data but is not
             obtainable is excluded from results — availability="cut" (name row [ERROR]-marked,
-            e.g. Millicent's armor set) or availability="unobtainable" (real-named armor with
+            e.g. Millicent's armor set; item text with no param row, e.g. Storm Arrow; or a
+            key item nothing hands out, e.g. Keep Wall Key) or availability="unobtainable" (real-named armor with
             no acquisition path, e.g. the Ragged set / enemy-only gear; #71). Pass True to
             include them; they carry the availability field so you can tell them apart from
             live content.
