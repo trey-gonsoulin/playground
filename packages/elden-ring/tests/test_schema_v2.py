@@ -50,6 +50,8 @@ def test_grouped_leaves_mapped():
         "requirements.fai": "integer",
         "negation.pierce": "float",
         "negation.lightning": "float",
+        "net_negation.physical": "float",
+        "net_negation.holy": "float",
         "stats.hp": "integer",
         "stats.poise": "float",
         "defense.holy": "float",
@@ -358,7 +360,10 @@ def test_builder_doc_shapes_fully_mapped():
                 "status_buildup": {"bleed": 38, "frostbite": 105},
             },
         },
-        {"negation": {"physical": 10.0, "strike": 12.0, "holy": 4.0}},
+        {
+            "negation": {"physical": 10.0, "strike": 12.0, "holy": 4.0},
+            "net_negation": {"physical": -5.8, "strike": 12.0, "holy": 4.0},
+        },
         {"requirements": {"int": 18}, "fp_cost": 12, "spell_role": "Offensive"},
         {
             "stats": {"hp": 3186, "stamina": 150, "poise": 80.0},

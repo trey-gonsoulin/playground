@@ -1097,8 +1097,10 @@ INDEX_MAPPING = {
             "default_ash_of_war": {"type": "keyword"},
             "depicted_in_talisman": {"type": "keyword"},
             "depicts_weapon": {"type": "keyword"},
-            # Armor damage negation (percent).
+            # Armor damage negation (percent): raw, and net of the piece's resident
+            # damage-taken effects (#284).
             "negation": {"properties": _props("float", _NEGATION_TYPES)},
+            "net_negation": {"properties": _props("float", _NEGATION_TYPES)},
             # Armor-alteration links (Boc / Master Hewg service).
             "alterable": {"type": "boolean"},
             "altered_variant": {"type": "keyword"},
@@ -3103,7 +3105,13 @@ _FIELD_NOTES: dict[str, str] = {
     "requirements": "attribute requirements by stat (weapons: str/dex/int/fai/arc; spells: "
     "int/fai)",
     "negation": "armor damage negation % by type: physical, strike, slash, pierce (physical "
-    "sub-types), magic, fire, lightning, holy",
+    "sub-types), magic, fire, lightning, holy. The piece's raw cut rate, before its own "
+    "resident damage-taken effects; net_negation is the in-game value",
+    "net_negation": "armor damage negation % net of the piece's resident damage-taken "
+    "effects, the value the equipment menu and wikis show; same keys as negation and set "
+    "on every piece (equal to negation unless the piece has such an effect). Differs on "
+    "the Tear Scarab hats (+10% damage taken: Crimson Tear Scarab physical 3.8 raw, -5.8 "
+    "net) and the Rakshasa set (+2%). Use it to sort or filter armor by real negation",
     "alterable": "armor piece can be altered (Boc / Master Hewg service)",
     "altered_variant": "name of the altered version of this armor",
     "altered_from": "name of the base armor this piece is altered from",
