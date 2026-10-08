@@ -286,7 +286,9 @@ def search_entities(
                            killer is unnamed, e.g. Ash of War: Bloody Slash); "type" = the
                            NpcParam death lot every enemy of that type rolls, chance 0-1
                            when it's a simple roll (Godrick Soldier → Smithing Stone [1]:
-                           0.04). Filter e.g. {"drop_sources.scope": "type"}
+                           0.04), or chance_min/chance_max when the type's variant
+                           lots disagree (Vulgar Militia → Saw: 0.02–0.04, #275).
+                           Filter e.g. {"drop_sources.scope": "type"}
       equipped_by        — humanoid enemies/NPCs whose loadout includes it (#85)
       given_by           — NPCs whose dialogue gives this item (talk scripts, #23)
       in_exchange_for    — the item the giving NPC takes for it (turn-in, #97);
