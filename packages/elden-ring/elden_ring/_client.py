@@ -3101,7 +3101,7 @@ _FIELD_NOTES: dict[str, str] = {
     "uses to compute attack rating and Arcane status buildup for given stats; thrown "
     "consumables have one level (their flat power and buildup, #178)",
     "requirements": "attribute requirements by stat (weapons: str/dex/int/fai/arc; spells: "
-    "int/fai)",
+    "int/fai/arc, arc for Dragon Communion, bloodflame and similar spells)",
     "negation": "armor damage negation % by type: physical, strike, slash, pierce (physical "
     "sub-types), magic, fire, lightning, holy",
     "alterable": "armor piece can be altered (Boc / Master Hewg service)",
