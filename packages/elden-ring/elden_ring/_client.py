@@ -651,6 +651,14 @@ INDEX_MAPPING = {
             # Enemy (NpcParam) combat stats, from the row bound by health bar / NameID
             # / spirit-ash label (#84).
             **_NPC_STATS,
+            # A humanoid's own NpcParam poise / resistances, replaced in stats /
+            # resistances by its armor loadout (#285).
+            "npc_param_values": {
+                "properties": {
+                    "poise": {"type": "float"},
+                    "resistances": {"properties": _props("integer", _STATUSES)},
+                }
+            },
             # Enemy attack profile over its model family's move table (#81).
             "attacks": {
                 "properties": {
@@ -3147,12 +3155,21 @@ _FIELD_NOTES: dict[str, str] = {
     "NameID, then spirit-ash label (#84)",
     "stats.hp": "enemy base max HP (NpcParam, before per-area scaling; the in-game HP is "
     "stats_scaled.hp)",
-    "stats.poise": "enemy max poise; absent when poise is disabled",
+    "stats.poise": "enemy max poise; absent when poise is disabled. Humanoids with an "
+    "armor loadout (npc_param_values present) use their armor's poise like a player: the "
+    "pieces' poise summed (Rakshasa 58, as the wiki), not the NpcParam value",
+    "npc_param_values": "humanoid (c0000) enemies/NPCs/invaders with an armor loadout "
+    "only: the bound NpcParam row's own poise and resistances, which the game replaces "
+    "with loadout values like a player's (#285): stats.poise = the armor's poise, and "
+    "resistances poison..madness = level + Vigor base + the armor's resistances. "
+    "death_blight stays the NpcParam value (no source to check an NPC value against)",
     "defense": "enemy elemental defense (NpcParam): magic, fire, lightning, holy. NpcParam has "
     "no physical defense. Base values, before per-area scaling (in-game: stats_scaled.defense)",
     "resistances": "enemy status buildup resistances (NpcParam): poison / scarlet_rot / bleed "
     "/ frostbite / sleep / madness / death_blight. 999 = immune; higher = more buildup needed. "
-    "Base values, before per-area scaling (in-game: stats_scaled.resistances)",
+    "Base values, before per-area scaling (in-game: stats_scaled.resistances). Humanoids "
+    "with an armor loadout take poison..madness from it instead (see npc_param_values; "
+    "Rakshasa in-game 603 / 780 / 549, as the wiki)",
     "immune_to": "enemy statuses at 999 resistance (immune), e.g. madness, death_blight",
     "traits": "enemy weakness classes from NpcParam flags: weak_to_gravity (bonus damage from "
     "gravity weapons), lives_in_death (Golden Order weapons), ancient_dragon, dragon "
