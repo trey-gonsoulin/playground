@@ -2613,7 +2613,11 @@ _FIELD_NOTES: dict[str, str] = {
     "sold_by": "merchant names that sell this item, derived per-patch from ShopLineupParam "
     "(includes Twin Maiden Husks for lineups they re-sell once given the bell bearing, #145). "
     "A row with no vendor label takes it from the NPC talk script that opens its range "
-    "(#212): Moore's DLC stock, or the merchant whose other rows share the range",
+    "(#212): Moore's DLC stock, or the merchant whose other rows share the range. "
+    "Remembrance trades name the remembrance as the vendor (Finger Reader Enia's "
+    "lineups); Dragon Communion is split by site (Church / Cathedral / Grand Altar of "
+    "Dragon Communion) and Count Ymir sells the Cathedral of Manus Metyr sorceries (#281). "
+    "Rows of the unused lineup (flag 99019780) never count as a sale",
     "shop_listings": "not searchable; returned by get_entity. One entry per ShopLineupParam "
     "row selling the item (#89): vendor, condition (the shop row's unlock label, e.g. a "
     "scroll/prayerbook, quest step or nomadic merchant site), price, currency (runes / "
@@ -2641,7 +2645,10 @@ _FIELD_NOTES: dict[str, str] = {
     "cover both the bell bearing and the row's own unlock, e.g. Pest Threads resold from "
     "Gowry needs Gowry's Bell Bearing and Valkyrie's Prosthesis) and materials "
     "[{item, quantity}] for item costs (remembrance trades; some also charge runes, e.g. "
-    "Grafted Dragon 2000 + Remembrance of the Grafted). E.g. Somber Smithing Stone [9]: "
+    "Grafted Dragon 2000 + Remembrance of the Grafted), and unused: true on rows of a "
+    'lineup no talk script opens and no script unlocks (vendor "Unused lineup", unlock_flag '
+    "99019780, e.g. Frenzied Burst 1000 runes; #281): listed for completeness, not in "
+    "sold_by or acquisition_types. E.g. Somber Smithing Stone [9]: "
     "Twin Maiden Husks, 25000 runes, unlimited, unlock_flag 11109759, unlocked_by "
     "[Somberstone Miner's Bell Bearing [5]]",
     "acquisition_types": "how the item is obtained, per-patch: merchant / enemy_drop / "
@@ -3115,7 +3122,9 @@ _FIELD_NOTES: dict[str, str] = {
     "itself on npc_dialogue / game_text and a stock summary on merchant. Absent on enemy, "
     "boss, location, site_of_grace, warp, quest and cutscene docs",
     "text_content": "searchable long text. Goods (consumable, key_item, …): the "
-    "description; npc_dialogue / game_text: the line; merchant: the full stock list; "
+    "description; npc_dialogue / game_text: the line; merchant: the full stock list, "
+    "each price in its own currency and materials as in shop_listings (e.g. '1 Dragon "
+    "Heart', '1 Remembrance of the Grafted + 2,000 runes', 'free'; #282); "
     "cutscene: label + subtitles; enemy / boss / site_of_grace / location / warp / quest: "
     "the name plus its place names (a search aid, not game text). Absent on weapon, "
     "armor, spell, item, ash_of_war and ammo — search description there",
