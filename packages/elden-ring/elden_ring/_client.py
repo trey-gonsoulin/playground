@@ -3461,7 +3461,12 @@ _FIELD_NOTES: dict[str, str] = {
     "flags)",
     "boss": "on a cutscene doc: the boss doc the scene introduces or follows (see "
     "trigger_kind); the boss doc lists it back under cutscenes",
-    "trigger_flags": "on a cutscene doc: the event flags its script waits to be on",
+    "trigger_flags": "on a cutscene doc: the event flags its script waits to be on. "
+    "Not listed (#271, #274): a flag the scene also plays with off (Jerren's "
+    "festival-started flag 9411; a boss flag, see trigger_kind), a flag that only "
+    "picks one alternative of a wait (the endings' 'Frenzied Flame 108 not taken, "
+    "or cured 116'), or one the script exits on (Gostoc's gate scene waits on "
+    "10009374 or 10009377 but ends on 10009377)",
     "trigger_steps": "on a cutscene doc (#189): the quest steps behind its "
     "trigger_flags, one per distinct step, each {quest, npc, phase_flag, order, "
     "life_state} as in npc_summons.requires_step (Patches' 60370000: phase 3688). "
