@@ -2919,7 +2919,8 @@ _FIELD_NOTES: dict[str, str] = {
     "weight": "equip load of a weapon, shield, armor piece or talisman. Ammo has none: "
     "arrows and bolts add nothing to equip load, so ammo docs carry no weight (#286)",
     "infusable": "weapon can take an affinity/ash-of-war infusion",
-    "default_ash_of_war": "the skill a weapon ships with (from SwordArtsParam)",
+    "default_ash_of_war": "the skill a weapon ships with (SwordArtsParam's ArtsName text, "
+    "as shown in game: crossbows and ballistas have Kick)",
     "depicts_weapon": "talisman depicts this weapon (lore cross-reference)",
     "depicted_in_talisman": "weapon depicted in this talisman (lore cross-reference)",
     "attack_power": "weapon/ammo attack power at +0 by damage type, as shown in game "
