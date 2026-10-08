@@ -16,3 +16,9 @@ def test_follow_up_motion_values_documented():
     note = _FIELD_NOTES["projectile"]
     assert "follow_up_motion_values" in note
     assert "Lightning Greatbolt" in note and "30" in note
+
+
+def test_weight_note_says_ammo_has_none():
+    """Ammo docs drop EquipParamWeapon.weight: it doesn't count toward equip load (#286)."""
+    note = _FIELD_NOTES["weight"]
+    assert "Ammo has none" in note and "#286" in note
