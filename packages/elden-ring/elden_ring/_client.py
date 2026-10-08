@@ -2760,7 +2760,10 @@ _FIELD_NOTES: dict[str, str] = {
     "unlocked_by / unlocked_by_defeating (#144), e.g. Somberstone Miner's Bell Bearing [5]: "
     "[Somber Smithing Stone [9]]",
     "dropped_by": "enemies that drop this item: bosses/named enemies (map EMEVD + MSB "
-    "placements, #68) and generic mobs named by their spirit-ash model label (#104). An "
+    "placements, #68) and generic mobs named by their spirit-ash model label (#104). It "
+    "also covers awards a script gives once a character's death turns a flag on, e.g. NPC "
+    "invaders (Hornsent -> Falx), and a boss model's bar-less copy, named by the model's "
+    "one health-bar name (Erdtree Avatar -> Staff of the Avatar; #303). An "
     "enemy_drop item can have no dropped_by when the game data gives its killer no name "
     "(Teardrop Scarabs, the Fort Haight Godrick Knight dropping Ash of War: Bloody Slash; "
     "#153)",
@@ -2782,7 +2785,9 @@ _FIELD_NOTES: dict[str, str] = {
     "drops": "on an enemy doc: items this enemy drops (EMEVD awards + MSB death lots), "
     "merged over every encounter of the name; on a boss doc: the items awarded for that "
     "one encounter. Includes defeat rewards (remembrances, great runes) awarded when the "
-    "boss's defeat flag turns on, and every row of a chained item lot (#134)",
+    "boss's defeat flag turns on, and every row of a chained item lot (#134). Every "
+    "phase name of a multi-phase fight lists the fight's rewards (Messmer the Impaler and "
+    "Base Serpent Messmer -> Remembrance of the Impaler; #303)",
     "equipment": "on a humanoid enemy/NPC/invader doc: the gear it is equipped with, from "
     "its map placement's CharaInitParam loadout (#85). Groups: weapons, ashes_of_war, armor, "
     "spells, talismans, ammo (item doc names; e.g. Recusant Henricus: Great Mace + Ash of "
