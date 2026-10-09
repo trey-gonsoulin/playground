@@ -115,9 +115,10 @@ def search_entities(
                            tutorial and loading_tip (display_name = title;
                            a tutorial's unlock_flag + unlock_set_when, #202),
                            item_dialog (item-use confirmations: "Use Stonesword
-                           Key?"; #90), talk_option (player talk-menu choices:
-                           "Tell him that Radagon is Marika"; npcs names who
-                           offers them, #307)
+                           Key?"; #90), talk_option (talk-script text: menu
+                           choices like "Tell him that Radagon is Marika", plus
+                           notices and confirmations like "No Golden Seed in
+                           inventory"; npcs names whose menus list a choice, #307)
             enemy      — bosses, creatures, and named enemies (from the NpcName roster)
                            with EN + JP names (name_ja); most also carry NpcParam
                            HP/stamina/poise/elemental defenses, damage negation %
