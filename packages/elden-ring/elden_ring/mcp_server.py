@@ -104,8 +104,10 @@ def search_entities(
                            search by item name to find who sells it, or by merchant
                            name / location to get their full stock
             npc_dialogue — individual spoken lines from the TalkMsg text (searchable by quote);
-                           cutscene subtitle lines name their scene in cutscene /
-                           cutscene_id
+                           speakers names the NPC and talk_contexts when it plays
+                           (talk, nearby, attacked, hostile, killed,
+                           player_killed; #307); cutscene subtitle lines name
+                           their scene in cutscene / cutscene_id
             game_text    — other in-game text lines (#98), one doc per FMG id ("Loading
                            Tip 4", "Map Event 80810"); tags give the kind:
                            action_button (interaction prompts: "Touch grace"),
@@ -113,7 +115,9 @@ def search_entities(
                            tutorial and loading_tip (display_name = title;
                            a tutorial's unlock_flag + unlock_set_when, #202),
                            item_dialog (item-use confirmations: "Use Stonesword
-                           Key?"; #90)
+                           Key?"; #90), talk_option (player talk-menu choices:
+                           "Tell him that Radagon is Marika"; npcs names who
+                           offers them, #307)
             enemy      — bosses, creatures, and named enemies (from the NpcName roster)
                            with EN + JP names (name_ja); most also carry NpcParam
                            HP/stamina/poise/elemental defenses, damage negation %
