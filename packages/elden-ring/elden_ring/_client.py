@@ -2608,7 +2608,7 @@ _FIELD_NOTES: dict[str, str] = {
     "was built from; the live values are listed under sources above (EquipParamWeapon, "
     "EquipParamGoods, Magic, NpcName, GameAreaParam, BonfireWarpParam, EMEVD, TalkMsg, …). "
     "Not 1:1 with entity_type (EquipParamGoods backs ten goods types; EMEVD backs warp, "
-    "cutscene and quest). All data is first-party native extraction; the retired 'erdb' "
+    "cutscene, quest and the row-less boss encounters). All data is first-party native extraction; the retired 'erdb' "
     "/ 'fextralife' values and any other unknown value return an error",
     "availability": "'cut' for scrapped content: an [ERROR]-marked in-game name row (e.g. "
     "Millicent's set), item text whose param row is gone (Storm Arrow, Golden Dung), or a "
@@ -3422,8 +3422,8 @@ _FIELD_NOTES: dict[str, str] = {
     "defense / resistances stay the base values. A phase-2 boss sharing phase 1's "
     "character shows phase 1's values; see phases for per-phase values. Absent = never "
     "placed. On a boss doc (#301) the same group covers only that encounter's "
-    "characters (the boss and its bar-holding partners, each by its own placed row), "
-    "so hp.placements counts characters and min = max for a solo boss: Death Knight "
+    "health-bar characters (each by its own placed row), so hp.placements counts "
+    "health bars and min = max for a solo boss: Death Knight "
     "(Scorpion River Catacombs) 24,080, (Fog Rift Catacombs) 19,284, as the wiki",
     "stats_scaled.hp": "enemy in-game max HP (#108) over its MSB placements: each "
     "placement's NpcParam row is base HP times its SpEffect HP multipliers, floored "
@@ -3432,7 +3432,8 @@ _FIELD_NOTES: dict[str, str] = {
     "stats_scaled.hp.max": "highest in-game HP over the enemy's placements (min = max "
     "when one encounter or all placements scale alike)",
     "stats_scaled.hp.placements": "number of MSB placements the range covers (on a boss "
-    "doc: the encounter's characters)",
+    "doc: the encounter's health bars, so the Godskin Duo's shared pool is 1 and "
+    "Valiant Gargoyle's pair 2)",
     "stats_scaled.stamina": "enemy in-game max stamina (#131) over its MSB placements: "
     "stats.stamina times the same SpEffect stamina multipliers as stats_scaled.hp, "
     "floored after each. min / max like stats_scaled.hp",
@@ -3947,7 +3948,8 @@ _FIELD_NOTES: dict[str, str] = {
     "gate_set_when can't describe (the untitled 101050)",
     "bosses": "on a site_of_grace doc: the boss docs whose nearest grace it is; on a "
     "location doc: the boss docs in it (by region, a dungeon's map, or for an "
-    "open-world landmark such as an evergaol the bosses whose location it is, #301)",
+    "open-world landmark such as an evergaol the bosses whose location it is, #301; "
+    "a dungeon boss whose arena overlaps the landmark isn't listed)",
     "arena_position": "on a boss doc: the arena's position in its map's local "
     "coordinates (GameAreaParam BossPos; the boss's MSB placement when the param's "
     "BossMap is another map, e.g. Base Serpent Messmer's stale Haligtree row, or its "
@@ -3955,7 +3957,8 @@ _FIELD_NOTES: dict[str, str] = {
     "it can sit up to ~200 m from where the boss stands",
     "runes": "on a boss doc: runes awarded for the kill (GameAreaParam "
     "SingleplayerSoulReward, before rune-gain buffs; NpcParam SoulReward for a "
-    "source=EMEVD encounter with no row, e.g. Dryleaf Dane's duel 0)",
+    "source=EMEVD encounter with no row; absent there when SoulReward is 0, which "
+    "means no rune data, e.g. Dryleaf Dane's duel or Necromancer Garris at 1.02)",
     "banner": "on a boss doc: the defeat banner, i.e. the boss tier: Enemy Felled "
     "(field/dungeon bosses), Great Enemy Felled, Demigod Felled, Legend Felled, God Slain "
     "(Elden Beast, Consort Radahn), Duelist Vanquished. Absent when the defeat isn't "
