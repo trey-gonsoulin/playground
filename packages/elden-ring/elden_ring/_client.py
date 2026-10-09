@@ -536,6 +536,8 @@ INDEX_MAPPING = {
             "source": {"type": "keyword"},
             # cut / unobtainable (#71, #102); absent on obtainable content.
             "availability": {"type": "keyword"},
+            # Shadow of the Erdtree content, on every doc (#297).
+            "is_dlc": {"type": "boolean"},
             "description": {"type": "text"},
             "text_content": {"type": "text"},
             # Item effect / info FMG lines (#90): WeaponEffect, AccessoryInfo,
@@ -1219,6 +1221,11 @@ def _availability_filter(include_unavailable: bool) -> list[dict]:
     ]
 
 
+def _dlc_filter(is_dlc: bool | None) -> list[dict]:
+    """Filter clause keeping only DLC (True) or only base-game (False) docs (#297)."""
+    return [] if is_dlc is None else [{"term": {"is_dlc": is_dlc}}]
+
+
 def _variant_filter(collapse_variants: bool) -> list[dict]:
     """Filter clause dropping item variant docs, keeping each family's base (#111).
 
@@ -1385,6 +1392,7 @@ def search(
     include_unavailable: bool = False,
     collapse_affinity: bool = False,
     collapse_variants: bool = False,
+    is_dlc: bool | None = None,
 ) -> list[dict] | dict:
     if err := _precheck(source, include_fields):
         return err
@@ -1398,6 +1406,7 @@ def search(
         filters.append({"term": {"source": source}})
     filters += _availability_filter(include_unavailable)
     filters += _variant_filter(collapse_variants or collapse_affinity)
+    filters += _dlc_filter(is_dlc)
 
     body: dict = {
         "size": 0 if count_only else limit,
@@ -1983,6 +1992,7 @@ def search_literal(
     include_unavailable: bool = False,
     collapse_affinity: bool = False,
     collapse_variants: bool = False,
+    is_dlc: bool | None = None,
 ) -> dict:
     """Exact-phrase search across text fields, with optional structural filters.
 
@@ -2036,6 +2046,7 @@ def search_literal(
         include_unavailable=include_unavailable,
         collapse_affinity=collapse_affinity,
         collapse_variants=collapse_variants,
+        is_dlc=is_dlc,
     )
     if not out["total"]:
         if err := _check_filter_values(client, entity_type, source, patch_version):
@@ -2072,6 +2083,7 @@ def _search_literal(
     include_unavailable: bool = False,
     collapse_affinity: bool = False,
     collapse_variants: bool = False,
+    is_dlc: bool | None = None,
 ) -> dict:
     if fields is not None:
         search_fields = _route_literal_fields(fields, use_lemmatize, use_kuromoji)
@@ -2090,6 +2102,7 @@ def _search_literal(
         filters.append({"term": {"source": source}})
     filters += _availability_filter(include_unavailable)
     filters += _variant_filter(collapse_variants or collapse_affinity)
+    filters += _dlc_filter(is_dlc)
     if sort_id_gte is not None or sort_id_lte is not None:
         sort_id_range: dict = {}
         if sort_id_gte is not None:
@@ -2155,6 +2168,7 @@ def _search_literal(
                 include_unavailable=include_unavailable,
                 collapse_affinity=collapse_affinity,
                 collapse_variants=collapse_variants,
+                is_dlc=is_dlc,
             )
             for doc in r.get("results", []):
                 seen.setdefault(doc.get("name", ""), doc)
@@ -2626,6 +2640,20 @@ _FIELD_NOTES: dict[str, str] = {
     "Not 1:1 with entity_type (EquipParamGoods backs ten goods types; EMEVD backs warp, "
     "cutscene, quest and the row-less boss encounters). All data is first-party native extraction; the retired 'erdb' "
     "/ 'fextralife' values and any other unknown value return an error",
+    "is_dlc": "true for Shadow of the Erdtree content, false for the base game; on every "
+    "doc (#297) and filterable (search_entities(is_dlc=...)). Items: every name row the "
+    "doc is built from is DLC-only text (the _dlc01 item FMGs), e.g. Star-Lined Sword, "
+    "Bloodfiend's Fork, the +3 Amber Medallions; Perfumer's Talisman, whose row is in "
+    "both, is base. Bosses, graces, locations, cutscenes: the map is a DLC map area "
+    "(m20 m21 m22 m25 m28 m40-m43 m61, the maps only DLC.bdt ships), e.g. Bonny "
+    "Village; regions without a map (Gravesite Plain, Scadu Altus) when all their "
+    "graces are. Enemies: a DLC NpcName, or placed only in DLC maps (base types the DLC "
+    "reuses, e.g. Tree Sentinel, stay false). Warps: either end in a DLC map. Quests: a "
+    "DLC NPC or DLC-only locations. Merchants: a DLC NPC (Moore, Thiollier), a DLC "
+    "Remembrance's trade, or a location (its '(Region)' suffix dropped) that is a DLC "
+    "place, e.g. Count Ymir at Cathedral of Manus Metyr. npc_dialogue / game_text: the line is DLC text. At 1.17.1: 102 base "
+    "weapons (498 with affinities), 145 armor, 42 spells, 25 Ashes of War, 39 "
+    "talismans, 20 spirit ashes, 40 bosses, 68 enemies. Always false before 1.12.0",
     "availability": "'cut' for scrapped content: an [ERROR]-marked in-game name row (e.g. "
     "Millicent's set), item text whose param row is gone (Storm Arrow, Golden Dung), or a "
     "key item nothing hands out (Keep Wall Key, Erdtree Codex); 'unobtainable' for real-named armor with no acquisition path — "
