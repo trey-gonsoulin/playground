@@ -585,7 +585,10 @@ def describe_fields() -> dict:
     its bow-skill shots (Mighty Shot, Barrage, Rain of Arrows...) in skill_shots
     (#151): per skill and hit, motion_values, poise_damage, hit_count, projectile.
     Bows and bow Ashes of War carry their skill's skill_shots with the standard
-    ammo, named in skill_shots.ammo (#177). Enemy and summon attack profiles carry
+    ammo, named in skill_shots.ammo (#177). Weapons and Ashes of War carry their
+    skill as skill.name / .caption / .fp_cost / .follow_up_fp_cost.r1/.r2 /
+    .chargeable (#289); Ashes of War also default_affinity, affinities and
+    weapon_classes (#290). Enemy and summon attack profiles carry
     the max per-hit poise damage as attacks.poise_damage (#253); on
     summon_stats.attacks it includes every spirit's x0.05.
 
