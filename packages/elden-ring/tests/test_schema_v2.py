@@ -363,6 +363,13 @@ def test_builder_doc_shapes_fully_mapped():
         {
             "negation": {"physical": 10.0, "strike": 12.0, "holy": 4.0},
             "net_negation": {"physical": -5.8, "strike": 12.0, "holy": 4.0},
+            "poise": 34.0,
+            "status_resistance": {
+                "immunity": 60,
+                "robustness": 83,
+                "focus": 38,
+                "vitality": 42,
+            },
         },
         {"requirements": {"int": 18}, "fp_cost": 12, "spell_role": "Offensive"},
         {
