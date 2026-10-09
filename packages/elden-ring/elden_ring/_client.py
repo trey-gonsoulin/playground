@@ -997,6 +997,7 @@ INDEX_MAPPING = {
             # NPC questlines (#95): one doc per NPC event-flag block.
             "npc": {"type": "keyword"},
             "npc_names": {"type": "keyword"},
+            "rewards": {"type": "keyword"},  # #304
             "flag_block": {"type": "long"},
             "related_npcs": {"type": "keyword"},
             "steps": {
@@ -1081,6 +1082,15 @@ INDEX_MAPPING = {
             "in_exchange_flag": {"type": "long"},  # #200
             "in_exchange_step": {"properties": _QUEST_LINK},  # #200
             "exchanged_for": {"type": "keyword"},  # #97
+            # Scripted awards' source (#304): map, gating flags, NPC, quest step.
+            "reward_sources": {
+                "properties": {
+                    **_props("keyword", ("type", "map", "npc", "locations")),
+                    "flags": {"type": "long"},
+                    "step": {"properties": _QUEST_LINK},
+                }
+            },
+            "from_weapons": {"type": "keyword"},  # #305
             # Duplication menus (#223): Ash of War / remembrance copies.
             "duplication": {
                 "properties": {
@@ -2759,7 +2769,10 @@ _FIELD_NOTES: dict[str, str] = {
     "Bell Bearing, the Volcano Manor rewards; #137. An award that also waits on a "
     "character's death, such as the Larval Tear of an enemy disguised as a Wandering "
     "Noble, is an enemy_drop instead; #265) / invader_drop (awarded for defeating "
-    "an NPC invader, e.g. Hoslow's Petal Whip, Millicent's Prosthesis; #138) / altered (an "
+    "an NPC invader, e.g. Hoslow's Petal Whip, Millicent's Prosthesis; #138. A pickup "
+    "that waits on an invasion's flag at a place away from the invasion, such as "
+    "Flock's Canvas Talisman and Gowry's Bell Bearing at Gowry's Shack, is a "
+    "quest_reward instead; #304; see reward_sources) / altered (an "
     "(Altered) armor piece, made from its base piece, see altered_from, by the alteration "
     "service at a site of grace; not a sale, so no sold_by; #224) / interaction_reward "
     "(a map event script awards it when the player interacts with something, with no "
@@ -2770,14 +2783,38 @@ _FIELD_NOTES: dict[str, str] = {
     "(Hole-Laden Necklace held), the Stone-Sheathed Sword / "
     "Sword of Light / Sword of Darkness swaps; #147) / strike_reward (a map event "
     "script awards it for striking a character or object, e.g. the Golden Runes from "
-    "hitting certain open-world characters; #266). found_in_world still shows for "
-    "these, since their lots are map lots",
+    "hitting certain open-world characters; #266) / from_weapon (an Ash of War that "
+    "comes fixed on a reward weapon, so the player gets it by duplicating it from that "
+    "weapon; see from_weapons; #305). found_in_world still shows for "
+    "the scripted types, since their lots are map lots",
     "acquisition_sources": "named sources: merchant names, boss/named-enemy names (see "
-    "dropped_by) and gift-giving NPC names (see given_by)",
+    "dropped_by), gift-giving NPC names (see given_by), the NPC behind a quest_reward or "
+    "invader_drop (see reward_sources, #304) and the reward weapons an Ash of War comes "
+    "on (see from_weapons, #305)",
+    "reward_sources": "on an item doc with quest_reward / invader_drop / "
+    "interaction_reward / strike_reward (#304): one entry per map event script that "
+    "awards it, {type (the acquisition type), map (the script's map; absent for the "
+    "common scripts), flags (the event flags the award waits on), locations (the map's "
+    "location names), step (the quest step a flag stands for: {quest, npc, phase_flag, "
+    "order} or {quest, npc, life_state}), npc (the invader for an invader_drop, named "
+    "through the invasion's character; else the step's NPC)}. E.g. Rogier's Bell "
+    "Bearing: quest_reward, m11_10_00_00, flags [3909], Roundtable Hold, npc Sorcerer "
+    "Rogier; Scaled Armor: invader_drop, flags [7602], npc Old Knight Istvan. On an "
+    "open-world tile, locations are the tile's landmarks and region, not the exact "
+    "spot. A pickup the award puts on a map object also gets a placement with "
+    "requires_flag. Flags with no quest step and invasions with no named character "
+    "(the Roundtable Hold's Royal Remains) carry no npc",
+    "from_weapons": "on an Ash of War doc with acquisition_types from_weapon (#305): the "
+    "reward weapons that come with it attached (an EquipParamCustomWeapon row that an "
+    "item lot or shop row hands out, for a weapon the player can obtain), e.g. "
+    "Spinning Gravity Thrust: [Sword Lance], Piercing Fang: [Nagakiba], Palm Blast: "
+    "[Dryleaf Arts]",
     "given_by": "on an item doc: NPCs whose talk script gives the item (#23), named via the "
     "NPC's map placement. One script can serve several personas of the same character "
-    "(Roderika / Roderika, Spirit Tuner) or a shared questline (Irina and Hyetta); gifts from "
-    "scripts with no named placement (Melina, some DLC characters) have acquisition_types "
+    "(Roderika / Roderika, Spirit Tuner) or a shared questline (Irina and Hyetta). "
+    "Melina's script has no placement and is named directly (Spectral Steed Whistle, "
+    "Rold Medallion; #304); gifts from other scripts with no named placement (some DLC "
+    "characters, Haligtree Secret Medallion (Left)) have acquisition_types "
     "given_by_npc but no name. DLC gifts are indexed from 1.12.0 on",
     "in_exchange_for": "on an NPC-gift item doc: the item(s) the giving NPC takes for it, from "
     "the talk script's RemoveItem paired with the gift in the same dialogue state machine "
@@ -3870,7 +3907,10 @@ _FIELD_NOTES: dict[str, str] = {
     "corpse asset in the map data); plus one entry per "
     "gathering node (an herb, flower, butterfly, mushroom or ore asset whose model "
     "carries the pickup lot, #135), {map, world_position | position, lot_id, "
-    "gathering: true}, so common materials have thousands; enemy drops are not "
+    "gathering: true}, so common materials have thousands; plus one entry per map "
+    "object a scripted award puts the item on once a flag is on (a quest_reward or "
+    "invader_drop pickup, #304), {map, world_position | position, lot_id, "
+    "requires_flag}; enemy drops are not "
     "pickups (see dropped_by). Open-world tiles (m60 base, m61 DLC, any tile size) give "
     "world_position; dungeons and legacy maps give map-local position. A part copied "
     "on an open-world variant tile (mAA_XX_ZZ_1S, a world-state copy of the _0S tile) "
@@ -4144,6 +4184,11 @@ _FIELD_NOTES: dict[str, str] = {
     "is 'cut' when the NPC's enemy doc is cut (Asimi, Silver Tear)",
     "npc_names": "on a quest doc: every NpcName persona of that NPC "
     "(['Heartbroken Maiden', 'Roderika', 'Roderika, Spirit Tuner'])",
+    "rewards": "on a quest doc (#304): item names the questline gives, first seen: items "
+    "whose reward_sources step names this quest, then the NPC's talk-script gifts "
+    "(given_by), e.g. Sorcerer Rogier: the Spellblade's set, Rogier's Bell Bearing, "
+    "Rogier's Rapier, Black Knifeprint. "
+    "Awards waiting on a flag no quest step covers aren't listed (Gowry's Shack pickups)",
     "flag_block": "on a quest doc: the NPC's 20 event flags [first, last]; +0..+4 are "
     "its life state, +5..+19 its quest phases. A second block of an NPC whose +1..+4 "
     "flags are set with no death / hostility evidence uses all 20 as phases "

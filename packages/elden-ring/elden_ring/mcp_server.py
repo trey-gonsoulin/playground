@@ -324,7 +324,13 @@ def search_entities(
                            painting taken off its wall, a restored Great Rune, a DLC
                            Ruined Forge furnace, #147) /
                            strike_reward (awarded for striking a character or
-                           object, #266)
+                           object, #266) /
+                           from_weapon (an Ash of War fixed on a reward weapon,
+                           see from_weapons, #305)
+      reward_sources     — per scripted award: {type, map, flags, locations, step
+                           (quest step), npc (invader, else the step's NPC)} (#304)
+      rewards            — on a quest doc: items its steps award + its NPC's gifts
+                           (#304)
       crafted_from       — crafting recipe materials [{item, quantity}], with
                            crafted_yield and recipe_unlock (cookbooks) (#87)
       used_in / unlocks_recipes — on materials / cookbooks: the items they craft (#87)
