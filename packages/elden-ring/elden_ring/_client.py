@@ -2972,11 +2972,13 @@ _FIELD_NOTES: dict[str, str] = {
     "Other value-less states (#295): 'longer dodge roll invincibility' / 'longer "
     "backstep invincibility' (Crucible Feather talismans), 'no headshot bonus damage "
     "or stagger' (Crucible Knot, Pumpkin Helm), 'runes kept on death', 'no stamina "
-    "consumption', 'draws enemy aggression' (Shabriri's Woe, the Duelist set), "
+    "consumption', 'draws enemy aggression' (Shabriri's Woe, the Duelist set; on an "
+    "enemy 'priority target for summoned spirits', Cursed-Blood Pot), "
     "'spirit summons' attack raised' (its size isn't in the params). 'Dexterity for "
     "casting speed' is Dexterity counted for casting speed only (Radagon Icon +30). "
     "Crystal tears that fire a projectile include what it applies (Oil-Soaked Tear's "
-    "'+20% fire damage taken' on enemies, Crimsonburst Dried Tear's heal on allies). Only "
+    "'+20% fire damage taken' with target enemy, Crimsonburst Dried Tear's heal with "
+    "target ally: it never heals the drinker). Only "
     "confirmed fields are decoded, so some effects are missing (e.g. casting "
     "hyperarmor, which is animation data, not a SpEffect)",
     "effect_duration": "longest effects duration in seconds (absent = instant or permanent)",
