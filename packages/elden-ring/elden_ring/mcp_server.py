@@ -100,6 +100,11 @@ def search_entities(
                            blessing, each conditioned 'requires Rune Arc' (#156)
             tool         — reusable crafting tools (cracked/ritual pots, perfume bottles)
             info         — informational items (letters, notes, memos)
+            gesture      — gestures (Bow, Polite Bow, O Mother…; #306), one per
+                           named GestureParam row with no description (the
+                           game's gesture captions are placeholders), and how
+                           each is unlocked in acquisition_types / given_by /
+                           starting_classes
             merchant     — NPC vendor inventories with item names and rune prices;
                            search by item name to find who sells it, or by merchant
                            name / location to get their full stock
@@ -335,7 +340,9 @@ def search_entities(
                            strike_reward (awarded for striking a character or
                            object, #266) /
                            from_weapon (an Ash of War fixed on a reward weapon,
-                           see from_weapons, #305)
+                           see from_weapons, #305) /
+                           preorder_bonus (a pre-order entitlement award: the
+                           gestures The Ring and Ring of Miquella, #306)
       reward_sources     — per scripted award: {type, map, flags, locations, step
                            (quest step), npc (invader, else the step's NPC)} (#304)
       rewards            — on a quest doc: items its steps award + its NPC's gifts
