@@ -156,9 +156,11 @@ def search_entities(
                            Generic mobs are named per model from their spirit ash
                            (Godrick Soldier, Demi-Human, …; name_source="spirit_ash",
                            chr_models) — model-level labels, not individual characters.
-            boss         — one doc per boss encounter (#79, GameAreaParam): enemies
-                           fought (phases, duo partners), location / region /
-                           nearest_grace / map, runes, the defeat banner (boss tier:
+            boss         — one doc per boss encounter (#79, GameAreaParam; plus
+                           health-bar duels with no row, source="EMEVD", #300):
+                           enemies fought (phases, duo partners), the encounter's
+                           own in-game stats_scaled and negation (#301), location /
+                           region / nearest_grace / map, runes, the defeat banner (boss tier:
                            Enemy Felled … Demigod Felled, Legend Felled, God Slain),
                            the items that encounter awards, and npc_summons (the NPC
                            summon signs for the fight + their quest gate flag;
