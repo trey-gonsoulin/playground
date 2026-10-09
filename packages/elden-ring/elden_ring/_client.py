@@ -3846,11 +3846,14 @@ _FIELD_NOTES: dict[str, str] = {
     "by the script's NPC number (talk id // 10^6 -> NpcName 100000 + 100 x number: "
     "'Dialogue 321010040' -> ['Kenneth Haight, Limgrave Heir']), else the character "
     "placed with the script (its NameID, or its health bar for bosses: Margit, "
-    "Morgott). A line no named script plays takes its own id's NPC number "
-    "(nine-digit ids), else the cutscene bank above. Usually one name; a line "
+    "Morgott). A line no named script plays takes the name of its own id's NPC "
+    "number (nine-digit ids) when that number's scripts all name one character, "
+    "else the cutscene bank above; numbers shared by several characters (204 "
+    "Margit / Morgott, 101 the Finger Readers) give no name. Usually one name; a line "
     "several characters' scripts play lists each (9 lines: Margit and Morgott; the "
     "Finger Reader Crone, Keeper of Forbidden Lands and Godwyn's Wet Nurse). Absent "
-    "on about 1 line in 10 (generic townsfolk, invaders, the DLC's Igon)",
+    "on about 1 line in 10 (generic townsfolk, invaders, the DLC's Igon, and the "
+    "unplayed Margit / Morgott and Finger Reader lines)",
     "talk_contexts": "on an npc_dialogue doc (#307): when the line plays, from the "
     "top-level talk-script state machine playing it: talk (the talk menu), nearby "
     "(called out on approach), attacked (hit while friendly), hostile (turned "
@@ -3860,8 +3863,9 @@ _FIELD_NOTES: dict[str, str] = {
     "npcs": "on a game_text talk_option doc (#307): the NPCs whose talk menus list "
     "the option (AddTalkListData in their talk scripts), named like npc_dialogue "
     "speakers; menus with no NPC keep their label (Site of Grace, Church of Vows). "
-    "Absent on options no script lists by a literal id (bell-bearing offers built "
-    "from a counter)",
+    "Absent on about 1 option in 3: bell-bearing offers built from a counter, and "
+    "talk-script notices and confirmations shown through generic dialog helpers "
+    "rather than a talk menu ('No Golden Seed in inventory')",
     "cutscenes": "on a boss doc (#92): the cutscene docs linked to the encounter, each "
     "{id: cutscene_id, kind: boss_intro / boss_defeat / ending}",
     "region": "on a site_of_grace doc: the grace's map-menu region (Stormhill, Liurnia "
