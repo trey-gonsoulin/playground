@@ -1134,6 +1134,8 @@ INDEX_MAPPING = {
             "weapon_classes": {"type": "keyword"},
             "depicted_in_talisman": {"type": "keyword"},
             "depicts_weapon": {"type": "keyword"},
+            # Talismans that can't be worn together (accessoryGroup, #295).
+            "conflicts": {"type": "keyword"},
             # Armor damage negation (percent): raw, and net of the piece's resident
             # damage-taken effects (#284). Enemies: NpcParam cut rates x a humanoid's
             # armor loadout (#298).
@@ -2945,6 +2947,13 @@ _FIELD_NOTES: dict[str, str] = {
     "non-physical damage' (Crimsonwhorl Bubbletear's heal, #158), "
     "a spell school for catalyst boosts ('Glintblade sorceries', 'Dragon Cult "
     "incantations'), one ammo for bow boosts ('Radahn's Spear', 'Golden Arrow'), "
+    "an attack kind (#295: 'chain attack finishers', 'two-handed attacks', 'dash attacks', "
+    "'attacks after rolling or backstepping', 'thrown weapons', 'kicks and stomps', "
+    "'magma attacks', 'storm attacks', 'dragon breath incantations', 'hefty pots'), "
+    "'from critical hits' (Crucible Scale's -30%), an engine-applied trigger (#295: "
+    "'on a critical hit' (Assassin's Crimson Dagger's 85 HP + 10% max HP), 'after a "
+    "critical hit', 'after using a flask of tears', 'after holding a stance for a while', "
+    "'when your summoned spirit dies' (Dried Bouquet)), "
     "'requires Rune Arc'; stacking effects give one entry per tier, 'successive attacks, tier 1' … 'tier "
     "3', each value the tier's total, e.g. Winged Sword Insignia +3 / +5 / +10%; the bonus "
     "decays ~1.5s after the last hit), interval (seconds between regen / drain ticks, "
@@ -2959,7 +2968,15 @@ _FIELD_NOTES: dict[str, str] = {
     "(#159): 'visibility to enemies' (how easily enemies spot you: Mimic's Veil -50%, "
     "Unseen Form -60%), 'sound heard by enemies' (Assassin's Approach -100%), and the "
     "value-less 'no stagger from minimal and small hits' (Baldachin's Blessing) / "
-    "'... medium and large hits or pushback' (Leaden Hardtear, Ironjar Aromatic). Only "
+    "'... medium and large hits or pushback' (Leaden Hardtear, Ironjar Aromatic). "
+    "Other value-less states (#295): 'longer dodge roll invincibility' / 'longer "
+    "backstep invincibility' (Crucible Feather talismans), 'no headshot bonus damage "
+    "or stagger' (Crucible Knot, Pumpkin Helm), 'runes kept on death', 'no stamina "
+    "consumption', 'draws enemy aggression' (Shabriri's Woe, the Duelist set), "
+    "'spirit summons' attack raised' (its size isn't in the params). 'Dexterity for "
+    "casting speed' is Dexterity counted for casting speed only (Radagon Icon +30). "
+    "Crystal tears that fire a projectile include what it applies (Oil-Soaked Tear's "
+    "'+20% fire damage taken' on enemies, Crimsonburst Dried Tear's heal on allies). Only "
     "confirmed fields are decoded, so some effects are missing (e.g. casting "
     "hyperarmor, which is animation data, not a SpEffect)",
     "effect_duration": "longest effects duration in seconds (absent = instant or permanent)",
@@ -3010,6 +3027,10 @@ _FIELD_NOTES: dict[str, str] = {
     "Shield, Medium Shield, Greatshield, Thrusting Shield. Every class is listed, even "
     "where skill_poise_damage has no hits",
     "depicts_weapon": "talisman depicts this weapon (lore cross-reference)",
+    "conflicts": "talisman: the other talismans it can't be equipped with (they share "
+    "EquipParamAccessory.accessoryGroup, #295): every rank of the same talisman "
+    "(Crimson Amber Medallion +1/+2/+3), plus pairs such as Radagon Icon / Beloved "
+    "Stardust and Crucible Scale Talisman / Talisman of All Crucibles; absent when none",
     "depicted_in_talisman": "weapon depicted in this talisman (lore cross-reference)",
     "attack_power": "weapon/ammo attack power at +0 by damage type, as shown in game "
     "(affinity multiplier applied). Weapons also carry stamina (damage dealt to the "
