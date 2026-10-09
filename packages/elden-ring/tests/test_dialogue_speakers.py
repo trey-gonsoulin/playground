@@ -17,12 +17,11 @@ _LINE = {
     "talk_contexts": ["talk"],
 }
 _OPTION = {
-    "entity_type": "game_text",
+    "entity_type": "talk_option",
     "name": "Talk Option 15000380",
     "patch_version": "1.17.0",
     "source": "EventTextForTalk",
     "text_content": "Increase amount replenished by flasks",
-    "tags": ["talk_option"],
     "npcs": ["Site of Grace"],
 }
 
@@ -42,4 +41,6 @@ def test_fields_documented():
     for ctx in ("talk", "nearby", "attacked", "hostile", "killed", "player_killed"):
         assert ctx in _FIELD_NOTES["talk_contexts"], ctx
     assert "talk_option" in _FIELD_NOTES["npcs"]
-    assert "talk_option" in _FIELD_NOTES["tags"]
+    # talk_option is its own entity_type, not a game_text kind (#307)
+    assert "talk_option" in _FIELD_NOTES["entity_type"]
+    assert "talk_option" not in _FIELD_NOTES["tags"]
