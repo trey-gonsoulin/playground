@@ -651,6 +651,16 @@ INDEX_MAPPING = {
                 }
             },
             "spell_role": {"type": "keyword"},
+            # Spell stamina, hold action, cast flags (#293) and schools (#294).
+            **_props("integer", ("stamina_cost", "stamina_cost_charged")),
+            "fp_cost_continuous": {"type": "integer"},
+            "cast_hold": {"type": "keyword"},
+            **_props(
+                "boolean",
+                ("is_horseback_castable", "is_weapon_buff", "is_shield_buff"),
+            ),
+            "spell_schools": {"type": "keyword"},
+            "school_boosted_by": {"type": "keyword"},
             "slots": {"type": "integer"},
             "sort_id": {"type": "integer"},
             "menu_category": {"type": "keyword"},
@@ -920,6 +930,7 @@ INDEX_MAPPING = {
                         "properties": _props("integer", _DAMAGE_TYPES)
                     },
                     "channeled": {"type": "boolean"},
+                    "guard_pierce": {"type": "integer"},  # #293
                     **{
                         cast: {
                             "properties": {
@@ -927,6 +938,9 @@ INDEX_MAPPING = {
                                     "properties": _props("integer", _DAMAGE_TYPES)
                                 },
                                 "poise_damage": {"type": "float"},
+                                # per-cast buildup + guard pierce (#293)
+                                "status_buildup": {"type": "object", "enabled": False},
+                                "guard_pierce": {"type": "integer"},
                                 "hit_count": {"type": "integer"},
                                 "attack_power_per_cast": {
                                     "properties": _props("integer", _DAMAGE_TYPES)
@@ -2890,10 +2904,13 @@ _FIELD_NOTES: dict[str, str] = {
     "and a swing (AtkParam ref) adds to the projectiles. Channelled "
     "hold-to-continue spells (Comet Azur, the dragon breaths, Meteorite of Astel) "
     "have channeled=true and no hit_count, as their ticks depend on how long the "
-    "cast is held. A chargeable spell (Magic Staminacharge > 0) also has uncharged "
-    "and charged = {attack_power, poise_damage, hit_count, attack_power_per_cast} "
-    "per cast (#269; Lightning Spear lightning 234 / 293, the wiki's x2.34 / "
-    "x2.93). The charged cast is the Magic row's bullets with id n >= 50 (1e7 + "
+    "cast is held. guard_pierce (#293) = the largest share (%) of the target's guard "
+    "negation a hit ignores (AtkParam_Pc guardCutCancelRate; Frenzied Burst charged "
+    "70, Fire's Deadly Sin 100; absent = 0). A chargeable spell (Magic "
+    "Staminacharge > 0) also has uncharged and charged = {attack_power, "
+    "poise_damage, status_buildup, guard_pierce, hit_count, attack_power_per_cast} "
+    "per cast (#269, #293; Lightning Spear lightning 234 / 293, the wiki's x2.34 / "
+    "x2.93; Frenzied Burst madness 90 / 105). The charged cast is the Magic row's bullets with id n >= 50 (1e7 + "
     "Magic id x 100 + n), its AtkParam refs with id % 10 >= 5 (DLC rows: % 100 >= "
     "50; Carian Piercer, the Crucible aspects) and its SpEffect refs whose hits are "
     "all charged rows; the split is kept only when the charged cast's strongest hit "
@@ -2973,6 +2990,41 @@ _FIELD_NOTES: dict[str, str] = {
     "hp_cost": "HP spent per use of a goods item (EquipParamGoods consumeHP, #292): the "
     "HP-summoned spirit ashes (Bloodfiend Hexer's Ashes 500, Mimic Tear 660). Absent = "
     "no HP cost",
+    "stamina_cost": "on a spell doc: stamina spent per cast (Magic stamina, #293; Rain "
+    "of Fire 31, Meteorite 35)",
+    "stamina_cost_charged": "on a chargeable spell doc: stamina of a fully charged cast "
+    "(Magic stamina_charge, #293; Rain of Fire 40, Frenzied Burst 43). Absent on Roar "
+    "of Rugalea, whose param value (3) is below its base cost",
+    "fp_cost_continuous": "on a spell held to keep casting (cast_hold=continuous): the "
+    "FP the hold keeps costing, the wiki's number in brackets (#293; Meteorite '30 "
+    "(10)' -> 10, Crystal Barrage 2, Borealis's Mist 6, Rock Blaster 4). Magic "
+    "mp_charge, else the menu's consumeLoopMP when mp_charge is 0 (Thops's Barrier 7)",
+    "cast_hold": "on a spell doc: what holding the cast does (#293): 'charge' (a "
+    "stronger charged cast, Magic stamina_charge > 0; see spell_attacks.charged), "
+    "'continuous' (keeps casting while FP lasts, fp_cost_continuous) or 'none'",
+    "is_horseback_castable": "on a spell doc: castable on Torrent (Magic enableRiding, "
+    "#293); false for Meteorite, Rain of Fire, Mantle of Thorns",
+    "is_weapon_buff": "on a spell doc: the spell buffs the held armament (Magic "
+    "isEnchant, #293; 9 at 1.17: Scholar's Armament, Bloodflame Blade, Black Flame "
+    "Blade, Poison Armament, Unseen Blade...)",
+    "is_shield_buff": "on a spell doc: the spell buffs the shield (Magic "
+    "isShieldEnchant, #293; Scholar's Shield)",
+    "spell_schools": "on a spell doc: its school / boost family (#294), the spell "
+    "sub-categories on its Magic row plus those on the attack rows it hits with, "
+    "labelled exactly like an effect's condition so the two join: 'gravity "
+    "sorceries' (Meteorite, Rock Sling), 'frenzied flame incantations', 'Dragon "
+    "Communion incantations', \"Messmer's fire incantations\" (Rain of Fire), 'thorn "
+    "sorceries' (Mantle of Thorns), 'Golden Order Fundamentalist incantations'. A "
+    "spell can have two (Ranni's Dark Moon: full moon + cold). Some families are a "
+    "single spell (Comet Azur, Stars of Ruin), as each has its own boosting helm. "
+    "An unlabelled one reads 'attack sub-category N'. Absent = no school (e.g. Crystal "
+    "Barrage, Golden Vow)",
+    "school_boosted_by": "on a spell doc: the equipment whose passive boosts one of "
+    "its spell_schools (#294): staves / seals, armor and talismans with an effect "
+    "limited to that school (Meteorite Staff for gravity sorceries, Snow Witch Hat "
+    "for cold, Alberich's set + Staff of the Guilty for thorn, Messmer's Helm + Fire "
+    "Knight's Seal for Messmer's fire). Boosts not tied to a school (Godfrey Icon's "
+    "charged spells, Radagon's Soreseal stats) are not listed",
     "rarity": "item rarity 0-3 (the icon background tier; 0 = common, 3 = the "
     "legendary/remembrance tier) on weapons, ammo, armor, talismans, Ashes of War and "
     "goods (#296). Spirit ashes are the +0 row",
