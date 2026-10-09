@@ -2655,9 +2655,13 @@ _FIELD_NOTES: dict[str, str] = {
     "canMountWep flags",
     "info_text_ja": "Japanese info_text; .ja/.morph/.lemma subfields drive JP search modes",
     "location": "where a merchant is found; on a boss doc, the legacy dungeon or area "
-    "whose map holds the arena (PlaceName, e.g. Stormfoot Catacombs); absent for "
-    "open-world bosses (see nearest_grace / region). Enemy and item placements name "
-    "their dungeon location doc instead (see locations)",
+    "whose map holds the arena (PlaceName, e.g. Stormfoot Catacombs), or for an "
+    "open-world arena the landmark location doc whose MSB footprint holds "
+    "arena_position or lies within 20 m of it (#301: Rakshasa -> Eastern Nameless "
+    "Mausoleum; an evergaol's footprint is a 12 m sphere round its stone, so Alecto -> "
+    "Ringleader's Evergaol); absent for an open-world arena near no landmark (see "
+    "nearest_grace / region). Enemy and item placements name their dungeon location "
+    "doc instead (see locations)",
     "sold_by": "merchant names that sell this item, derived per-patch from ShopLineupParam "
     "(includes Twin Maiden Husks for lineups they re-sell once given the bell bearing, #145). "
     "A row with no vendor label takes it from the NPC talk script that opens its range "
@@ -3222,7 +3226,8 @@ _FIELD_NOTES: dict[str, str] = {
     "multiplied in too, so their lightning reads about 20 below the wiki's armor-only "
     "figure (Rakshasa 2.2, wiki 22). Not scaled by area or NG+; scripted resident "
     "damage-taken effects (Rennala's barrier) are left out. Per phase in phases.negation "
-    "(Messmer holy 40, then 0 as Base Serpent Messmer)",
+    "(Messmer holy 40, then 0 as Base Serpent Messmer). Boss docs (#301): the same "
+    "values from the encounter boss's own placed NpcParam row",
     "net_negation": "armor damage negation % net of the piece's resident damage-taken "
     "effects, the value the equipment menu and wikis show; same keys as negation and set "
     "on every piece (equal to negation unless the piece has such an effect). Differs on "
@@ -3416,14 +3421,18 @@ _FIELD_NOTES: dict[str, str] = {
     "playthrough, solo: multiplayer scaling is not applied. The top-level stats / "
     "defense / resistances stay the base values. A phase-2 boss sharing phase 1's "
     "character shows phase 1's values; see phases for per-phase values. Absent = never "
-    "placed",
+    "placed. On a boss doc (#301) the same group covers only that encounter's "
+    "characters (the boss and its bar-holding partners, each by its own placed row), "
+    "so hp.placements counts characters and min = max for a solo boss: Death Knight "
+    "(Scorpion River Catacombs) 24,080, (Fog Rift Catacombs) 19,284, as the wiki",
     "stats_scaled.hp": "enemy in-game max HP (#108) over its MSB placements: each "
     "placement's NpcParam row is base HP times its SpEffect HP multipliers, floored "
     "after each. NG+ is in stats_scaled.ng_plus.hp",
     "stats_scaled.hp.min": "lowest in-game HP over the enemy's placements",
     "stats_scaled.hp.max": "highest in-game HP over the enemy's placements (min = max "
     "when one encounter or all placements scale alike)",
-    "stats_scaled.hp.placements": "number of MSB placements the range covers",
+    "stats_scaled.hp.placements": "number of MSB placements the range covers (on a boss "
+    "doc: the encounter's characters)",
     "stats_scaled.stamina": "enemy in-game max stamina (#131) over its MSB placements: "
     "stats.stamina times the same SpEffect stamina multipliers as stats_scaled.hp, "
     "floored after each. min / max like stats_scaled.hp",
@@ -3671,7 +3680,8 @@ _FIELD_NOTES: dict[str, str] = {
     "{id: cutscene_id, kind: boss_intro / boss_defeat / ending}",
     "region": "on a site_of_grace doc: the grace's map-menu region (Stormhill, Liurnia "
     "of the Lakes, Leyndell, Ashen Capital, Gravesite Plain); on a boss doc: the "
-    "region of the grace closest to the arena, even where nearest_grace skips that "
+    "region of the grace closest to the arena (with nearest_grace's own-area rule, "
+    "#301: Alecto -> Moonlight Altar), even where nearest_grace skips that "
     "post-fight grace (a teleport-only arena takes its nearest_grace's); on a location "
     "marker doc: the region of its nearest grace. Every region value is also "
     "a location doc. Enemy and item docs carry it per placement; filter them on regions",
@@ -3722,7 +3732,10 @@ _FIELD_NOTES: dict[str, str] = {
     "Crucible Knight's Redmane Castle Plaza for Starscourge Radahn) is skipped while "
     "another grace qualifies, and the arena's own unless it's the map's only one, so "
     "Godrick gives Secluded Cell. An open-world arena next to a legacy dungeon also "
-    "weighs that dungeon's graces: Scadutree Avatar -> Tree-Worship Sanctum. "
+    "weighs that dungeon's graces: Scadutree Avatar -> Tree-Worship Sanctum. In the "
+    "open world a grace of the arena's own region-map area wins when within 1.5x the "
+    "nearest's distance (#301): Alecto -> Moonlight Altar, not Converted Tower 82 m "
+    "below; Battlemage Hugues -> Dragonbarrow West. "
     "Fight order and fog walls aren't in the data, so a grace just past the arena "
     "can still win (Sir Gideon Ofnir). A teleport-only arena "
     "with no grace of its own (Hallowhorn Grounds, Chapel of Anticipation) gives the "
@@ -3933,20 +3946,24 @@ _FIELD_NOTES: dict[str, str] = {
     "Graveyard tutorial 101120) or when an event sets it under conditions "
     "gate_set_when can't describe (the untitled 101050)",
     "bosses": "on a site_of_grace doc: the boss docs whose nearest grace it is; on a "
-    "location doc: the boss docs in it (by region, or a dungeon's map)",
+    "location doc: the boss docs in it (by region, a dungeon's map, or for an "
+    "open-world landmark such as an evergaol the bosses whose location it is, #301)",
     "arena_position": "on a boss doc: the arena's position in its map's local "
     "coordinates (GameAreaParam BossPos; the boss's MSB placement when the param's "
     "BossMap is another map, e.g. Base Serpent Messmer's stale Haligtree row, or its "
     "dungeon BossPos is over 500 m from the boss, e.g. Ancestor Spirit's). In a dungeon "
     "it can sit up to ~200 m from where the boss stands",
     "runes": "on a boss doc: runes awarded for the kill (GameAreaParam "
-    "SingleplayerSoulReward, before rune-gain buffs)",
+    "SingleplayerSoulReward, before rune-gain buffs; NpcParam SoulReward for a "
+    "source=EMEVD encounter with no row, e.g. Dryleaf Dane's duel 0)",
     "banner": "on a boss doc: the defeat banner, i.e. the boss tier: Enemy Felled "
     "(field/dungeon bosses), Great Enemy Felled, Demigod Felled, Legend Felled, God Slain "
     "(Elden Beast, Consort Radahn), Duelist Vanquished. Absent when the defeat isn't "
     "scripted with a banner the event scripts expose",
     "defeat_flag": "on a boss doc: the event flag set when the boss is defeated "
-    "(GameAreaParam DefeatBossFlagId)",
+    "(GameAreaParam DefeatBossFlagId; the row's own id when the row carries another "
+    "row's flag but its defeat event sets its own, e.g. the Capital Outskirts "
+    "Deathbird; for a source=EMEVD encounter, the flag its defeat event sets, #300)",
     "summon_stats": "on a spirit_ash doc: the summoned spirits' stats at +0, one entry "
     "per distinct spirit with count and the enemy stat groups (stats / defense / resistances "
     "/ immune_to / traits / weak_point_damage_multiplier), from BuddyParam -> NpcParam with "
