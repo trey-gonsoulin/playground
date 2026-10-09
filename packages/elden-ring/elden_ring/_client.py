@@ -641,6 +641,15 @@ INDEX_MAPPING = {
             "ar_inputs": {"type": "object", "enabled": False},  # #120
             "requirements": {"properties": _props("integer", _STATS)},
             "fp_cost": {"type": "integer"},
+            "hp_cost": {"type": "integer"},  # #292
+            # Item rarity + sell/hold/store/trade limits (#296).
+            "rarity": {"type": "integer"},
+            "inventory": {
+                "properties": {
+                    **_props("integer", ("sell_value", "max_held", "max_stored")),
+                    **_props("boolean", ("sellable", "storable", "tradable")),
+                }
+            },
             "spell_role": {"type": "keyword"},
             "slots": {"type": "integer"},
             "sort_id": {"type": "integer"},
@@ -2957,6 +2966,26 @@ _FIELD_NOTES: dict[str, str] = {
     "is_legendary": "part of a legendary set (achievement-tracked)",
     "weight": "equip load of a weapon, shield, armor piece or talisman. Ammo has none: "
     "arrows and bolts add nothing to equip load, so ammo docs carry no weight (#286)",
+    "fp_cost": "FP spent per use: spells (Magic mp) and goods, i.e. spirit ashes "
+    "(summon cost: Fire Knight Hilde 116, Taylew 138) and FP-using tools (Mimic's "
+    "Veil 6, Glintstone Scrap 4) (EquipParamGoods consumeMP, #292). Absent = no FP "
+    "cost",
+    "hp_cost": "HP spent per use of a goods item (EquipParamGoods consumeHP, #292): the "
+    "HP-summoned spirit ashes (Bloodfiend Hexer's Ashes 500, Mimic Tear 660). Absent = "
+    "no HP cost",
+    "rarity": "item rarity 0-3 (the icon background tier; 0 = common, 3 = the "
+    "legendary/remembrance tier) on weapons, ammo, armor, talismans, Ashes of War and "
+    "goods (#296). Spirit ashes are the +0 row",
+    "inventory": "inventory limits and economy (#296). sellable / sell_value: runes "
+    "when sold at a merchant (Smithing Stone [3] 300, Talisman of All Crucibles 2000, "
+    "Arrow 10); sellable false = can't be sold (Fire Pots, spirit ashes, Mimic's "
+    "Veil), with no sell_value. max_held / max_stored: carry and chest limits on goods "
+    "(Smithing Stone [3] 999/999, spirit ashes 1/600); ammo carries max_held only "
+    "(Arrow 99; the 600 stored isn't a param field); weapons, armor, talismans and "
+    "Ashes of War have neither. storable: can go in the Sort Chest. tradable: can be "
+    "dropped for other players in multiplayer (the Drop menu option and not "
+    "multiplayer-share disabled): weapons, armor, Golden Runes, meats yes; Smithing "
+    "Stones, Remembrances, spirit ashes and key items no",
     "infusable": "weapon can take an affinity/ash-of-war infusion",
     "default_ash_of_war": "the skill a weapon ships with (SwordArtsParam's ArtsName text, "
     "as shown in game: crossbows and ballistas have Kick)",
