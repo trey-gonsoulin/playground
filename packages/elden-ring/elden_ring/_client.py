@@ -2632,9 +2632,10 @@ _FIELD_NOTES: dict[str, str] = {
     "(m20 m21 m22 m25 m28 m40-m43 m61, the maps only DLC.bdt ships), e.g. Bonny "
     "Village; regions without a map (Gravesite Plain, Scadu Altus) when all their "
     "graces are. Enemies: a DLC NpcName, or placed only in DLC maps (base types the DLC "
-    "reuses, e.g. Tree Sentinel, stay false). Warps: either end in a DLC map. Quests and "
-    "merchants: a DLC NPC (Moore, Thiollier), a DLC Remembrance's trade, or DLC-only "
-    "locations. npc_dialogue / game_text: the line is DLC text. At 1.17.1: 102 base "
+    "reuses, e.g. Tree Sentinel, stay false). Warps: either end in a DLC map. Quests: a "
+    "DLC NPC or DLC-only locations. Merchants: a DLC NPC (Moore, Thiollier), a DLC "
+    "Remembrance's trade, or a location (its '(Region)' suffix dropped) that is a DLC "
+    "place, e.g. Count Ymir at Cathedral of Manus Metyr. npc_dialogue / game_text: the line is DLC text. At 1.17.1: 102 base "
     "weapons (498 with affinities), 145 armor, 42 spells, 25 Ashes of War, 39 "
     "talismans, 20 spirit ashes, 40 bosses, 68 enemies. Always false before 1.12.0",
     "availability": "'cut' for scrapped content: an [ERROR]-marked in-game name row (e.g. "
