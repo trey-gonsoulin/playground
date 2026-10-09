@@ -242,10 +242,12 @@ _CRITICAL_HITS = {
 
 # In-game enemy stats over MSB placements, one stats_scaled group (#108, #131): HP /
 # stamina min-max, the per-key min-max of area-scaled defenses and resistances, and
-# the same stats for NG+1..NG+7 in one ng_plus group (#261).
+# the same stats for NG+1..NG+7 in one ng_plus group (#261), plus the kill's rune
+# yield (#299).
 _MIN_MAX = {"properties": _props("integer", ("min", "max"))}
 _STAT_RANGES = {
     "stamina": _MIN_MAX,
+    "runes": _MIN_MAX,
     "defense": {"properties": {k: _MIN_MAX for k in _DAMAGE_TYPES[1:]}},
     "resistances": {"properties": {k: _MIN_MAX for k in _STATUSES}},
 }
@@ -262,6 +264,7 @@ _NPC_SCALED_RANGES = {
 _STAT_VALUES = {
     "hp": {"type": "integer"},
     "stamina": {"type": "integer"},
+    "runes": {"type": "integer"},
     "defense": {"properties": _props("integer", _DAMAGE_TYPES[1:])},
     "resistances": {"properties": _props("integer", _STATUSES)},
 }
@@ -796,6 +799,9 @@ INDEX_MAPPING = {
             "map": {"type": "keyword"},
             "arena_position": {"properties": _props("float", ("x", "y", "z"))},
             "runes": {"type": "integer"},
+            # NG+1..NG+7 and multiplayer rune rewards (#299)
+            "runes_ng_plus": {"type": "integer"},
+            "runes_coop": {"properties": _props("integer", ("host", "cooperator"))},
             "banner": {"type": "keyword"},
             "defeat_flag": {"type": "long"},
             "boss_encounters": {"type": "keyword"},
@@ -3517,8 +3523,8 @@ _FIELD_NOTES: dict[str, str] = {
     "attack at the same time. Not friendly fire",
     "ai.guards": "raises its guard while acting (returning home, facing the target)",
     "stats_scaled": "enemy in-game stats over its MSB placements (#108, #131): hp, "
-    "stamina, defense and resistances as min / max ranges, and ng_plus with the same "
-    "stats for NG+1 .. NG+7. Each "
+    "stamina, runes (#299), defense and resistances as min / max ranges, and ng_plus "
+    "with the same stats for NG+1 .. NG+7. Each "
     "placement's NpcParam row is scaled by its SpEffect multipliers (the "
     "per-area scaling, plus e.g. x2 HP on field-boss versions of regular enemies). First "
     "playthrough, solo: multiplayer scaling is not applied. The top-level stats / "
@@ -3540,6 +3546,12 @@ _FIELD_NOTES: dict[str, str] = {
     "stats_scaled.stamina": "enemy in-game max stamina (#131) over its MSB placements: "
     "stats.stamina times the same SpEffect stamina multipliers as stats_scaled.hp, "
     "floored after each. min / max like stats_scaled.hp",
+    "stats_scaled.runes": "runes the enemy yields when killed (#299), min / max over "
+    "its MSB placements: each placement's NpcParam SoulReward times its SpEffect rune "
+    "multipliers (all x1 in the area scaling, so it is SoulReward), floored. Before "
+    "rune-gain buffs. Page 257 - 3,813, Avionette Soldier 163 - 695, as the wiki. "
+    "Covers only the placements that yield runes; absent when none do, as for most "
+    "bosses, whose reward is the boss doc's runes",
     "stats_scaled.defense": "enemy in-game elemental defenses (#131) over its MSB "
     "placements, per element (magic / fire / lightning / holy) a min / max: defense times the "
     "placement's area-scaling defense multiplier, floored (Malenia 100 -> 123, as the "
@@ -3554,7 +3566,8 @@ _FIELD_NOTES: dict[str, str] = {
     "shows phase 1's row here: Messmer's frostbite is 435, while the wiki's 316 is his "
     "phase-2 row (base 112, see phases)",
     "stats_scaled.ng_plus": "enemy in-game stats on NG+1 .. NG+7 (#131, #261): hp, "
-    "stamina, defense and resistances with the same keys as in stats_scaled, but each "
+    "stamina, runes (#299), defense and resistances with the same keys as in "
+    "stats_scaled, but each "
     "min / max is a 7-entry list, index 0 = NG+1 and 6 = NG+7 (later journeys play as "
     "NG+7). Each NG value is multiplied by the row's NG+ SpEffect (NpcParam "
     "NewGamePlusSpecialEffect; base-game rows 7400s, DLC 20007400s, on top of the area "
@@ -3576,6 +3589,11 @@ _FIELD_NOTES: dict[str, str] = {
     "value times the NG+ SpEffect's stamina multiplier, then ClearCountCorrectParam's "
     "per-journey stamina rate (x1.1, 1.125, 1.2, 1.225, 1.25, 1.275), floored after "
     "each step",
+    "stats_scaled.ng_plus.runes": "runes the enemy yields on NG+1 .. NG+7 (#299), "
+    "min / max 7-entry lists like stats_scaled.ng_plus.hp: the stats_scaled.runes "
+    "value times the NG+ SpEffect's rune multiplier (x2 - x5), then "
+    "ClearCountCorrectParam's per-journey rune rate (x1.1, 1.125, 1.2, 1.225, 1.25, "
+    "1.275), floored after each step",
     "stats_scaled.ng_plus.defense": "enemy in-game elemental defenses on NG+1 .. NG+7 "
     "(#261), per element a min / max pair of 7-entry lists (index 0 = NG+1): "
     "defense times the area and NG+ SpEffect defense multipliers, then "
@@ -4061,7 +4079,21 @@ _FIELD_NOTES: dict[str, str] = {
     "runes": "on a boss doc: runes awarded for the kill (GameAreaParam "
     "SingleplayerSoulReward, before rune-gain buffs; NpcParam SoulReward for a "
     "source=EMEVD encounter with no row; absent there when SoulReward is 0, which "
-    "means no rune data, e.g. Dryleaf Dane's duel or Necromancer Garris at 1.02)",
+    "means no rune data, e.g. Dryleaf Dane's duel or Necromancer Garris at 1.02). "
+    "NG+ and multiplayer rewards are runes_ng_plus and runes_coop (#299)",
+    "runes_ng_plus": "on a boss doc: runes awarded for the kill on NG+1 .. NG+7 "
+    "(#299), a 7-entry list (index 0 = NG+1): runes times the defeated character's NG+ "
+    "SpEffect rune multiplier (NpcParam NewGamePlusSpecialEffect, x2 - x5), then "
+    "ClearCountCorrectParam's per-journey rune rate (x1.1, 1.125, 1.2, 1.225, 1.25, "
+    "1.275), floored after each step. Margit 60,000 / 66,000 ... 76,500 and Runebear "
+    "13,000 ... 16,575, as the wiki. Absent when runes is absent or 0",
+    "runes_coop": "on a boss doc: runes awarded for a multiplayer kill (#299): host and "
+    "cooperator (a summoned player) each get GameAreaParam MultiplayerSoulReward "
+    "times GameSystemCommonParam's boss rate (host x0.75, cooperator x0.25), floored. "
+    "Runebear 1,950 / 650 (wiki co-op 650). A source=EMEVD encounter is a plain kill "
+    "and takes the enemy rates (x1 each) on its runes. 0 / 0 where the row gives no "
+    "multiplayer reward (Lamenter, Knight of the Solitary Gaol). Before 1.12, "
+    "GameSystemCommonParam doesn't load, so the rates are the current patch's",
     "banner": "on a boss doc: the defeat banner, i.e. the boss tier: Enemy Felled "
     "(field/dungeon bosses), Great Enemy Felled, Demigod Felled, Legend Felled, God Slain "
     "(Elden Beast, Consort Radahn), Duelist Vanquished. Absent when the defeat isn't "
