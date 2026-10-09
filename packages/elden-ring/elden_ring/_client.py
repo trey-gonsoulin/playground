@@ -3588,7 +3588,9 @@ _FIELD_NOTES: dict[str, str] = {
     "multipliers (all x1 in the area scaling, so it is SoulReward), floored. Before "
     "rune-gain buffs. Page 257 - 3,813, Avionette Soldier 163 - 695, as the wiki. "
     "Covers only the placements that yield runes; absent when none do, as for most "
-    "bosses, whose reward is the boss doc's runes",
+    "bosses, whose reward is the boss doc's runes. The two can differ: Patches' "
+    "boss doc has runes 0 (GameAreaParam) but stats_scaled.runes 800 (his NpcParam "
+    "SoulReward)",
     "stats_scaled.defense": "enemy in-game elemental defenses (#131) over its MSB "
     "placements, per element (magic / fire / lightning / holy) a min / max: defense times the "
     "placement's area-scaling defense multiplier, floored (Malenia 100 -> 123, as the "
@@ -3628,7 +3630,8 @@ _FIELD_NOTES: dict[str, str] = {
     "each step",
     "stats_scaled.ng_plus.runes": "runes the enemy yields on NG+1 .. NG+7 (#299), "
     "min / max 7-entry lists like stats_scaled.ng_plus.hp: the stats_scaled.runes "
-    "value times the NG+ SpEffect's rune multiplier (x2 - x5), then "
+    "value times the NG+ SpEffect's rune multiplier (x2 - x5; x1 for rows with no NG+ "
+    "SpEffect, e.g. Knight Diallos or Dung Eater), then "
     "ClearCountCorrectParam's per-journey rune rate (x1.1, 1.125, 1.2, 1.225, 1.25, "
     "1.275), floored after each step",
     "stats_scaled.ng_plus.defense": "enemy in-game elemental defenses on NG+1 .. NG+7 "
@@ -4123,7 +4126,9 @@ _FIELD_NOTES: dict[str, str] = {
     "NG+ and multiplayer rewards are runes_ng_plus and runes_coop (#299)",
     "runes_ng_plus": "on a boss doc: runes awarded for the kill on NG+1 .. NG+7 "
     "(#299), a 7-entry list (index 0 = NG+1): runes times the defeated character's NG+ "
-    "SpEffect rune multiplier (NpcParam NewGamePlusSpecialEffect, x2 - x5), then "
+    "SpEffect rune multiplier (NpcParam NewGamePlusSpecialEffect, x2 - x5; when the "
+    "defeated character's row has none, the first one among the fight's other "
+    "health-bar characters, e.g. Fia's Champion from Rogier's), then "
     "ClearCountCorrectParam's per-journey rune rate (x1.1, 1.125, 1.2, 1.225, 1.25, "
     "1.275), floored after each step. Margit 60,000 / 66,000 ... 76,500 and Runebear "
     "13,000 ... 16,575, as the wiki. Absent when runes is absent or 0",
