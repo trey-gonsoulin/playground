@@ -2647,7 +2647,7 @@ _FIELD_NOTES: dict[str, str] = {
     "entity_type": "category filter, one of the entity_types listed above: equipment "
     "(weapon, armor, spell, item = talismans, ash_of_war, ammo), goods (consumable, "
     "key_item, info, crafting_material, upgrade_material, crystal_tear, spirit_ash, "
-    "remembrance, great_rune, tool), merchant, enemy, boss (one doc per boss encounter, "
+    "remembrance, great_rune, tool), gesture (#306), merchant, enemy, boss (one doc per boss encounter, "
     "#79), site_of_grace, location, warp, quest, cutscene (one doc per realtime "
     "cutscene scene, #92), npc_dialogue, game_text (prompts, map banners, tutorials, "
     "loading tips, #98; item-use dialogs, #90), talk_option (talk-script menu options, "
@@ -2795,8 +2795,17 @@ _FIELD_NOTES: dict[str, str] = {
     "script awards it for striking a character or object, e.g. the Golden Runes from "
     "hitting certain open-world characters; #266) / from_weapon (an Ash of War that "
     "comes fixed on a reward weapon, so the player gets it by duplicating it from that "
-    "weapon; see from_weapons; #305). found_in_world still shows for "
-    "the scripted types, since their lots are map lots",
+    "weapon; see from_weapons; #305) / preorder_bonus (a pre-order bonus: a common map "
+    "event script awards it on an entitlement flag that no game script sets, and can "
+    "take it back; only the gestures The Ring and Ring of Miquella; #306). "
+    "found_in_world still shows for the scripted types, since their lots are map lots. "
+    "On a gesture doc (#306) the types say how it's unlocked: starting_equipment (every "
+    "class starts with 12), found_in_world (a pickup, e.g. Strength!, or one unlocked by "
+    "picking up a treasure, May the Best Win), given_by_npc (an NPC's talk script, or a "
+    "map event script reacting to a named NPC such as Alberich's Reverential Bow), "
+    "interaction_reward (Rapture), quest_reward (a map event script awards it once a "
+    "flag is set, only listed when there is no other source, e.g. Bravo!) and "
+    "preorder_bonus (The Ring, Ring of Miquella)",
     "acquisition_sources": "named sources: merchant names, boss/named-enemy names (see "
     "dropped_by), gift-giving NPC names (see given_by), the NPC behind a quest_reward or "
     "invader_drop (see reward_sources, #304) and the reward weapons an Ash of War comes "
@@ -2825,7 +2834,9 @@ _FIELD_NOTES: dict[str, str] = {
     "Melina's script has no placement and is named directly (Spectral Steed Whistle, "
     "Rold Medallion; #304); gifts from other scripts with no named placement (some DLC "
     "characters, Haligtree Secret Medallion (Left)) have acquisition_types "
-    "given_by_npc but no name. DLC gifts are indexed from 1.12.0 on",
+    "given_by_npc but no name. DLC gifts are indexed from 1.12.0 on. On a gesture doc "
+    "(#306) also the named NPC a map event script reacts to (Mad Tongue Alberich, "
+    "Finger Maiden Therolina, Patches)",
     "in_exchange_for": "on an NPC-gift item doc: the item(s) the giving NPC takes for it, from "
     "the talk script's RemoveItem paired with the gift in the same dialogue state machine "
     "(#97), e.g. Volcano Manor Invitation: [Rya's Necklace]; Radiant Baldachin's Blessing: "
@@ -2885,7 +2896,8 @@ _FIELD_NOTES: dict[str, str] = {
     "duplication.unlocked_by_defeating": "the boss(es) whose defeat sets a remembrance's "
     "unlock_flag, e.g. Remembrance of the Grafted: [Godrick the Grafted]",
     "starting_classes": "on an item doc: the starting classes whose initial loadout includes "
-    "it (#23), e.g. Longsword: [Vagabond]; Memory of Grace: every class",
+    "it (#23), e.g. Longsword: [Vagabond]; Memory of Grace: every class; the 12 starting "
+    "gestures (Bow, Beckon, Rest…): every class (#306)",
     "crafted_from": "on a craftable consumable/ammo doc: the crafting recipe's materials as "
     "[{item, quantity}] (ShopLineupParam_Recipe -> EquipMtrlSetParam, #87), e.g. Redmane "
     "Fire Pot: Mushroom x2, Smoldering Butterfly, Old Fang. Filter crafted_from.item to find "
