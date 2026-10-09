@@ -991,7 +991,9 @@ INDEX_MAPPING = {
                 },
             },
             "talk_ids": {"type": "long"},
-            "speakers": {"type": "keyword"},  # #191
+            "speakers": {"type": "keyword"},  # #191; npc_dialogue too (#307)
+            "talk_contexts": {"type": "keyword"},  # npc_dialogue (#307)
+            "npcs": {"type": "keyword"},  # game_text talk_option (#307)
             # Back-link on npc_dialogue subtitle lines (#192); cutscene_id shared.
             "cutscene": {"type": "keyword"},
             "cutscenes": {
@@ -2696,7 +2698,8 @@ _FIELD_NOTES: dict[str, str] = {
     "text_added_lines": "the variant's text lines (EN + JP) with no counterpart in base_item, "
     "e.g. 「伝説のタリスマン」のひとつ on Erdtree's Favor +2",
     "tags": "free-form keyword tags (spell school/role, weapon category, 'Talisman', etc.); "
-    "on game_text the kind: action_button, map_event, tutorial, loading_tip, item_dialog",
+    "on game_text the kind: action_button, map_event, tutorial, loading_tip, item_dialog, "
+    "talk_option (#307)",
     "effect_text": "the game's own short effect lines for an item (list, #90): a weapon's or "
     "ammo's WeaponEffect lines ('Causes blood loss buildup', 'Boosts Crystalian sorcery'; "
     "the buildup number is in status_buildup), a talisman's AccessoryInfo ('Raises maximum "
@@ -3837,7 +3840,28 @@ _FIELD_NOTES: dict[str, str] = {
     "first line (Margit's intro: ['Margit, the Fell Omen']; the opening cinematic: "
     "['Narrator']). Hand-mapped from the TalkMsg id bank (talk_id // 10000: 2003 = "
     "Margit, 2049 = Ranni the Witch), since TalkParam names no speaker; a bank with "
-    "two voices names its main one. Absent with no subtitles or an unmapped bank",
+    "two voices names its main one. Absent with no subtitles or an unmapped bank. "
+    "On an npc_dialogue doc (#307): the NPCs whose talk scripts play the line "
+    "(TalkToPlayer's TalkParam row, then the conversation's next rows), each named "
+    "by the script's NPC number (talk id // 10^6 -> NpcName 100000 + 100 x number: "
+    "'Dialogue 321010040' -> ['Kenneth Haight, Limgrave Heir']), else the character "
+    "placed with the script (its NameID, or its health bar for bosses: Margit, "
+    "Morgott). A line no named script plays takes its own id's NPC number "
+    "(nine-digit ids), else the cutscene bank above. Usually one name; a line "
+    "several characters' scripts play lists each (9 lines: Margit and Morgott; the "
+    "Finger Reader Crone, Keeper of Forbidden Lands and Godwyn's Wet Nurse). Absent "
+    "on about 1 line in 10 (generic townsfolk, invaders, the DLC's Igon)",
+    "talk_contexts": "on an npc_dialogue doc (#307): when the line plays, from the "
+    "top-level talk-script state machine playing it: talk (the talk menu), nearby "
+    "(called out on approach), attacked (hit while friendly), hostile (turned "
+    "hostile), killed (the NPC's death), player_killed (the NPC killed the player). "
+    "Matched against Kenneth Haight's wiki page. Absent on lines no script plays and "
+    "on scripted ones (grace conversations, summoned phantoms)",
+    "npcs": "on a game_text talk_option doc (#307): the NPCs whose talk menus list "
+    "the option (AddTalkListData in their talk scripts), named like npc_dialogue "
+    "speakers; menus with no NPC keep their label (Site of Grace, Church of Vows). "
+    "Absent on options no script lists by a literal id (bell-bearing offers built "
+    "from a counter)",
     "cutscenes": "on a boss doc (#92): the cutscene docs linked to the encounter, each "
     "{id: cutscene_id, kind: boss_intro / boss_defeat / ending}",
     "region": "on a site_of_grace doc: the grace's map-menu region (Stormhill, Liurnia "
