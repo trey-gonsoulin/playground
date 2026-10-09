@@ -122,8 +122,8 @@ def search_entities(
                            values (humanoids with armor take poise / resistances
                            from it, own NpcParam values in npc_param_values;
                            #285); stats_scaled groups the in-game (area-scaled)
-                           hp / stamina / defense / resistances ranges over its
-                           placements and, under ng_plus, the same stats
+                           hp / stamina / runes / defense / resistances ranges over
+                           its placements and, under ng_plus, the same stats
                            for NG+1..NG+7 (#108, #131, #261), plus an
                            attacks profile (elements, damage types, status effects
                            of the moves its animations fire; shared_with for
@@ -161,7 +161,9 @@ def search_entities(
                            health-bar duels with no row, source="EMEVD", #300):
                            enemies fought (phases, duo partners), the encounter's
                            own in-game stats_scaled and negation (#301), location /
-                           region / nearest_grace / map, runes, the defeat banner (boss tier:
+                           region / nearest_grace / map, runes (plus runes_ng_plus
+                           and the runes_coop host / cooperator split, #299), the
+                           defeat banner (boss tier:
                            Enemy Felled … Demigod Felled, Legend Felled, God Slain),
                            the items that encounter awards, and npc_summons (the NPC
                            summon signs for the fight + their quest gate flag;
