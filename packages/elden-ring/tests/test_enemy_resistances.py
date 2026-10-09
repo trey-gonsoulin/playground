@@ -11,6 +11,31 @@ _RESISTS = {
     "madness",
     "death_blight",
 }
+_NEGATION = {
+    "physical",
+    "strike",
+    "slash",
+    "pierce",
+    "magic",
+    "fire",
+    "lightning",
+    "holy",
+}
+
+
+def test_enemy_negation_mapped_and_documented():
+    # Enemy damage negation % per type (#298): top level (shared with armor), per
+    # variant stat block and per phase, with the armor keys.
+    props = INDEX_MAPPING["mappings"]["properties"]
+    for neg in (
+        props["negation"],
+        props["variants"]["properties"]["negation"],
+        props["phases"]["properties"]["negation"],
+    ):
+        assert set(neg["properties"]) == _NEGATION
+        assert all(v == {"type": "float"} for v in neg["properties"].values())
+    assert "#298" in _FIELD_NOTES["negation"]
+    assert "phases.negation" in _FIELD_NOTES and "variants.negation" in _FIELD_NOTES
 
 
 def test_resistance_and_trait_fields_mapped():

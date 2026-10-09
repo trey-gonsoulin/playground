@@ -115,7 +115,8 @@ def search_entities(
                            Key?"; #90)
             enemy      — bosses, creatures, and named enemies (from the NpcName roster)
                            with EN + JP names (name_ja); most also carry NpcParam
-                           HP/stamina/poise/elemental defenses, status resistances +
+                           HP/stamina/poise/elemental defenses, damage negation %
+                           by type (negation, #298), status resistances +
                            immune_to, and traits (dragon, undead, …; #84) as base
                            values (humanoids with armor take poise / resistances
                            from it, own NpcParam values in npc_param_values;
