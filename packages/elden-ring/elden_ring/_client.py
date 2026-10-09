@@ -993,7 +993,7 @@ INDEX_MAPPING = {
             "talk_ids": {"type": "long"},
             "speakers": {"type": "keyword"},  # #191; npc_dialogue too (#307)
             "talk_contexts": {"type": "keyword"},  # npc_dialogue (#307)
-            "npcs": {"type": "keyword"},  # game_text talk_option (#307)
+            "npcs": {"type": "keyword"},  # talk_option (#307)
             # Back-link on npc_dialogue subtitle lines (#192); cutscene_id shared.
             "cutscene": {"type": "keyword"},
             "cutscenes": {
@@ -2650,7 +2650,8 @@ _FIELD_NOTES: dict[str, str] = {
     "remembrance, great_rune, tool), merchant, enemy, boss (one doc per boss encounter, "
     "#79), site_of_grace, location, warp, quest, cutscene (one doc per realtime "
     "cutscene scene, #92), npc_dialogue, game_text (prompts, map banners, tutorials, "
-    "loading tips, #98; item-use dialogs, #90). An unknown value returns an error listing these",
+    "loading tips, #98; item-use dialogs, #90), talk_option (talk-script menu options, "
+    "notices and confirmations, #307). An unknown value returns an error listing these",
     "patch_version": "real game patch the doc was extracted from (native is per-patch); use with diff_entities",
     "source": "internal game-data origin — the param table, FMG or event script the doc "
     "was built from; the live values are listed under sources above (EquipParamWeapon, "
@@ -2669,7 +2670,8 @@ _FIELD_NOTES: dict[str, str] = {
     "reuses, e.g. Tree Sentinel, stay false). Warps: either end in a DLC map. Quests: a "
     "DLC NPC or DLC-only locations. Merchants: a DLC NPC (Moore, Thiollier), a DLC "
     "Remembrance's trade, or a location (its '(Region)' suffix dropped) that is a DLC "
-    "place, e.g. Count Ymir at Cathedral of Manus Metyr. npc_dialogue / game_text: the line is DLC text. At 1.17.1: 102 base "
+    "place, e.g. Count Ymir at Cathedral of Manus Metyr. npc_dialogue / game_text / "
+    "talk_option: the line is DLC text. At 1.17.1: 102 base "
     "weapons (498 with affinities), 145 armor, 42 spells, 25 Ashes of War, 39 "
     "talismans, 20 spirit ashes, 43 bosses, 68 enemies. Always false before 1.12.0",
     "availability": "'cut' for scrapped content: an [ERROR]-marked in-game name row (e.g. "
@@ -2698,8 +2700,7 @@ _FIELD_NOTES: dict[str, str] = {
     "text_added_lines": "the variant's text lines (EN + JP) with no counterpart in base_item, "
     "e.g. 「伝説のタリスマン」のひとつ on Erdtree's Favor +2",
     "tags": "free-form keyword tags (spell school/role, weapon category, 'Talisman', etc.); "
-    "on game_text the kind: action_button, map_event, tutorial, loading_tip, item_dialog, "
-    "talk_option (#307)",
+    "on game_text the kind: action_button, map_event, tutorial, loading_tip, item_dialog",
     "effect_text": "the game's own short effect lines for an item (list, #90): a weapon's or "
     "ammo's WeaponEffect lines ('Causes blood loss buildup', 'Boosts Crystalian sorcery'; "
     "the buildup number is in status_buildup), a talisman's AccessoryInfo ('Raises maximum "
@@ -3398,20 +3399,21 @@ _FIELD_NOTES: dict[str, str] = {
     "altered_from": "name of the base armor this piece is altered from",
     "name_ja": "Japanese name; .ja/.morph/.lemma subfields drive JP search modes",
     "description_ja": "Japanese description; .ja/.morph/.lemma subfields drive JP search "
-    "modes. On equipment and goods docs; npc_dialogue, game_text and merchant keep "
-    "their JP text in text_content_ja",
+    "modes. On equipment and goods docs; npc_dialogue, game_text, talk_option and "
+    "merchant keep their JP text in text_content_ja",
     "description": "the item's in-game English description (flavor text); also the line "
-    "itself on npc_dialogue / game_text and a stock summary on merchant. Absent on enemy, "
+    "itself on npc_dialogue / game_text / talk_option and a stock summary on merchant. Absent on enemy, "
     "boss, location, site_of_grace, warp, quest and cutscene docs",
     "text_content": "searchable long text. Goods (consumable, key_item, …): the "
-    "description; npc_dialogue / game_text: the line; merchant: the full stock list, "
+    "description; npc_dialogue / game_text / talk_option: the line; merchant: the full stock list, "
     "each price in its own currency and materials as in shop_listings (e.g. '1 Dragon "
     "Heart', '1 Remembrance of the Grafted + 2,000 runes', 'free'; #282); "
     "cutscene: label + subtitles; enemy / boss / site_of_grace / location / warp / quest: "
     "the name plus its place names (a search aid, not game text). Absent on weapon, "
     "armor, spell, item, ash_of_war and ammo — search description there",
     "text_content_ja": "Japanese long text; .ja/.morph/.lemma subfields drive JP search "
-    "modes. Present on goods types, npc_dialogue, game_text, merchant and cutscenes with "
+    "modes. Present on goods types, npc_dialogue, game_text, talk_option, merchant and "
+    "cutscenes with "
     "subtitles only. Equipment (weapon, armor, spell, item, ash_of_war, ammo) has its "
     "JP text in description_ja instead, so naming text_content_ja there returns 0 plus a warning",
     "npc_id": "enemy's NpcName FMG id (6-digit humanoid / 9-digit boss & creature)",
@@ -3860,7 +3862,7 @@ _FIELD_NOTES: dict[str, str] = {
     "hostile), killed (the NPC's death), player_killed (the NPC killed the player). "
     "Matched against Kenneth Haight's wiki page. Absent on lines no script plays and "
     "on scripted ones (grace conversations, summoned phantoms)",
-    "npcs": "on a game_text talk_option doc (#307): the NPCs whose talk menus list "
+    "npcs": "on a talk_option doc (#307): the NPCs whose talk menus list "
     "the option (AddTalkListData in their talk scripts), named like npc_dialogue "
     "speakers; menus with no NPC keep their label (Site of Grace, Church of Vows). "
     "Absent on about 1 option in 3: bell-bearing offers built from a counter, and "

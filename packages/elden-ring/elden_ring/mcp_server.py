@@ -115,10 +115,12 @@ def search_entities(
                            tutorial and loading_tip (display_name = title;
                            a tutorial's unlock_flag + unlock_set_when, #202),
                            item_dialog (item-use confirmations: "Use Stonesword
-                           Key?"; #90), talk_option (talk-script text: menu
-                           choices like "Tell him that Radagon is Marika", plus
-                           notices and confirmations like "No Golden Seed in
-                           inventory"; npcs names whose menus list a choice, #307)
+                           Key?"; #90)
+            talk_option  — talk-script text, one doc per EventTextForTalk id
+                           ("Talk Option 15000380"): menu choices like "Tell him
+                           that Radagon is Marika", plus notices and
+                           confirmations like "No Golden Seed in inventory";
+                           npcs names whose menus list a choice (#307)
             enemy      — bosses, creatures, and named enemies (from the NpcName roster)
                            with EN + JP names (name_ja); most also carry NpcParam
                            HP/stamina/poise/elemental defenses, damage negation %
@@ -286,7 +288,7 @@ def search_entities(
 
     Returns a list of entity documents when count_only is False, each with at minimum:
     entity_type, name, patch_version, source and is_dlc; description is present on items,
-    equipment, dialogue, game_text and merchants but not on enemy, boss, location,
+    equipment, dialogue, game_text, talk_option and merchants but not on enemy, boss, location,
     site_of_grace, warp, quest or cutscene docs. Use get_entity() for the
     full document of a specific named entity, or describe_fields() to see all
     queryable fields. Item documents may include cross-reference edge fields:
@@ -763,7 +765,7 @@ def search_entities_literal(
             effect/info lines are #90). Not every type carries every field:
             equipment (weapon, armor, spell, item, ash_of_war, ammo) has its JP flavor
             text only in description_ja and no text_content / text_content_ja;
-            npc_dialogue, game_text and merchant have JP text only in
+            npc_dialogue, game_text, talk_option and merchant have JP text only in
             text_content_ja. Naming a field the type lacks returns 0 plus a
             "warnings" entry — see the per-field notes in describe_fields(). Japanese fields named here are routed to the subfield for
             the active mode (.morph when use_kuromoji=True, .lemma when
