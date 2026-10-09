@@ -1109,6 +1109,13 @@ INDEX_MAPPING = {
             # damage-taken effects (#284).
             "negation": {"properties": _props("float", _NEGATION_TYPES)},
             "net_negation": {"properties": _props("float", _NEGATION_TYPES)},
+            # Armor poise and the equipment menu's four resistances (#288).
+            "poise": {"type": "float"},
+            "status_resistance": {
+                "properties": _props(
+                    "integer", ("immunity", "robustness", "focus", "vitality")
+                )
+            },
             # Armor-alteration links (Boc / Master Hewg service).
             "alterable": {"type": "boolean"},
             "altered_variant": {"type": "keyword"},
@@ -2878,7 +2885,12 @@ _FIELD_NOTES: dict[str, str] = {
     "effect is the passive granted while held (#163: Blasphemous Blade '40 HP restored (on "
     "defeating an enemy); 4% max HP restored (on defeating an enemy)', Carian Regal "
     "Scepter '+10% attack (full moon sorceries)', Icon Shield '3 HP restored every 1s'; "
-    "every affinity of a weapon shares it; the game's own wording is effect_text); a "
+    "every affinity of a weapon shares it; the game's own wording is effect_text) and "
+    "armor, whose effect is the piece's passive while worn (#288: Witch's Glintstone "
+    "Crown '-18% maximum stamina; +3 Intelligence; +3 Arcane', Jar '+15% attack "
+    "(throwing pots)'; the Tear Scarab hats' '+10% damage taken' and the Rakshasa set's "
+    "'+2% damage taken' are already folded into net_negation, so don't apply them "
+    "twice); a "
     "spell's or "
     "throwable's includes what its projectile inflicts on hit, worded by target (#160): "
     "'enemy loses 1 HP every 0.1s', '+100 frostbite buildup on enemy', 'cures poison on "
@@ -3135,7 +3147,18 @@ _FIELD_NOTES: dict[str, str] = {
     "effects, the value the equipment menu and wikis show; same keys as negation and set "
     "on every piece (equal to negation unless the piece has such an effect). Differs on "
     "the Tear Scarab hats (+10% damage taken: Crimson Tear Scarab physical 3.8 raw, -5.8 "
-    "net) and the Rakshasa set (+2%). Use it to sort or filter armor by real negation",
+    "net) and the Rakshasa set (+2%). Use it to sort or filter armor by real negation. "
+    "The same multipliers also appear in the piece's effects / effect as 'damage taken'; "
+    "net_negation already includes them",
+    "poise": "armor poise as the equipment menu shows it: EquipParamProtector "
+    "ToughnessCorrectRate x 1000 (Banished Knight Armor 34 at 1.17, 28 at 1.02, when "
+    "armor poise was lower). Set on every piece (0 when it has none); sum the pieces for "
+    "a set. Enemy poise is stats.poise",
+    "status_resistance": "armor status resistances, the equipment menu's four: immunity "
+    "(poison and scarlet rot), robustness (bleed and frostbite), focus (sleep and "
+    "madness), vitality (death blight); e.g. Banished Knight Armor 60 / 83 / 38 / 42. "
+    "Points added to the wearer's resistance; sum the pieces for a set. Enemy "
+    "per-status resistances are the separate resistances field",
     "alterable": "armor piece can be altered (Boc / Master Hewg service)",
     "altered_variant": "name of the altered version of this armor",
     "altered_from": "name of the base armor this piece is altered from",
