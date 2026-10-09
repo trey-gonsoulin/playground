@@ -744,6 +744,7 @@ INDEX_MAPPING = {
                     "npc_ids": {"type": "keyword"},
                     "npc_param_ids": {"type": "integer"},
                     **_NPC_STATS,
+                    "negation": {"properties": _props("float", _NEGATION_TYPES)},
                     **_NPC_SCALED_RANGES,
                     "maps": {"type": "keyword"},
                 }
@@ -756,6 +757,9 @@ INDEX_MAPPING = {
                     "npc_id": {"type": "keyword"},
                     "npc_param_id": {"type": "integer"},
                     **_NPC_STATS,
+                    "negation": {
+                        "properties": _props("float", _NEGATION_TYPES)
+                    },  # #298
                     **_NPC_SCALED,
                     "ends_at_hp_ratio": {"type": "float"},
                     "hp_pool_shared_with": {"type": "keyword"},
@@ -1106,7 +1110,8 @@ INDEX_MAPPING = {
             "depicted_in_talisman": {"type": "keyword"},
             "depicts_weapon": {"type": "keyword"},
             # Armor damage negation (percent): raw, and net of the piece's resident
-            # damage-taken effects (#284).
+            # damage-taken effects (#284). Enemies: NpcParam cut rates x a humanoid's
+            # armor loadout (#298).
             "negation": {"properties": _props("float", _NEGATION_TYPES)},
             "net_negation": {"properties": _props("float", _NEGATION_TYPES)},
             # Armor-alteration links (Boc / Master Hewg service).
@@ -3128,9 +3133,19 @@ _FIELD_NOTES: dict[str, str] = {
     "consumables have one level (their flat power and buildup, #178)",
     "requirements": "attribute requirements by stat (weapons: str/dex/int/fai/arc; spells: "
     "int/fai/arc, arc for Dragon Communion, bloodflame and similar spells)",
-    "negation": "armor damage negation % by type: physical, strike, slash, pierce (physical "
-    "sub-types), magic, fire, lightning, holy. The piece's raw cut rate, before its own "
-    "resident damage-taken effects; net_negation is the in-game value",
+    "negation": "damage negation % by type: physical, strike, slash, pierce (physical "
+    "sub-types), magic, fire, lightning, holy. Armor: the piece's raw cut rate, before its "
+    "own resident damage-taken effects; net_negation is the in-game value. Enemies (#298): "
+    "(1 - cut rate) x 100 from the bound NpcParam row, all 8 keys set (0 = none, negative "
+    "= takes extra damage): Night's Cavalry 35 / 35 / 35 / 10 physical / strike / slash / "
+    "pierce and 40 / 40 / 20 / 40 magic / fire / lightning / holy, Chief Bloodfiend slash "
+    "-20, as the wiki. Humanoids with an armor loadout (npc_param_values present) also "
+    "take their 4 armor pieces' cut rates, multiplied like a player's (Rakshasa physical "
+    "25.5, wiki 26). Their NpcParam rows carry a 1.25 lightning cut rate (-25%) that is "
+    "multiplied in too, so their lightning reads about 20 below the wiki's armor-only "
+    "figure (Rakshasa 2.2, wiki 22). Not scaled by area or NG+; scripted resident "
+    "damage-taken effects (Rennala's barrier) are left out. Per phase in phases.negation "
+    "(Messmer holy 40, then 0 as Base Serpent Messmer)",
     "net_negation": "armor damage negation % net of the piece's resident damage-taken "
     "effects, the value the equipment menu and wikis show; same keys as negation and set "
     "on every piece (equal to negation unless the piece has such an effect). Differs on "
@@ -3401,6 +3416,8 @@ _FIELD_NOTES: dict[str, str] = {
     "compared). Only compact fields carry values in the entry",
     "variants.npc_ids": "NpcName ids whose health bar shows this stat block",
     "variants.npc_param_ids": "NpcParam rows in this stat block",
+    "variants.negation": "this stat block's damage negation % (as the top-level enemy "
+    "negation)",
     "variants.stats_scaled": "in-game stat ranges over this block's placements (as "
     "the top-level stats_scaled: hp, stamina, defense, resistances and their NG+ "
     "lists in ng_plus)",
@@ -3411,7 +3428,7 @@ _FIELD_NOTES: dict[str, str] = {
     "events, e.g. Beast Clergyman -> Maliketh, Radagon -> Elden Beast, Godfrey -> "
     "Hoarah Loux, Malenia's two bars, Rennala's two phases, Fia's Champions -> Rogier -> "
     "Lionel. Each entry has the enemy stat groups of that character's placed NpcParam "
-    "row (stats / defense / resistances / immune_to / traits / "
+    "row (stats / defense / negation / resistances / immune_to / traits / "
     "weak_point_damage_multiplier) plus its in-game values in stats_scaled (hp, "
     "stamina, defense, resistances and their NG+ lists in ng_plus) as single values. "
     "Total HP to beat the fight: sum "
@@ -3427,6 +3444,8 @@ _FIELD_NOTES: dict[str, str] = {
     "leaves as the top-level field), e.g. Rennala's phase 1 has none and phase 2 the "
     "stance-break critical. Absent when the phase has no row",
     "phases.npc_param_id": "NpcParam row of this phase's fighting character",
+    "phases.negation": "this character's damage negation % (as the top-level enemy "
+    "negation), e.g. Messmer holy 40 in phase 1 and 0 in phase 2",
     "phases.stats_scaled": "this character's in-game values (as the top-level "
     "stats_scaled, but single values for its one NpcParam row instead of ranges)",
     "phases.stats_scaled.hp": "this character's in-game max HP (area scaling applied, "
