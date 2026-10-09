@@ -2803,8 +2803,9 @@ _FIELD_NOTES: dict[str, str] = {
     "class starts with 12), found_in_world (a pickup, e.g. Strength!, or one unlocked by "
     "picking up a treasure, May the Best Win), given_by_npc (an NPC's talk script, or a "
     "map event script reacting to a named NPC such as Alberich's Reverential Bow), "
-    "interaction_reward (Rapture), quest_reward (a map event script awards it once a "
-    "flag is set, only listed when there is no other source, e.g. Bravo!) and "
+    "interaction_reward (a button prompt other than Talk, e.g. Rapture from Touch the "
+    "Two Fingers), quest_reward (a map event script awards it once a flag is set, only "
+    "listed when there is no other source, e.g. Patches' Extreme Repentance) and "
     "preorder_bonus (The Ring, Ring of Miquella)",
     "acquisition_sources": "named sources: merchant names, boss/named-enemy names (see "
     "dropped_by), gift-giving NPC names (see given_by), the NPC behind a quest_reward or "
