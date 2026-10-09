@@ -1103,6 +1103,22 @@ INDEX_MAPPING = {
             "effect_duration": {"type": "float"},
             "infusable": {"type": "boolean"},
             "default_ash_of_war": {"type": "keyword"},
+            # Weapon / Ash of War skill: FP costs, chargeable, caption (#289).
+            "skill": {
+                "properties": {
+                    "name": {"type": "keyword"},
+                    "caption": {"type": "text"},
+                    "fp_cost": {"type": "integer"},
+                    "follow_up_fp_cost": {
+                        "properties": _props("integer", ("r1", "r2"))
+                    },
+                    "chargeable": {"type": "boolean"},
+                }
+            },
+            # Ash of War affinities and the weapon classes it mounts on (#290).
+            "default_affinity": {"type": "keyword"},
+            "affinities": {"type": "keyword"},
+            "weapon_classes": {"type": "keyword"},
             "depicted_in_talisman": {"type": "keyword"},
             "depicts_weapon": {"type": "keyword"},
             # Armor damage negation (percent): raw, and net of the piece's resident
@@ -2927,6 +2943,26 @@ _FIELD_NOTES: dict[str, str] = {
     "infusable": "weapon can take an affinity/ash-of-war infusion",
     "default_ash_of_war": "the skill a weapon ships with (SwordArtsParam's ArtsName text, "
     "as shown in game: crossbows and ballistas have Kick)",
+    "skill": "weapons (their default skill, default_ash_of_war) and Ashes of War: the "
+    "skill from SwordArtsParam (#289). name; caption (the ArtsCaption text); fp_cost "
+    "(FP spent on the skill button; 0 = free, e.g. Transient Moonlight and Unsheathe "
+    "stances, Kick); follow_up_fp_cost.r1 / .r2 (FP of the light / heavy attack button "
+    "during or after the skill, absent when it has none: Spinning Gravity Thrust "
+    "fp_cost 26 + r2 12, the wiki's '26 (-/12)'; Transient Moonlight r1 15 / r2 20); "
+    "chargeable (the skill can be held to charge it: Wall of Sparks, Flame Spear, "
+    "Charge Forth; from the skill animations' charge-release states and Godfrey Icon's "
+    "charged-skill attack category, so hold-to-continue skills like Unending Dance "
+    "count as not chargeable)",
+    "default_affinity": "Ash of War: the affinity a weapon takes when it's applied "
+    "(EquipParamGem defaultWepAttr; Golden Parry Sacred, Lion's Claw Heavy) (#290)",
+    "affinities": "Ash of War: every affinity it allows (#290), named like weapon "
+    "affinity (Flame Skewer: Standard, Heavy, Keen, Quality, Fire, Flame Art). "
+    "Some still need a whetblade (Heavy/Keen/Quality the Iron Whetblade, Fire the "
+    "Red-Hot Whetblade); that link isn't modelled",
+    "weapon_classes": "Ash of War: the weapon classes it can be applied to, as "
+    "menu_category names (EquipParamGem canMountWep flags) (#290). Holy Ground: Small "
+    "Shield, Medium Shield, Greatshield, Thrusting Shield. Every class is listed, even "
+    "where skill_poise_damage has no hits",
     "depicts_weapon": "talisman depicts this weapon (lore cross-reference)",
     "depicted_in_talisman": "weapon depicted in this talisman (lore cross-reference)",
     "attack_power": "weapon/ammo attack power at +0 by damage type, as shown in game "
