@@ -47,6 +47,7 @@ def search_entities(
     include_unavailable: bool = False,
     collapse_affinity: bool = False,
     collapse_variants: bool = False,
+    is_dlc: bool | None = None,
 ) -> list[dict] | dict:
     """Search Elden Ring entities by name, description, location, or tags.
 
@@ -270,9 +271,12 @@ def search_entities(
             with their own names and often copies of the base text. Everything outside
             a family is unaffected. Use it to count distinct items.
         collapse_affinity: Deprecated alias for collapse_variants.
+        is_dlc: True keeps only Shadow of the Erdtree content, False only base-game
+            content; None (default) keeps both. Every doc carries is_dlc (#297); see
+            describe_fields() for how each entity type is decided.
 
     Returns a list of entity documents when count_only is False, each with at minimum:
-    entity_type, name, patch_version and source; description is present on items,
+    entity_type, name, patch_version, source and is_dlc; description is present on items,
     equipment, dialogue, game_text and merchants but not on enemy, boss, location,
     site_of_grace, warp, quest or cutscene docs. Use get_entity() for the
     full document of a specific named entity, or describe_fields() to see all
@@ -356,6 +360,7 @@ def search_entities(
         include_unavailable,
         collapse_affinity,
         collapse_variants,
+        is_dlc,
     )
 
 
@@ -675,6 +680,7 @@ def search_entities_literal(
     include_unavailable: bool = False,
     collapse_affinity: bool = False,
     collapse_variants: bool = False,
+    is_dlc: bool | None = None,
 ) -> dict:
     """Search for entities containing an exact literal substring across text fields.
 
@@ -802,6 +808,8 @@ def search_entities_literal(
             altered armor). Everything outside a family is unaffected. Also applies to
             total.
         collapse_affinity: Deprecated alias for collapse_variants.
+        is_dlc: True keeps only Shadow of the Erdtree content, False only base-game
+            content; None (default) keeps both (#297). Also applies to total.
 
     Returns a dict with:
         total: int — the full match count, never capped by limit (results may be
@@ -836,6 +844,7 @@ def search_entities_literal(
         include_unavailable,
         collapse_affinity,
         collapse_variants,
+        is_dlc,
     )
 
 
