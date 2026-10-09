@@ -776,6 +776,26 @@ def test_acquisition_types_note_lists_strike_reward():
     assert "strike_reward" in mcp_server.search_entities.__doc__
 
 
+def test_reward_sources_from_weapons_and_quest_rewards_mapped():
+    # #304: scripted-award sources + quest rewards; #305: from_weapon AoWs.
+    rs = _PROPS["reward_sources"]["properties"]
+    assert {k: rs[k]["type"] for k in ("type", "map", "npc", "locations", "flags")} == {
+        "type": "keyword",
+        "map": "keyword",
+        "npc": "keyword",
+        "locations": "keyword",
+        "flags": "long",
+    }
+    assert rs["step"]["properties"]["phase_flag"]["type"] == "long"
+    assert _PROPS["from_weapons"]["type"] == "keyword"
+    assert _PROPS["rewards"]["type"] == "keyword"
+    for field in ("reward_sources", "from_weapons", "rewards"):
+        assert field in _FIELD_NOTES
+    assert "from_weapon (an Ash of War" in _FIELD_NOTES["acquisition_types"]
+    assert "from_weapon" in mcp_server.search_entities.__doc__
+    assert "requires_flag" in _FIELD_NOTES["placements"]
+
+
 def test_corpse_acquisition_type_and_placement_flag_documented():
     # #136: corpse type + placements[].on_corpse (placements isn't indexed).
     assert "corpse (looted from a body" in _FIELD_NOTES["acquisition_types"]
