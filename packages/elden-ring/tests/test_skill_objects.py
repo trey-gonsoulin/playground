@@ -13,7 +13,7 @@ def test_skill_mapped():
     assert skill["fp_cost"] == {"type": "integer"}
     assert skill["chargeable"] == {"type": "boolean"}
     follow = skill["follow_up_fp_cost"]["properties"]
-    assert follow == {"r1": {"type": "integer"}, "r2": {"type": "integer"}}
+    assert follow == {"light": {"type": "integer"}, "heavy": {"type": "integer"}}
     assert _PROPS["default_ash_of_war"] == {"type": "keyword"}  # unchanged
 
 
@@ -24,7 +24,7 @@ def test_ash_affinity_fields_mapped():
 
 def test_documented():
     note = _FIELD_NOTES["skill"]
-    for key in ("fp_cost", "follow_up_fp_cost.r1", "chargeable", "caption"):
+    for key in ("fp_cost", "follow_up_fp_cost.light", "chargeable", "caption"):
         assert key in note, key
     assert "26 (-/12)" in note and "Wall of Sparks" in note
     assert "Sacred" in _FIELD_NOTES["default_affinity"]

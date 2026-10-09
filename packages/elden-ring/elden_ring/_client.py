@@ -1110,7 +1110,7 @@ INDEX_MAPPING = {
                     "caption": {"type": "text"},
                     "fp_cost": {"type": "integer"},
                     "follow_up_fp_cost": {
-                        "properties": _props("integer", ("r1", "r2"))
+                        "properties": _props("integer", ("light", "heavy"))
                     },
                     "chargeable": {"type": "boolean"},
                 }
@@ -2946,9 +2946,9 @@ _FIELD_NOTES: dict[str, str] = {
     "skill": "weapons (their default skill, default_ash_of_war) and Ashes of War: the "
     "skill from SwordArtsParam (#289). name; caption (the ArtsCaption text); fp_cost "
     "(FP spent on the skill button; 0 = free, e.g. Transient Moonlight and Unsheathe "
-    "stances, Kick); follow_up_fp_cost.r1 / .r2 (FP of the light / heavy attack button "
+    "stances, Kick); follow_up_fp_cost.light / .heavy (FP of the light / heavy attack button "
     "during or after the skill, absent when it has none: Spinning Gravity Thrust "
-    "fp_cost 26 + r2 12, the wiki's '26 (-/12)'; Transient Moonlight r1 15 / r2 20); "
+    "fp_cost 26 + heavy 12, the wiki's '26 (-/12)'; Transient Moonlight light 15 / heavy 20); "
     "chargeable (the skill can be held to charge it: Wall of Sparks, Flame Spear, "
     "Charge Forth; from the skill animations' charge-release states and Godfrey Icon's "
     "charged-skill attack category, so hold-to-continue skills like Unending Dance "
