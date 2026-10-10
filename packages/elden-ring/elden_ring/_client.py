@@ -2941,7 +2941,9 @@ _FIELD_NOTES: dict[str, str] = {
     "one encounter. Includes defeat rewards (remembrances, great runes) awarded when the "
     "boss's defeat flag turns on, and every row of a chained item lot (#134). Every "
     "phase name of a multi-phase fight lists the fight's rewards (Messmer the Impaler and "
-    "Base Serpent Messmer -> Remembrance of the Impaler; #303)",
+    "Base Serpent Messmer -> Remembrance of the Impaler; #303). A fight whose characters "
+    "aren't placed takes the awards of a same-named character on its map (Needle Knight "
+    "Leda -> Leda's Sword, from her stand-in; #321)",
     "equipment": "on a humanoid enemy/NPC/invader doc: the gear it is equipped with, from "
     "its map placement's CharaInitParam loadout (#85). Groups: weapons, ashes_of_war, armor, "
     "spells, talismans, ammo (item doc names; e.g. Recusant Henricus: Great Mace + Ash of "
@@ -4014,7 +4016,9 @@ _FIELD_NOTES: dict[str, str] = {
     "locations": "on enemy and item docs (#140): the dungeon location docs its "
     "placements are in (catacombs, caves, tunnels, gaols, legacy dungeons: "
     "locations='Murkwater Catacombs') and the open-world landmarks whose MSB footprint "
-    "holds them (#80: locations='Castle Morne'). Item locations cover "
+    "holds them (#80: locations='Castle Morne'); a boss's enemy placement just outside "
+    "the boss doc's landmark takes it too (an evergaol boss by its stone: Battlemage "
+    "Hugues -> Sellia Evergaol, #322). Item locations cover "
     "pickups only; enemy drops are in drop_locations. On a quest doc (#95): every "
     "step's locations (dungeons, open-world landmarks and regions), in step order",
     "drop_regions": "on item docs (#141): the regions (+ tabs) of the enemies in "
