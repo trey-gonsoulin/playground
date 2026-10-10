@@ -549,6 +549,8 @@ INDEX_MAPPING = {
             "info_text": {"type": "text"},
             "tags": {"type": "keyword"},
             "location": {"type": "text", "fields": {"keyword": {"type": "keyword"}}},
+            # Boss docs: landmark (a location doc) vs area (region-map name) (#329).
+            "location_kind": {"type": "keyword"},
             "weight": {"type": "float"},
             # Grouped stat objects (#115); weapon stats at +0.
             **_WEAPON_STATS,
@@ -2723,9 +2725,19 @@ _FIELD_NOTES: dict[str, str] = {
     "open-world arena the landmark location doc whose MSB footprint holds "
     "arena_position or lies within 20 m of it (#301: Rakshasa -> Eastern Nameless "
     "Mausoleum; an evergaol's footprint is a 12 m sphere round its stone, so Alecto -> "
-    "Ringleader's Evergaol); absent for an open-world arena near no landmark (see "
-    "nearest_grace / region). Enemy and item placements name their dungeon location "
-    "doc instead (see locations)",
+    "Ringleader's Evergaol). An open-world arena near no landmark falls back to the "
+    "area it stands in, with location_kind 'area' (#329): a MapNameOverride volume "
+    "naming another area, else the entering banner volume, else the game's region "
+    "map (Night's Cavalry (Altus Highway Junction) -> Altus Plateau, Demi-Human "
+    "Queen Marigga -> Cerulean Coast). Absent only for an underground arena outside "
+    "every location doc (Astel, Ancestor Spirit, Metyr; see nearest_grace / region). "
+    "Enemy and item placements name their dungeon location doc instead (see "
+    "locations)",
+    "location_kind": "on a boss doc with a location (#329): 'landmark' when location "
+    "names a location doc (a dungeon, or an open-world landmark whose footprint holds "
+    "the arena), 'area' when it's the broad region-map area an open-world arena "
+    "stands in (e.g. 'Weeping Peninsula'; that area's location doc doesn't list the "
+    "boss in bosses, though a region doc lists it by region)",
     "sold_by": "merchant names that sell this item, derived per-patch from ShopLineupParam "
     "(includes Twin Maiden Husks for lineups they re-sell once given the bell bearing, #145). "
     "A row with no vendor label takes it from the NPC talk script that opens its range "
