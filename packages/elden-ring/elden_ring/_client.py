@@ -1186,6 +1186,8 @@ INDEX_MAPPING = {
             "alterable": {"type": "boolean"},
             "altered_variant": {"type": "keyword"},
             "altered_from": {"type": "keyword"},
+            # Armor set membership (#325), from the EquipParamProtector row layout.
+            "armor_set": {"type": "keyword"},
         },
     },
 }
@@ -3410,6 +3412,13 @@ _FIELD_NOTES: dict[str, str] = {
     "alterable": "armor piece can be altered (Boc / Master Hewg service)",
     "altered_variant": "name of the altered version of this armor",
     "altered_from": "name of the base armor this piece is altered from",
+    "armor_set": "armor set this piece belongs to, e.g. Banished Knight Set (helm, "
+    "armor, gauntlets, greaves and their (Altered) pieces). No param lists sets: pieces "
+    "sharing an EquipParamProtector row base, named '<shared leading words> Set' "
+    "(Night Set for Helm/Armor of Night), else after the body piece (Eye Surcoat Set). "
+    "Absent on single pieces (Imp Heads, Scarabs, Jar). List a set's pieces with "
+    "search_entities_literal(pattern='Banished Knight Set', "
+    "fields=['armor_set']) (whole-value match)",
     "name_ja": "Japanese name; .ja/.morph/.lemma subfields drive JP search modes",
     "description_ja": "Japanese description; .ja/.morph/.lemma subfields drive JP search "
     "modes. On equipment and goods docs; npc_dialogue, game_text, talk_option and "
