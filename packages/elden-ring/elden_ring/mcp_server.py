@@ -172,8 +172,10 @@ def search_entities(
             boss         — one doc per boss encounter (#79, GameAreaParam; plus
                            health-bar duels with no row, source="EMEVD", #300):
                            enemies fought (phases, duo partners), the encounter's
-                           own in-game stats_scaled and negation (#301), location /
-                           region / nearest_grace / map, runes (plus runes_ng_plus
+                           own in-game stats_scaled and negation (#301), location
+                           (+ location_kind: landmark, or area for an open-world
+                           arena near no landmark, #329) / region /
+                           nearest_grace / map, runes (plus runes_ng_plus
                            and the runes_coop host / cooperator split, #299), the
                            defeat banner (boss tier:
                            Enemy Felled … Demigod Felled, Legend Felled, God Slain),
