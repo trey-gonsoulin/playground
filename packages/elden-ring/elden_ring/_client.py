@@ -2731,8 +2731,8 @@ _FIELD_NOTES: dict[str, str] = {
     "area it stands in, with location_kind 'area' (#329): a MapNameOverride volume "
     "naming another area, else the entering banner volume, else the game's region "
     "map (Night's Cavalry (Altus Highway Junction) -> Altus Plateau, Demi-Human "
-    "Queen Marigga -> Cerulean Coast). Absent only for an underground arena outside "
-    "every location doc (Astel, Ancestor Spirit, Metyr; see nearest_grace / region). "
+    "Queen Marigga -> Cerulean Coast). Absent only for an underground or separate-map "
+    "arena outside every location doc (Astel, Ancestor Spirit, Metyr; see nearest_grace / region). "
     "Enemy and item placements name their dungeon location doc instead (see "
     "locations)",
     "location_kind": "on a boss doc with a location (#329): 'landmark' when location "
@@ -2956,8 +2956,7 @@ _FIELD_NOTES: dict[str, str] = {
     "boss's defeat flag turns on, and every row of a chained item lot (#134). Items "
     "put out to pick up where the boss fell, once a plain script relay turns on a flag "
     "from the defeat flag, count too (Dryleaf Dane -> Dryleaf Arts, Dane's Hat; #328). "
-    "Every "
-    "phase name of a multi-phase fight lists the fight's rewards (Messmer the Impaler and "
+    "Every phase name of a multi-phase fight lists the fight's rewards (Messmer the Impaler and "
     "Base Serpent Messmer -> Remembrance of the Impaler; #303). A fight whose characters "
     "aren't placed takes the awards of a same-named character on its map (Needle Knight "
     "Leda -> Leda's Sword, from her stand-in; #321)",
