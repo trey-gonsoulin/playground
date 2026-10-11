@@ -174,7 +174,9 @@ def search_entities(
                            enemies fought (phases, duo partners), the encounter's
                            own in-game stats_scaled and negation (#301), location
                            (+ location_kind: landmark, or area for an open-world
-                           arena near no landmark, #329) / region /
+                           arena near no landmark, #329; location_type: the
+                           landmark's marker kind, catacombs / cave /
+                           evergaol…, #340) / region /
                            nearest_grace / map, runes (plus runes_ng_plus
                            and the runes_coop host / cooperator split, #299), the
                            defeat banner (boss tier:

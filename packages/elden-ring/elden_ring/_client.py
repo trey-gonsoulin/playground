@@ -551,6 +551,8 @@ INDEX_MAPPING = {
             "location": {"type": "text", "fields": {"keyword": {"type": "keyword"}}},
             # Boss docs: landmark (a location doc) vs area (region-map name) (#329).
             "location_kind": {"type": "keyword"},
+            # Boss docs: the landmark location's world-map marker kind (#340).
+            "location_type": {"type": "keyword"},
             "weight": {"type": "float"},
             # Grouped stat objects (#115); weapon stats at +0.
             **_WEAPON_STATS,
@@ -2733,8 +2735,11 @@ _FIELD_NOTES: dict[str, str] = {
     "area it stands in, with location_kind 'area' (#329): a MapNameOverride volume "
     "naming another area, else the entering banner volume, else the game's region "
     "map (Night's Cavalry (Altus Highway Junction) -> Altus Plateau, Demi-Human "
-    "Queen Marigga -> Cerulean Coast). Absent only for an underground or separate-map "
-    "arena outside every location doc (Astel, Ancestor Spirit, Metyr; see nearest_grace / region). "
+    "Queen Marigga -> Cerulean Coast). An arena on a separate map with no place name "
+    "of its own (#339) takes the world-map marker location its entrance stands at, "
+    "found through WorldMapLegacyConvParam, with location_kind 'landmark' (Astel -> "
+    "Grand Cloister, Ancestor Spirit and Regal Ancestor Spirit -> their Hallowhorn "
+    "Grounds, Metyr -> Finger Ruins of Miyr). "
     "Enemy and item placements name their dungeon location doc instead (see "
     "locations)",
     "location_kind": "on a boss doc with a location (#329): 'landmark' when location "
@@ -2742,6 +2747,14 @@ _FIELD_NOTES: dict[str, str] = {
     "the arena), 'area' when it's the broad region-map area an open-world arena "
     "stands in (e.g. 'Weeping Peninsula'; that area's location doc doesn't list the "
     "boss in bosses, though a region doc lists it by region)",
+    "location_type": "on a boss doc with location_kind 'landmark' (#340): the world-map "
+    "marker kind of that location, the same values as a marker location doc's kind: "
+    "catacombs, cave, tunnel, ruins, church, shack, rise, evergaol, hero_grave, fort, "
+    "castle, settlement, legacy_dungeon, divine_tower, tower, minor_erdtree, gaol, "
+    "forge, well, mausoleum, colosseum, gate, grand_lift. When a same-named marker "
+    "merged into a region doc, that marker's kind (Stormveil Castle -> "
+    "legacy_dungeon). Absent for an 'area' location and for a landmark whose marker "
+    "icon has no label (Grand Cloister, Hallowhorn Grounds)",
     "sold_by": "merchant names that sell this item, derived per-patch from ShopLineupParam "
     "(includes Twin Maiden Husks for lineups they re-sell once given the bell bearing, #145). "
     "A row with no vendor label takes it from the NPC talk script that opens its range "
