@@ -1158,7 +1158,7 @@ def _extract_merchant_items(z: zipfile.ZipFile) -> dict[str, list[str]]:
         if base_vendor not in item_to_vendors[item_name]:
             item_to_vendors[item_name].append(base_vendor)
 
-    # Apply same vendor corrections as _parse_merchants
+    # Apply the known erdb vendor corrections
     for (wrong_vendor, item_name), correct_vendor in _VENDOR_ITEM_OVERRIDES.items():
         if item_name in item_to_vendors and wrong_vendor in item_to_vendors[item_name]:
             item_to_vendors[item_name].remove(wrong_vendor)
@@ -1826,10 +1826,6 @@ def load_discord_bot_npcs() -> list[dict]:
 # These Row Name prefixes are armor-alteration service menus, not NPC shops.
 _SKIP_SHOP_NAMES: frozenset[str] = frozenset({"Alteration", "Reversion"})
 
-# Remembrance-trade entries in ShopLineupParam aren't named after Enia;
-# hard-map them to her location.
-_REMEMBRANCE_LOCATION = "Roundtable Hold (Finger Reader Enia)"
-
 # Known erdb attribution errors: (wrong_vendor, item_name) → correct_vendor.
 # Iji has no entries in erdb's ShopLineupParam at all; his item is misattributed
 # to Rogier (both NPCs are found in Stormveil Castle / Liurnia and share story
@@ -1843,178 +1839,6 @@ _VENDOR_ITEM_OVERRIDES: dict[tuple[str, str], str] = {
 }
 
 
-def _build_merchant_location_map() -> dict[str, str]:
-    """Download npcs.csv and build a merchant-name → location map.
-
-    Uses exact match (case-insensitive) first, then prefix match so that
-    "Miriel" finds "Miriel, Pastor of Vows".
-    """
-    resp = requests.get(f"{DISCORD_BOT_BASE}/npcs.csv", timeout=30)
-    resp.raise_for_status()
-
-    name_to_loc: dict[str, str] = {}
-    for row in csv.DictReader(io.StringIO(resp.text)):
-        name = row.get("name", "").strip()
-        loc = row.get("location", "").strip()
-        if name and loc:
-            name_to_loc[name.lower()] = loc
-
-    return name_to_loc
-
-
-def _lookup_merchant_location(merchant: str, name_to_loc: dict[str, str]) -> str | None:
-    key = merchant.lower()
-    if key in name_to_loc:
-        return name_to_loc[key]
-    # Prefix match: NPC name starts with the merchant key + punctuation/space
-    # e.g. "Miriel" matches "miriel, pastor of vows"
-    for npc_name, loc in name_to_loc.items():
-        if npc_name.startswith(key + ",") or npc_name.startswith(key + " "):
-            return loc
-    return None
-
-
-def _parse_merchants(
-    z: zipfile.ZipFile, patch_version: str, npc_loc_map: dict[str, str] | None = None
-) -> list[dict]:
-    """Parse ShopLineupParam.csv into one merchant document per NPC vendor.
-
-    Row Name format: "[Merchant Name] Item Name" or "[Merchant Name - Condition] Item Name"
-    where Condition is a prayerbook/scroll unlock, questline phase, etc.
-
-    All condition-gated sub-inventories are merged under the base merchant name so
-    a single document covers everything that NPC can ever sell.
-    """
-    rows = _csv_rows(z, "ShopLineupParam.csv")
-
-    # merchant_name → condition → [item entries]
-    merchant_data: dict[str, dict[str, list[dict]]] = defaultdict(
-        lambda: defaultdict(list)
-    )
-
-    for row in rows:
-        row_name = row.get("Row Name", "").strip()
-        m = re.match(r"^\[(.+?)\]\s*(.+)$", row_name)
-        if not m:
-            continue
-
-        full_vendor = m.group(1).strip()
-        item_name = m.group(2).strip()
-
-        base_vendor, _, condition = full_vendor.partition(" - ")
-        base_vendor = base_vendor.strip()
-        condition = condition.strip()
-
-        if base_vendor in _SKIP_SHOP_NAMES:
-            continue
-
-        price = int(float(row.get("value", 0) or 0))
-        qty = int(float(row.get("sellQuantity", -1) or -1))
-
-        merchant_data[base_vendor][condition].append(
-            {
-                "item": item_name,
-                "price": price,
-                "qty": qty,
-            }
-        )
-
-    # Correct known erdb attribution errors
-    for (wrong_vendor, item_name), correct_vendor in _VENDOR_ITEM_OVERRIDES.items():
-        if wrong_vendor not in merchant_data:
-            continue
-        for condition in list(merchant_data[wrong_vendor].keys()):
-            entries = merchant_data[wrong_vendor][condition]
-            corrected = [e for e in entries if e["item"] == item_name]
-            remaining = [e for e in entries if e["item"] != item_name]
-            if not corrected:
-                continue
-            merchant_data[correct_vendor][condition].extend(corrected)
-            if remaining:
-                merchant_data[wrong_vendor][condition] = remaining
-            else:
-                del merchant_data[wrong_vendor][condition]
-        if not any(merchant_data[wrong_vendor].values()):
-            del merchant_data[wrong_vendor]
-
-    docs: list[dict] = []
-    for vendor_name, conditions in merchant_data.items():
-        # Build readable text_content grouped by unlock condition
-        text_lines: list[str] = [f"Items sold by {vendor_name}:"]
-        all_items: list[str] = []
-
-        # Unconditional items first, then condition-gated
-        for condition in sorted(conditions.keys(), key=lambda c: (bool(c), c)):
-            entries = conditions[condition]
-            if condition:
-                text_lines.append(f"\n  [Requires: {condition}]")
-            for e in entries:
-                qty_str = "" if e["qty"] == -1 else f" (qty: {e['qty']})"
-                price_str = f"{e['price']:,}" if e["price"] > 0 else "free"
-                text_lines.append(f"  {e['item']} — {price_str} runes{qty_str}")
-                all_items.append(e["item"])
-
-        total = len(all_items)
-        description = f"Sells {total} item{'s' if total != 1 else ''}: " + ", ".join(
-            all_items[:6]
-        )
-        if total > 6:
-            description += f" and {total - 6} more"
-
-        # Tag by vendor type
-        tags: list[str] = []
-        vl = vendor_name.lower()
-        if any(
-            k in vl
-            for k in ("merchant", "kale", "patches", "boggart", "pidia", "rogier")
-        ):
-            tags.append("merchant")
-        if "enia" in vl or "remembrance" in vl or "elden remembrance" in vl:
-            tags.extend(["special_vendor", "remembrance_trade"])
-        if "dragon communion" in vl:
-            tags.extend(["special_vendor", "dragon_communion"])
-        if "miriel" in vl or "corhyn" in vl or "sellen" in vl or "gowry" in vl:
-            tags.append("spell_vendor")
-        if not tags:
-            tags.append("vendor")
-
-        # Resolve location
-        location: list[str] | None = None
-        if npc_loc_map:
-            if "remembrance" in vl or "elden remembrance" in vl:
-                location = [_REMEMBRANCE_LOCATION]
-            else:
-                # For generic "Merchant" (nomadic merchants grouped by location-as-condition),
-                # derive location from the condition names embedded in text_content.
-                if vendor_name == "Merchant" and conditions:
-                    loc_parts = [
-                        c
-                        for c in conditions
-                        if c
-                        and c not in ("", "Isolated Merchant", "Abandoned Merchant")
-                    ]
-                    if loc_parts:
-                        location = loc_parts[:4] + (["…"] if len(loc_parts) > 4 else [])
-                else:
-                    loc = _lookup_merchant_location(vendor_name, npc_loc_map)
-                    location = [loc] if loc else None
-
-        docs.append(
-            {
-                "entity_type": "merchant",
-                "name": vendor_name,
-                "patch_version": patch_version,
-                "source": "erdb",
-                "description": description,
-                "text_content": "\n".join(text_lines),
-                "tags": tags,
-                "location": location,
-            }
-        )
-
-    return docs
-
-
 # ---------------------------------------------------------------------------
 # erdb top-level loader
 # ---------------------------------------------------------------------------
@@ -2024,7 +1848,6 @@ def load_erdb(
     version: str = ERDB_DEFAULT_VERSION,
     location_map: dict[str, list[str]] | None = None,
     jp_fmgs: dict | None = None,
-    npc_loc_map: dict[str, str] | None = None,
     supplement_dlc_aow: bool = True,
     supplement_dlc: bool = True,
     drop_map: dict[str, dict[str, list[str]]] | None = None,
@@ -2041,9 +1864,6 @@ def load_erdb(
 
     lm = location_map or {}
     print(f"  Parsing game data (patch {patch_version}) …")
-    if npc_loc_map is None:
-        print("  Downloading NPC location data for merchant enrichment …")
-        npc_loc_map = _build_merchant_location_map()
     if bot_talisman_map is None:
         bot_talisman_map = _load_discord_bot_talismans()
     with zipfile.ZipFile(zip_data) as z:
@@ -2073,7 +1893,6 @@ def load_erdb(
             merchant_items,
             discord_bot_map=bot_talisman_map,
         )
-        merchants = _parse_merchants(z, patch_version, npc_loc_map)
 
     if supplement_dlc_aow or supplement_dlc:
         aow = aow + _supplement_aow(
@@ -2103,7 +1922,6 @@ def load_erdb(
         "spells": len(spells),
         "ashes_of_war": len(aow),
         "talismans": len(talismans),
-        "merchants": len(merchants),
     }
     print(f"  Parsed: {counts}")
     if jp_fmgs:
@@ -2115,7 +1933,7 @@ def load_erdb(
             "talismans": f"{_count_ja(talismans)}/{len(talismans)}",
         }
         print(f"  JP coverage: {ja_counts}")
-    return weapons + armor + spells + aow + talismans + merchants
+    return weapons + armor + spells + aow + talismans
 
 
 # ---------------------------------------------------------------------------
@@ -2356,8 +2174,6 @@ def main() -> None:
     if not skip_erdb:
         versions_to_load = ERDB_VERSIONS if args.all_patches else [args.erdb_version]
         # Download shared lookup tables once and reuse across all patch versions.
-        print("  Downloading NPC location data for merchant enrichment …")
-        npc_loc_map = _build_merchant_location_map()
         print("Loading acquisition drop map …")
         drop_map = _build_drop_map()
         # Fetch the Discord bot talisman CSV once; load_erdb reuses it across every
@@ -2377,7 +2193,6 @@ def main() -> None:
                 version,
                 location_map=location_map,
                 jp_fmgs=jp_fmgs,
-                npc_loc_map=npc_loc_map,
                 # DLC supplements have no patch history; only add them on the latest
                 # erdb version, regardless of whether --all-patches is set.
                 supplement_dlc=(version == ERDB_DEFAULT_VERSION),
