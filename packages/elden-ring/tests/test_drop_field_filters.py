@@ -127,4 +127,5 @@ def test_drop_near_locations_is_mapped_and_noted():
     props = _client.INDEX_MAPPING["mappings"]["properties"]
     assert props["drop_near_locations"] == {"type": "keyword"}
     assert "#347" in _FIELD_NOTES["drop_near_locations"]
+    assert "#352" in _FIELD_NOTES["drop_near_locations"]  # scripted + landmarks
     assert _with_drop_fields(["drop_locations"]) == ["drop_locations"]
