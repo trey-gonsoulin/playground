@@ -224,8 +224,9 @@ def search_entities(
                            To list what's in a place, search enemy / item docs with
                            search_entities_literal(pattern="Caelid",
                            fields=["regions"]) or fields=["locations"] (a dungeon);
-                           add "drop_regions" / "drop_locations" to include items
-                           that enemies there drop. Graces and locations also carry
+                           items that enemies there drop (drop_regions /
+                           drop_locations) are included unless
+                           include_drop_fields=False (#344). Graces and locations also carry
                            warps_to / warps_from (the places warps connect them to).
             warp         — one doc per scripted map-to-map warp (#94, EMEVD): kind
                            waygate / return_to_entrance / evergaol / cutscene /
@@ -367,7 +368,9 @@ def search_entities(
                            those placements (#140)
       areas              — the game's region-map areas of those placements (#194)
       drop_regions / drop_locations — the same, for the dropped_by enemies'
-                           placements that carry the item (#141)
+                           placements that carry the item (#141); a
+                           search_entities_literal over fields=["regions"] /
+                           ["locations"] matches these too (#344)
     Item variants (weapon affinities, talisman ranks, flask +N, altered armor) are their
     own docs and link to their base via base_item; the base doc's variants field
     summarizes the family. Talisman ranks also carry text_differs: True when their text
@@ -712,6 +715,7 @@ def search_entities_literal(
     collapse_affinity: bool = False,
     collapse_variants: bool = False,
     is_dlc: bool | None = None,
+    include_drop_fields: bool = True,
 ) -> dict:
     """Search for entities containing an exact literal substring across text fields.
 
@@ -841,6 +845,12 @@ def search_entities_literal(
         collapse_affinity: Deprecated alias for collapse_variants.
         is_dlc: True keeps only Shadow of the Erdtree content, False only base-game
             content; None (default) keeps both (#297). Also applies to total.
+        include_drop_fields: With fields naming "regions" or "locations", item docs
+            match by where their dropping enemies are too (drop_regions /
+            drop_locations, #344): fields=["locations"], pattern="Murkwater
+            Catacombs" finds the catacombs' pickups and its enemies' drops. Default
+            True; pass False for pickups and placements only. Naming
+            "drop_regions" / "drop_locations" alone still gives drops only.
 
     Returns a dict with:
         total: int — the full match count, never capped by limit (results may be
@@ -876,6 +886,7 @@ def search_entities_literal(
         collapse_affinity,
         collapse_variants,
         is_dlc,
+        include_drop_fields,
     )
 
 

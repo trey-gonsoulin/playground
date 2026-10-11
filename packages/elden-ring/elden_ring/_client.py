@@ -1998,6 +1998,23 @@ def _route_literal_fields(
     return routed
 
 
+# Item regions / locations hold pickup placements only; the dropping enemies'
+# placements are in drop_regions / drop_locations (#141). A literal search over
+# the pickup field also searches its drop twin by default (#344), so
+# fields=["locations"] finds Black Knife where the Black Knife Assassin dies.
+_DROP_FIELD_TWINS = {"regions": "drop_regions", "locations": "drop_locations"}
+
+
+def _with_drop_fields(fields: list[str]) -> list[str]:
+    """Add drop_regions / drop_locations after regions / locations when missing."""
+    out = list(fields)
+    for f in fields:
+        twin = _DROP_FIELD_TWINS.get(f)
+        if twin and twin not in out:
+            out.insert(out.index(f) + 1, twin)
+    return out
+
+
 def search_literal(
     client: OpenSearch,
     pattern: str | None = None,
@@ -2019,6 +2036,7 @@ def search_literal(
     collapse_affinity: bool = False,
     collapse_variants: bool = False,
     is_dlc: bool | None = None,
+    include_drop_fields: bool = True,
 ) -> dict:
     """Exact-phrase search across text fields, with optional structural filters.
 
@@ -2047,9 +2065,15 @@ def search_literal(
     source or unmapped field name up front, and an entity_type / source /
     patch_version that no document carries when the result is empty. An empty
     result over a mapped field that no doc of the type carries adds "warnings".
+
+    fields naming regions / locations also search drop_regions / drop_locations
+    unless include_drop_fields=False (#344), so an item dropped where its enemy
+    dies is found by the place as well as a pickup there.
     """
     if err := _precheck(source, fields, include_fields):
         return err
+    if fields and include_drop_fields:
+        fields = _with_drop_fields(fields)
     requested_version = patch_version
     patch_version = _canonical_version(client, patch_version)
     out = _search_literal(
@@ -4054,8 +4078,9 @@ _FIELD_NOTES: dict[str, str] = {
     "regions": "on enemy and item docs (#140): the distinct map-menu regions of its "
     "placements (each placement's nearest grace) plus their tabs, so "
     "regions='Limgrave' also finds things in Stormhill and regions='Caelid' finds what "
-    "is placed anywhere in Caelid. Every value is a location doc. Item regions cover "
-    "pickups only; enemy drops are in drop_regions",
+    "is placed anywhere in Caelid. Every value is a location doc. Item regions hold "
+    "pickups only and enemy drops are in drop_regions, but a search over "
+    "fields=['regions'] matches both unless include_drop_fields=False (#344)",
     "areas": "on enemy and item docs (#194): the distinct area values of its "
     "open-world placements (the game's own region map at each spot, #80), so "
     "areas='Stormhill' finds what is placed inside Stormhill's border even where the "
@@ -4066,17 +4091,21 @@ _FIELD_NOTES: dict[str, str] = {
     "locations='Murkwater Catacombs') and the open-world landmarks whose MSB footprint "
     "holds them (#80: locations='Castle Morne'); a boss's enemy placement just outside "
     "the boss doc's landmark takes it too (an evergaol boss by its stone: Battlemage "
-    "Hugues -> Sellia Evergaol, #322). Item locations cover "
+    "Hugues -> Sellia Evergaol, #322). Item locations hold "
     "pickups only (including drops put out to pick up after a death or defeat, "
-    "#341); other enemy drops are in drop_locations. On a quest doc (#95): every "
+    "#341); other enemy drops are in drop_locations, but a search over "
+    "fields=['locations'] matches both unless include_drop_fields=False (#344). "
+    "On a quest doc (#95): every "
     "step's locations (dungeons, open-world landmarks and regions), in step order",
     "drop_regions": "on item docs (#141): the regions (+ tabs) of the enemies in "
     "dropped_by, counting only the placements that carry the item (their own death "
     "lot or scripted award) when known, else every placement of that enemy. "
     "drop_regions='Caelid' finds what enemies in Caelid drop; kept apart from the "
-    "pickup regions",
+    "pickup regions (fields=['regions'] searches both, #344; "
+    "fields=['drop_regions'] alone gives drops only)",
     "drop_locations": "on item docs (#141): the dungeon and landmark (#80) location "
-    "docs of those dropping placements, e.g. drop_locations='Murkwater Catacombs'",
+    "docs of those dropping placements, e.g. drop_locations='Murkwater Catacombs' "
+    "(fields=['locations'] searches both, #344)",
     "from": "on a warp doc (#94): where the warp starts. {map, world_position | "
     "position, grace, region, parent_region, location, entity_id}: entity_id is the "
     "MSB entity that triggers it (the waygate or stone asset the prompt is on, or a "
