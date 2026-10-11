@@ -184,8 +184,8 @@ def search_entities(
                            #93, and requires_step, the quest step behind it:
                            {quest, phase_flag, order}; #189; else
                            requires_set_when, what turns the flag on, #228;
-                           excludes, the NPCs whose sign stands in for this
-                           one's, #338). Named after the
+                           excludes, the NPCs whose sign can't be out with
+                           this one, #338). Named after the
                            defeated character; a name several encounters share gets
                            the place appended, e.g. "Night's Cavalry (Gate Town
                            Bridge)" — search entity_type="boss" by name to list them.
