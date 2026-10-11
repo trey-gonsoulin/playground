@@ -226,7 +226,8 @@ def search_entities(
                            search_entities_literal(pattern="Caelid",
                            fields=["regions"]) or fields=["locations"] (a dungeon);
                            items that enemies there drop (drop_regions /
-                           drop_locations) are included unless
+                           drop_locations / drop_near_locations, just outside a
+                           dungeon) are included unless
                            include_drop_fields=False (#344). Graces and locations also carry
                            warps_to / warps_from (the places warps connect them to).
             warp         — one doc per scripted map-to-map warp (#94, EMEVD): kind
@@ -248,9 +249,9 @@ def search_entities(
                            locations whose scripts check the phase, and when: the
                            conditions — boss_defeated, talk, invasion, item_pickup,
                            item_held, another NPC's quest_phase / life_state /
-                           quest_flag (a flag only that NPC's quest or
-                           character sets; also_set_when lists what else
-                           turns it on, e.g. a storyline close-out),
+                           quest_flag (a flag whose only NPC-named setter is
+                           that NPC's quest or character; also_set_when lists
+                           what else turns it on, e.g. a storyline close-out),
                            hit_count (the NPC hit N times), a raw flag named only by the maps that set it, or any_of
                            with nested conditions, one of which holds). outcomes
                            are life-state changes (hostile / dead). Phases are
