@@ -2001,7 +2001,8 @@ def _route_literal_fields(
 # Item regions / locations hold pickup placements only; the dropping enemies'
 # placements are in drop_regions / drop_locations (#141). A literal search over
 # the pickup field also searches its drop twin by default (#344), so
-# fields=["locations"] finds Black Knife where the Black Knife Assassin dies.
+# fields=["regions"] finds Black Knife where the Black Knife Assassin stands
+# (drop_regions = Altus Plateau).
 _DROP_FIELD_TWINS = {"regions": "drop_regions", "locations": "drop_locations"}
 
 
@@ -2072,14 +2073,15 @@ def search_literal(
     """
     if err := _precheck(source, fields, include_fields):
         return err
-    if fields and include_drop_fields:
-        fields = _with_drop_fields(fields)
+    search_fields = (
+        _with_drop_fields(fields) if fields and include_drop_fields else fields
+    )
     requested_version = patch_version
     patch_version = _canonical_version(client, patch_version)
     out = _search_literal(
         client,
         pattern=pattern,
-        fields=fields,
+        fields=search_fields,
         entity_type=entity_type,
         patch_version=patch_version,
         limit=limit,
@@ -2101,6 +2103,7 @@ def search_literal(
     if not out["total"]:
         if err := _check_filter_values(client, entity_type, source, patch_version):
             return err
+        # Warn only about the fields the caller named, not the drop twins.
         if fields and (
             warnings := _field_coverage_warnings(client, fields, entity_type)
         ):

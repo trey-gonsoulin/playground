@@ -60,6 +60,27 @@ def test_search_literal_default_fields_untouched(monkeypatch):
     assert seen["fields"] is None
 
 
+def test_empty_result_warns_only_about_named_fields(monkeypatch):
+    """The drop twins are searched but never warned about (#344 review)."""
+    monkeypatch.setattr(_client, "_canonical_version", lambda c, v: v)
+    monkeypatch.setattr(
+        _client, "_search_literal", lambda client, **kw: {"total": 0, "results": []}
+    )
+    monkeypatch.setattr(_client, "_check_filter_values", lambda *a: None)
+    warned = []
+
+    def fake_warnings(client, fields, entity_type):
+        warned.append(list(fields))
+        return [f"{f}: no {entity_type} documents carry this field" for f in fields]
+
+    monkeypatch.setattr(_client, "_field_coverage_warnings", fake_warnings)
+    out = _client.search_literal(
+        None, pattern="Nowhere", fields=["regions"], entity_type="enemy"
+    )
+    assert warned == [["regions"]]
+    assert not any("drop_regions" in w for w in out["warnings"])
+
+
 def test_expanded_fields_reach_one_multi_match(monkeypatch):
     """Both fields sit in one multi_match under must, filters beside it (no should)."""
     monkeypatch.setattr(_client, "_canonical_version", lambda c, v: "1.17.1")
