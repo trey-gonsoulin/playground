@@ -53,3 +53,13 @@ def test_region_location_type_rule_documented():
     # #346: a marker-less region/subregion location falls back to its arena map
     note = _FIELD_NOTES["location_type"]
     assert "underground_area" in note and "Deeproot Depths" in note
+
+
+def test_area_label_documented():
+    # #350: a text-only map label (icon 0) is kind 'area', and a boss there has
+    # location_kind and location_type 'area'
+    for field in ("kind", "location_kind", "location_type"):
+        note = _FIELD_NOTES[field]
+        assert "#350" in note and "Three Sisters" in note, field
+    assert "Absent on text-only map labels" not in _FIELD_NOTES["kind"]
+    assert "Scadutree Avatar -> Scadutree Base" in _FIELD_NOTES["location_type"]
