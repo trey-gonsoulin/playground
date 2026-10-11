@@ -259,6 +259,7 @@ def test_grouped_leaves_mapped():
         "locations": "keyword",
         "drop_regions": "keyword",
         "drop_locations": "keyword",
+        "drop_near_locations": "keyword",  # #347
         "drop_sources.enemy": "keyword",  # #230
         "drop_sources.scope": "keyword",
         "drop_sources.chance": "float",

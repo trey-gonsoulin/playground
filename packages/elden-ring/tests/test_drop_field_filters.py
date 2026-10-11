@@ -10,13 +10,18 @@ from elden_ring._client import _FIELD_NOTES, _with_drop_fields
 
 
 def test_with_drop_fields_adds_twins_after_their_field():
-    assert _with_drop_fields(["locations"]) == ["locations", "drop_locations"]
+    assert _with_drop_fields(["locations"]) == [
+        "locations",
+        "drop_locations",
+        "drop_near_locations",
+    ]
     assert _with_drop_fields(["name", "regions"]) == ["name", "regions", "drop_regions"]
     assert _with_drop_fields(["regions", "locations"]) == [
         "regions",
         "drop_regions",
         "locations",
         "drop_locations",
+        "drop_near_locations",
     ]
 
 
@@ -43,7 +48,7 @@ def _capture(monkeypatch):
 def test_search_literal_expands_by_default(monkeypatch):
     seen = _capture(monkeypatch)
     _client.search_literal(None, pattern="Murkwater Catacombs", fields=["locations"])
-    assert seen["fields"] == ["locations", "drop_locations"]
+    assert seen["fields"] == ["locations", "drop_locations", "drop_near_locations"]
 
 
 def test_search_literal_opt_out_keeps_pickups_only(monkeypatch):
@@ -115,3 +120,11 @@ def test_field_notes_describe_the_default():
         assert "#344" in _FIELD_NOTES[f]
     assert "include_drop_fields=False" in _FIELD_NOTES["regions"]
     assert "include_drop_fields=False" in _FIELD_NOTES["locations"]
+
+
+def test_drop_near_locations_is_mapped_and_noted():
+    """#347: enemies just outside a dungeon entrance."""
+    props = _client.INDEX_MAPPING["mappings"]["properties"]
+    assert props["drop_near_locations"] == {"type": "keyword"}
+    assert "#347" in _FIELD_NOTES["drop_near_locations"]
+    assert _with_drop_fields(["drop_locations"]) == ["drop_locations"]

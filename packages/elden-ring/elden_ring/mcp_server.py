@@ -373,6 +373,10 @@ def search_entities(
                            placements that carry the item (#141); a
                            search_entities_literal over fields=["regions"] /
                            ["locations"] matches these too (#344)
+      drop_near_locations — dungeons whose entrance an entity-id'd dropping enemy
+                           stands by, outside (#347: Black Knife -> Sainted
+                           Hero's Grave);
+                           fields=["locations"] matches these too
     Item variants (weapon affinities, talisman ranks, flask +N, altered armor) are their
     own docs and link to their base via base_item; the base doc's variants field
     summarizes the family. Talisman ranks also carry text_differs: True when their text
@@ -849,7 +853,8 @@ def search_entities_literal(
             content; None (default) keeps both (#297). Also applies to total.
         include_drop_fields: With fields naming "regions" or "locations", item docs
             match by where their dropping enemies are too (drop_regions /
-            drop_locations, #344): fields=["locations"], pattern="Murkwater
+            drop_locations, #344; plus drop_near_locations, enemies just outside
+            the entrance, #347): fields=["locations"], pattern="Murkwater
             Catacombs" finds the catacombs' pickups and its enemies' drops. Default
             True; pass False for pickups and placements only. Naming
             "drop_regions" / "drop_locations" alone still gives drops only.
