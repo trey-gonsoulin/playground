@@ -675,6 +675,8 @@ INDEX_MAPPING = {
             "school_boosted_by": {"type": "keyword"},
             "slots": {"type": "integer"},
             "sort_id": {"type": "integer"},
+            # Item param row id + menu icon id (#327).
+            **_props("integer", ("param_id", "icon_id")),
             "menu_category": {"type": "keyword"},
             "npc_id": {"type": "keyword"},
             "name_source": {"type": "keyword"},
@@ -2734,6 +2736,18 @@ _FIELD_NOTES: dict[str, str] = {
     "(2106500) and Prelate's Inferno Crozier (2504500), and many DLC armaments "
     "(+100 … +900 offsets), are not, so sort_id_mod silently drops them. Always use "
     "collapse_variants to count distinct armaments",
+    "param_id": "the param row id behind an item doc (#327), to look the row up in "
+    "Paramdex or Smithbox: EquipParamWeapon (weapons, ammo; each affinity doc is its "
+    "own row, Heavy Uchigatana 9000100), EquipParamProtector, EquipParamAccessory, "
+    "EquipParamGem, EquipParamGoods and Magic (a spell's row id is also its goods "
+    "row id). A name on several rows is the row the doc's fields come from: a spirit "
+    "ash's +0 row, else the lowest-id uncut row. Absent on cut items whose row is "
+    "gone (text only). Not compared between variants",
+    "icon_id": "the item's menu icon id (#327), the number in its MENU_Knowledge "
+    "icon texture name: iconId of the param_id row (Uchigatana 10320; affinity "
+    "docs share the base's icon), armor's male icon (iconIdM; 12 rows have a "
+    "different female one), and a spell's goods-row inventory icon (Magic's own "
+    "iconId is a separate id range). Absent when the row has none (0)",
     "affinity": "infusable weapon's affinity (Standard, Heavy, Keen, … Occult); each affinity "
     "is its own doc, linked to the Standard row by base_item",
     "base_item": "on an item variant doc: its family's base. Weapon affinity -> Standard "
