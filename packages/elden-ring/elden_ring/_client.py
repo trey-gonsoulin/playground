@@ -336,6 +336,9 @@ _QUEST_CONDITION = {
     # kind hit_count (#218): the character's MSB entities + the hits counted
     "entity_ids": {"type": "long"},
     "hits": {"type": "integer"},
+    # kind quest_flag (#348): a common close-out also turns the flag on once any of
+    # these (leaf conditions) holds; stored, not indexed (the field limit)
+    "also_set_when": {"type": "object", "enabled": False},
 }
 # kind any_of (#203): at least one of the nested (leaf) conditions holds
 _QUEST_CONDITION = {**_QUEST_CONDITION, "conditions": {"properties": _QUEST_CONDITION}}
@@ -3849,7 +3852,10 @@ _FIELD_NOTES: dict[str, str] = {
     "lists the other NPCs whose sign can't be out with this one: their "
     "requires_set_when needs a flag on that this one needs off (Needle Knight Leda: "
     "Pureblood Knight Ansbach needs Sir Ansbach's quest_flag 4893 on, Sanguine Noble "
-    "Nataan needs it off, so Nataan's sign stands in for Ansbach's)",
+    "Nataan needs it off, so Nataan's sign stands in for Ansbach's). A quest_flag "
+    "leaf's also_set_when (#348) lists what else turns it on: Freyja's sign at "
+    "Rugalea needs her quest_flag 4897 off, which the Leda storyline's close-out "
+    "also sets once Moore's phase 4928 or the invasion flag 7625 is on",
     "summonable_for": "on an enemy doc: the boss docs where this NPC can be summoned "
     "(reverse of npc_summons)",
     "hostile_signs": "on an enemy doc: the NPC's signs tied to no boss fight. kind "
@@ -4405,7 +4411,9 @@ _FIELD_NOTES: dict[str, str] = {
     "flags that name npc; quest when that NPC has several blocks: Sir Ansbach's "
     "4893, which gates his and Nataan's signs at Needle Knight Leda, Thiollier's "
     "4894, Redmane Freyja's 4897 at Rugalea, Hornsent's 4898 at the Golden "
-    "Hippopotamus, Fire Knight Queelign's 4860–4876), flag "
+    "Hippopotamus, Fire Knight Queelign's 4860–4876; also_set_when, #348: the "
+    "conditions, any one of which also turns it on through a common close-out that "
+    "names no NPC: 4897 once Moore's quest_phase 4928 or invasion 7625 is on), flag "
     "(unresolved; set_at = the "
     "locations of the maps whose events set it), or any_of (conditions: at least one "
     "of these nested conditions holds, each shaped as above). negated = the "
