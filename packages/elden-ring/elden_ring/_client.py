@@ -2753,8 +2753,10 @@ _FIELD_NOTES: dict[str, str] = {
     "castle, settlement, legacy_dungeon, divine_tower, tower, minor_erdtree, gaol, "
     "forge, well, mausoleum, colosseum, gate, grand_lift. When a same-named marker "
     "merged into a region doc, that marker's kind (Stormveil Castle -> "
-    "legacy_dungeon). Absent for an 'area' location and for a landmark whose marker "
-    "icon has no label (Grand Cloister, Hallowhorn Grounds)",
+    "legacy_dungeon). Absent for an 'area' location, for a landmark whose marker "
+    "icon has no label (Grand Cloister, Hallowhorn Grounds), and for a region or "
+    "subregion location with no marker of its own (Deeproot Depths, Nokron, Mohgwyn "
+    "Palace, Leyndell Ashen Capital)",
     "sold_by": "merchant names that sell this item, derived per-patch from ShopLineupParam "
     "(includes Twin Maiden Husks for lineups they re-sell once given the bell bearing, #145). "
     "A row with no vendor label takes it from the NPC talk script that opens its range "
