@@ -2007,7 +2007,7 @@ def _route_literal_fields(
 # the pickup field also searches its drop twin by default (#344), so
 # fields=["regions"] finds Black Knife where the Black Knife Assassin stands
 # (drop_regions = Altus Plateau). locations also brings drop_near_locations
-# (#347): dungeons whose entrance a dropping enemy stands just outside.
+# (#347/#352): dungeons or landmarks a scripted dropping enemy stands just outside.
 _DROP_FIELD_TWINS = {
     "regions": ("drop_regions",),
     "locations": ("drop_locations", "drop_near_locations"),
@@ -4148,13 +4148,16 @@ _FIELD_NOTES: dict[str, str] = {
     "drop_locations": "on item docs (#141): the dungeon and landmark (#80) location "
     "docs of those dropping placements, e.g. drop_locations='Murkwater Catacombs' "
     "(fields=['locations'] searches both, #344)",
-    "drop_near_locations": "on item docs (#347): the dungeon location docs whose "
-    "entrance a scripted (entity-id'd) dropping placement stands by in the open world: "
-    "within 50 m sideways and 20 m up or down of the dungeon's world-map marker, "
-    "e.g. Black Knife -> Sainted Hero's Grave (the Black Knife Assassin at its "
-    "entrance), Reduvia -> Murkwater Cave (Bloody Finger Nerijus). The drop happens "
-    "outside, so these aren't in drop_locations; fields=['locations'] searches them "
-    "too (#344)",
+    "drop_near_locations": "on item docs (#347): the location docs a scripted "
+    "dropping placement stands just outside of in the open world: a dungeon whose "
+    "world-map marker is within 50 m sideways and 20 m up or down, else (#352) an "
+    "open-world landmark (church, ruins, sanctum…) whose map footprint is that close. "
+    "Scripted = the item is a scripted award to that one placed character (invader, "
+    "named NPC, field boss); ordinary enemies' death-lot drops never count, e.g. "
+    "Black Knife -> Sainted Hero's Grave (the Black Knife Assassin at its "
+    "entrance), Reduvia -> Murkwater Cave (Bloody Finger Nerijus), Gargoyle's "
+    "Blackblade -> Bestial Sanctum. The drop happens outside, so these aren't in "
+    "drop_locations; fields=['locations'] searches them too (#344)",
     "from": "on a warp doc (#94): where the warp starts. {map, world_position | "
     "position, grace, region, parent_region, location, entity_id}: entity_id is the "
     "MSB entity that triggers it (the waygate or stone asset the prompt is on, or a "
