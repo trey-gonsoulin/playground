@@ -4146,8 +4146,10 @@ _FIELD_NOTES: dict[str, str] = {
     "pickup regions (fields=['regions'] searches both, #344; "
     "fields=['drop_regions'] alone gives drops only)",
     "drop_locations": "on item docs (#141): the dungeon and landmark (#80) location "
-    "docs of those dropping placements, e.g. drop_locations='Murkwater Catacombs' "
-    "(fields=['locations'] searches both, #344)",
+    "docs of those dropping placements, e.g. drop_locations='Murkwater Catacombs'; "
+    "a scripted drop standing within 3 m of a landmark's map footprint and level "
+    "with it counts as in that landmark (#353: Miriel's Bell Bearing -> Church of "
+    "Vows) (fields=['locations'] searches both, #344)",
     "drop_near_locations": "on item docs (#347): the location docs a scripted "
     "dropping placement stands just outside of in the open world: a dungeon whose "
     "world-map marker is within 50 m sideways and 20 m up or down, else (#352) an "
@@ -4158,7 +4160,9 @@ _FIELD_NOTES: dict[str, str] = {
     "Black Knife -> Sainted Hero's Grave (the Black Knife Assassin at its "
     "entrance), Reduvia -> Murkwater Cave (Bloody Finger Nerijus), Gargoyle's "
     "Blackblade -> Bestial Sanctum. The drop happens outside, so these aren't in "
-    "drop_locations; fields=['locations'] searches them too (#344)",
+    "drop_locations; a landmark only a few metres off (3 m, less for a small "
+    "shack) is drop_locations instead (#353). fields=['locations'] searches them "
+    "too (#344)",
     "from": "on a warp doc (#94): where the warp starts. {map, world_position | "
     "position, grace, region, parent_region, location, entity_id}: entity_id is the "
     "MSB entity that triggers it (the waygate or stone asset the prompt is on, or a "
