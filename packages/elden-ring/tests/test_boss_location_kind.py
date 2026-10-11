@@ -19,4 +19,21 @@ def test_location_notes_describe_area_fallback():
 
 
 def test_search_docstring_mentions_location_kind():
-    assert "location_kind" in (mcp_server.search_entities.__doc__ or "")
+    doc = mcp_server.search_entities.__doc__ or ""
+    assert "location_kind" in doc and "location_type" in doc
+
+
+def test_location_type_mapped_and_documented():
+    # #340: the landmark's marker kind, kept apart from location_kind
+    assert _PROPS["location_type"] == {"type": "keyword"}
+    note = _FIELD_NOTES["location_type"]
+    assert "#340" in note and "'landmark'" in note and "'area'" in note
+    for kind in ("catacombs", "cave", "evergaol", "minor_erdtree", "legacy_dungeon"):
+        assert kind in note
+
+
+def test_separate_map_arena_location_documented():
+    # #339: separate-map arenas take their entrance marker's location
+    loc = _FIELD_NOTES["location"]
+    assert "#339" in loc and "WorldMapLegacyConvParam" in loc
+    assert "Grand Cloister" in loc and "Absent only" not in loc
