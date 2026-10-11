@@ -177,3 +177,22 @@ def test_quest_fields_documented():
         "hits",
     ):
         assert kind in _FIELD_NOTES["steps.when"], kind
+
+
+def test_quest_flag_also_set_when_stored():
+    """#348: a quest_flag leaf's also_set_when (a close-out's any_of leaves) is
+    stored unindexed on every condition shape, and documented."""
+    off = {"type": "object", "enabled": False}
+    for path in (
+        "steps.when.also_set_when",
+        "steps.when.conditions.also_set_when",
+        "outcomes.when.also_set_when",
+        "outcomes.waited_for.also_set_when",
+        "npc_summons.requires_set_when.also_set_when",
+        "npc_summons.requires_set_when.conditions.also_set_when",
+        "npc_summons.requires_set_when.conditions.conditions.also_set_when",
+        "gate_set_when.conditions.conditions.also_set_when",
+    ):
+        assert _mapped(path) == off, path
+    assert "also_set_when" in _FIELD_NOTES["steps.when"]
+    assert "also_set_when" in _FIELD_NOTES["npc_summons"]
