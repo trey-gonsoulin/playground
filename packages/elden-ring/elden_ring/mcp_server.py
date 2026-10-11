@@ -104,7 +104,8 @@ def search_entities(
                            named GestureParam row with no description (the
                            game's gesture captions are placeholders), and how
                            each is unlocked in acquisition_types / given_by /
-                           starting_classes
+                           starting_classes; found_in_world ones carry
+                           placements / maps / regions (#337)
             merchant     — NPC vendor inventories with item names and rune prices;
                            search by item name to find who sells it, or by merchant
                            name / location to get their full stock
