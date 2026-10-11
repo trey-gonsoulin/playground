@@ -183,7 +183,9 @@ def search_entities(
                            summon signs for the fight + their quest gate flag;
                            #93, and requires_step, the quest step behind it:
                            {quest, phase_flag, order}; #189; else
-                           requires_set_when, what turns the flag on, #228). Named after the
+                           requires_set_when, what turns the flag on, #228;
+                           excludes, the NPCs whose sign stands in for this
+                           one's, #338). Named after the
                            defeated character; a name several encounters share gets
                            the place appended, e.g. "Night's Cavalry (Gate Town
                            Bridge)" — search entity_type="boss" by name to list them.
@@ -241,7 +243,8 @@ def search_entities(
                            transitions (phase_flag, order, entered_from, the
                            locations whose scripts check the phase, and when: the
                            conditions — boss_defeated, talk, invasion, item_pickup,
-                           item_held, another NPC's quest_phase / life_state,
+                           item_held, another NPC's quest_phase / life_state /
+                           quest_flag (a flag only that NPC's quest sets),
                            hit_count (the NPC hit N times), a raw flag named only by the maps that set it, or any_of
                            with nested conditions, one of which holds). outcomes
                            are life-state changes (hostile / dead). Phases are
