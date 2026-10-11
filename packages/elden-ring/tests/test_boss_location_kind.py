@@ -37,3 +37,13 @@ def test_separate_map_arena_location_documented():
     loc = _FIELD_NOTES["location"]
     assert "#339" in loc and "WorldMapLegacyConvParam" in loc
     assert "Grand Cloister" in loc and "Absent only" not in loc
+
+
+def test_marker_icon_kinds_documented():
+    # #346: the newly named marker icons are listed for both location kind and
+    # boss location_type
+    for field in ("kind", "location_type"):
+        note = _FIELD_NOTES[field]
+        assert "#346" in note
+        for kind in ("eternal_city", "underground_ruins", "sunken_town", "bridge"):
+            assert kind in note, (field, kind)
