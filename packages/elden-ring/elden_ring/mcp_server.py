@@ -249,7 +249,8 @@ def search_entities(
                            conditions — boss_defeated, talk, invasion, item_pickup,
                            item_held, another NPC's quest_phase / life_state /
                            quest_flag (a flag only that NPC's quest or
-                           character sets),
+                           character sets; also_set_when lists what else
+                           turns it on, e.g. a storyline close-out),
                            hit_count (the NPC hit N times), a raw flag named only by the maps that set it, or any_of
                            with nested conditions, one of which holds). outcomes
                            are life-state changes (hostile / dead). Phases are
