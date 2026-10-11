@@ -2784,9 +2784,11 @@ _FIELD_NOTES: dict[str, str] = {
     "same-named marker merged into a region doc, that marker's kind (Stormveil "
     "Castle -> legacy_dungeon, Nokron -> eternal_city). Absent for an 'area' "
     "location, for a landmark whose marker is a text-only map label with no icon "
-    "(Three Sisters, Wailing Dunes, Scadutree Base), and for a region or "
-    "subregion location with no marker of its own (Deeproot Depths, Nokron, Mohgwyn "
-    "Palace, Leyndell Ashen Capital)",
+    "(Three Sisters, Wailing Dunes, Scadutree Base). A region or subregion location "
+    "with no marker of its own takes it from the arena's map (#346): "
+    "underground_area on the m12 underground (Deeproot Depths, Mohgwyn Palace, "
+    "Ainsel River Main), legacy_dungeon on another non-open-world map (Leyndell, "
+    "Ashen Capital, Specimen Storehouse); absent on an open-world map",
     "sold_by": "merchant names that sell this item, derived per-patch from ShopLineupParam "
     "(includes Twin Maiden Husks for lineups they re-sell once given the bell bearing, #145). "
     "A row with no vendor label takes it from the NPC talk script that opens its range "
