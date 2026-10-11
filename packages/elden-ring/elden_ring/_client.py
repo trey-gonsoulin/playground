@@ -817,6 +817,8 @@ INDEX_MAPPING = {
                     "requires_flag": {"type": "long"},
                     "requires_step": {"properties": _QUEST_LINK},  # #189
                     "requires_set_when": {"properties": _SET_WHEN},  # #228
+                    # the other npcs whose sign can't be out with this one (#338)
+                    "excludes": {"type": "keyword"},
                 }
             },
             "summonable_for": {"type": "keyword"},
@@ -3796,7 +3798,11 @@ _FIELD_NOTES: dict[str, str] = {
     "turns the flag on (see gate_set_when): Jerren at Radahn = a SpEffect on Radahn "
     "(kind character, state special_effect, entity 1052380800) while Starscourge "
     "Radahn is not yet defeated, with the player in their own world (in_own_world); "
-    "Freyja at the Dancing Lion = Moore's phase 4927 not yet reached",
+    "Freyja at the Dancing Lion = Moore's phase 4927 not yet reached. excludes (#338) "
+    "lists the other NPCs whose sign can't be out with this one: their "
+    "requires_set_when needs a flag on that this one needs off (Needle Knight Leda: "
+    "Pureblood Knight Ansbach needs Sir Ansbach's quest_flag 4893 on, Sanguine Noble "
+    "Nataan needs it off, so Nataan's sign stands in for Ansbach's)",
     "summonable_for": "on an enemy doc: the boss docs where this NPC can be summoned "
     "(reverse of npc_summons)",
     "hostile_signs": "on an enemy doc: the NPC's signs tied to no boss fight. kind "
@@ -4335,7 +4341,10 @@ _FIELD_NOTES: dict[str, str] = {
     "scripts set: a dialogue choice, hand-over or line, #257), quest_phase / life_state (npc, "
     "quest when that NPC has several blocks), hit_count (a map flag set once the "
     "player has hit the npc that many times while friendly: hits, entity_ids = its "
-    "MSB entities; the hostility counter Ranni / Iji / Seluvis wait on), flag "
+    "MSB entities; the hostility counter Ranni / Iji / Seluvis wait on), quest_flag "
+    "(#338: a flag outside any quest doc's block that only npc's quest manager event "
+    "turns on; quest when that NPC has several blocks: Sir Ansbach's 4893, which "
+    "gates his and Nataan's signs at Needle Knight Leda), flag "
     "(unresolved; set_at = the "
     "locations of the maps whose events set it), or any_of (conditions: at least one "
     "of these nested conditions holds, each shaped as above). negated = the "
