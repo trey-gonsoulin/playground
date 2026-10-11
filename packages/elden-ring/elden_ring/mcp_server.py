@@ -246,7 +246,8 @@ def search_entities(
                            locations whose scripts check the phase, and when: the
                            conditions — boss_defeated, talk, invasion, item_pickup,
                            item_held, another NPC's quest_phase / life_state /
-                           quest_flag (a flag only that NPC's quest sets),
+                           quest_flag (a flag only that NPC's quest or
+                           character sets),
                            hit_count (the NPC hit N times), a raw flag named only by the maps that set it, or any_of
                            with nested conditions, one of which holds). outcomes
                            are life-state changes (hostile / dead). Phases are
