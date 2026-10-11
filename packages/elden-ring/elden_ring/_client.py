@@ -2079,8 +2079,9 @@ def search_literal(
     result over a mapped field that no doc of the type carries adds "warnings".
 
     fields naming regions / locations also search drop_regions / drop_locations
-    unless include_drop_fields=False (#344), so an item dropped where its enemy
-    dies is found by the place as well as a pickup there.
+    (and drop_near_locations, #347) unless include_drop_fields=False (#344), so an
+    item dropped where its enemy dies is found by the place as well as a pickup
+    there.
     """
     if err := _precheck(source, fields, include_fields):
         return err
@@ -2797,8 +2798,8 @@ _FIELD_NOTES: dict[str, str] = {
     "location, for a landmark whose marker is a text-only map label with no icon "
     "(Three Sisters, Wailing Dunes, Scadutree Base). A region or subregion location "
     "with no marker of its own takes it from the arena's map (#346): "
-    "underground_area on the m12 underground (Deeproot Depths, Mohgwyn Palace, "
-    "Ainsel River Main), legacy_dungeon on another non-open-world map (Leyndell, "
+    "underground_area on the m12 underground (Deeproot Depths, Ainsel River Main), "
+    "legacy_dungeon for Mohgwyn Palace and another non-open-world map (Leyndell "
     "Ashen Capital, Specimen Storehouse); absent on an open-world map",
     "sold_by": "merchant names that sell this item, derived per-patch from ShopLineupParam "
     "(includes Twin Maiden Husks for lineups they re-sell once given the bell bearing, #145). "
@@ -4127,7 +4128,8 @@ _FIELD_NOTES: dict[str, str] = {
     "Hugues -> Sellia Evergaol, #322). Item locations hold "
     "pickups only (including drops put out to pick up after a death or defeat, "
     "#341); other enemy drops are in drop_locations, but a search over "
-    "fields=['locations'] matches both unless include_drop_fields=False (#344). "
+    "fields=['locations'] also matches drop_locations and drop_near_locations "
+    "unless include_drop_fields=False (#344, #347). "
     "On a quest doc (#95): every "
     "step's locations (dungeons, open-world landmarks and regions), in step order",
     "drop_regions": "on item docs (#141): the regions (+ tabs) of the enemies in "
