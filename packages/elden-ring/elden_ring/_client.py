@@ -4155,8 +4155,8 @@ _FIELD_NOTES: dict[str, str] = {
     "fields=['drop_regions'] alone gives drops only)",
     "drop_locations": "on item docs (#141): the dungeon and landmark (#80) location "
     "docs of those dropping placements, e.g. drop_locations='Murkwater Catacombs'; "
-    "a scripted drop standing within 3 m of a landmark's map footprint and level "
-    "with it counts as in that landmark (#353: Miriel's Bell Bearing -> Church of "
+    "a scripted drop standing within 3 m of a landmark's map footprint (less for a "
+    "small shack) and level with it counts as in that landmark (#353: Miriel's Bell Bearing -> Church of "
     "Vows) (fields=['locations'] searches both, #344)",
     "drop_near_locations": "on item docs (#347): the location docs a scripted "
     "dropping placement stands just outside of in the open world: a dungeon whose "
