@@ -2719,7 +2719,7 @@ _FIELD_NOTES: dict[str, str] = {
     "reuses, e.g. Tree Sentinel, stay false). Warps: either end in a DLC map. Quests: a "
     "DLC NPC or DLC-only locations. Merchants: a DLC NPC (Moore, Thiollier), a DLC "
     "Remembrance's trade, or a location (its '(Region)' suffix dropped) that is a DLC "
-    "place, e.g. Count Ymir at Cathedral of Manus Metyr. npc_dialogue / game_text / "
+    "place, e.g. Count Ymir, High Priest at Cathedral of Manus Metyr. npc_dialogue / game_text / "
     "talk_option: the line is DLC text. At 1.17.1: 102 base "
     "weapons (498 with affinities), 145 armor, 42 spells, 25 Ashes of War, 39 "
     "talismans, 20 spirit ashes, 43 bosses, 68 enemies. Always false before 1.12.0",
@@ -2833,7 +2833,11 @@ _FIELD_NOTES: dict[str, str] = {
     "(#212): Moore's DLC stock, or the merchant whose other rows share the range. "
     "Remembrance trades name the remembrance as the vendor (Finger Reader Enia's "
     "lineups); Dragon Communion is split by site (Church / Cathedral / Grand Altar of "
-    "Dragon Communion) and Count Ymir sells the Cathedral of Manus Metyr sorceries (#281). "
+    "Dragon Communion) and Count Ymir, High Priest sells the Cathedral of Manus Metyr "
+    "sorceries (#281). A vendor is named by its talk NPC's NpcName persona, as quest and "
+    "given_by name NPCs (#318): Merchant Kalé, Sage Gowry, Miriel, Pastor of Vows, D, Hunter "
+    "of the Dead, Finger Reader Enia, Smithing Master Iji, Blackguard; nomadic merchants "
+    "stay 'Merchant' (the site is the listing condition). "
     "Rows of the unused lineup (flag 99019780) never count as a sale",
     "shop_listings": "not searchable; returned by get_entity. One entry per ShopLineupParam "
     "row selling the item (#89): vendor, condition (the shop row's unlock label, e.g. a "
@@ -2860,7 +2864,7 @@ _FIELD_NOTES: dict[str, str] = {
     "resale_flags on the Twin Maiden Husks' copies of another merchant's rows (#145: given "
     "a merchant's bell bearing, the Husks sell that lineup; unlocked_by / handed_to then "
     "cover both the bell bearing and the row's own unlock, e.g. Pest Threads resold from "
-    "Gowry needs Gowry's Bell Bearing and Valkyrie's Prosthesis) and materials "
+    "Sage Gowry needs Gowry's Bell Bearing and Valkyrie's Prosthesis) and materials "
     "[{item, quantity}] for item costs (remembrance trades; some also charge runes, e.g. "
     "Grafted Dragon 2000 + Remembrance of the Grafted), and unused: true on rows of a "
     'lineup no talk script opens and no script unlocks (vendor "Unused lineup", unlock_flag '

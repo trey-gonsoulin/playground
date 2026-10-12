@@ -1548,8 +1548,8 @@ def test_diff_reports_acquisition_change_across_patches(client):
             "source": "ShopLineupParam",
             "description": "acq diff test",
             "text_content": "",
-            "sold_by": ["Merchant Kale"],
-            "acquisition_sources": ["Merchant Kale"],
+            "sold_by": ["Merchant Kalé"],
+            "acquisition_sources": ["Merchant Kalé"],
             "acquisition_types": ["merchant"],
         },
         {
