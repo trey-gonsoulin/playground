@@ -3503,6 +3503,9 @@ _FIELD_NOTES: dict[str, str] = {
     "armor, gauntlets, greaves and their (Altered) pieces). No param lists sets: pieces "
     "sharing an EquipParamProtector row base, named '<shared leading words> Set' "
     "(Night Set for Helm/Armor of Night), else after the body piece (Eye Surcoat Set). "
+    "A few sets split across row bases are merged (Bandit Mask into Bandit Set), and a "
+    "few names follow the pieces' own captions (Mausoleum Soldier Set, Highland Warrior "
+    "Set, Radahn Foot Soldier Set); the game itself names no sets. "
     "Absent on single pieces (Imp Heads, Scarabs, Jar). List a set's pieces with "
     "search_entities_literal(pattern='Banished Knight Set', "
     "fields=['armor_set']) (whole-value match)",
