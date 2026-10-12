@@ -1105,9 +1105,12 @@ INDEX_MAPPING = {
             # Scripted awards' source (#304): map, gating flags, NPC, quest step.
             "reward_sources": {
                 "properties": {
-                    **_props("keyword", ("type", "map", "npc", "locations")),
+                    **_props(
+                        "keyword", ("type", "map", "npc", "locations", "requires_items")
+                    ),
                     "flags": {"type": "long"},
                     "step": {"properties": _QUEST_LINK},
+                    "requires_interaction": {"type": "boolean"},  # #360
                 }
             },
             "from_weapons": {"type": "keyword"},  # #305
@@ -2927,10 +2930,16 @@ _FIELD_NOTES: dict[str, str] = {
     "that flag on (#332), or the NPC whose body or spot the award's pickup sits on: "
     "the Consort's Set on Tanith, Rogier's Rapier on Rogier, named as the item's "
     "given_by when that is the placement's own persona (Renna, not Ranni), #358; or "
-    "the NPC of the item's other quest_reward on the same map, #332)}. E.g. Rogier's Bell "
+    "the NPC of the item's other quest_reward on the same map, #332; or the NPC and "
+    "step of the quest_reward of an item it requires, #360), requires_items (items "
+    "the player must hold for the award, #360), requires_interaction (true when the "
+    "award also waits on an action prompt or object interaction, #360)}. E.g. Rogier's Bell "
     "Bearing: quest_reward, m11_10_00_00, flags [3909], Roundtable Hold, npc Sorcerer "
     "Rogier; Scaled Armor: invader_drop, flags [7602], npc Old Knight Istvan; St. "
-    "Trina's Smile: quest_reward, m22_00_00_00, flags [22000496], npc Thiollier. On "
+    "Trina's Smile: quest_reward, m22_00_00_00, flags [22000496], npc Thiollier; "
+    "Miquella's Needle: quest_reward, m15_00_00_00, flags [15009212] (set once "
+    "Malenia falls), requires_items [Unalloyed Gold Needle], requires_interaction "
+    "true (offered at Miquella's cocoon), npc Millicent. On "
     "an open-world tile, locations are the tile's landmarks and region, not the exact "
     "spot. A pickup the award puts on a map object also gets a placement with "
     "requires_flag. Flags no single NPC turns on (picking up another item, a boss "
