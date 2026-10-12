@@ -675,8 +675,8 @@ INDEX_MAPPING = {
             "school_boosted_by": {"type": "keyword"},
             "slots": {"type": "integer"},
             "sort_id": {"type": "integer"},
-            # Item param row id + menu icon id (#327).
-            **_props("integer", ("param_id", "icon_id")),
+            # Item param row id + menu icon id; armor's body type 2 icon (#327).
+            **_props("integer", ("param_id", "icon_id", "icon_id_body_type_2")),
             "menu_category": {"type": "keyword"},
             "npc_id": {"type": "keyword"},
             "name_source": {"type": "keyword"},
@@ -2745,9 +2745,13 @@ _FIELD_NOTES: dict[str, str] = {
     "gone (text only). Not compared between variants",
     "icon_id": "the item's menu icon id (#327), the number in its MENU_Knowledge "
     "icon texture name: iconId of the param_id row (Uchigatana 10320; affinity "
-    "docs share the base's icon), armor's male icon (iconIdM; 12 rows have a "
-    "different female one), and a spell's goods-row inventory icon (Magic's own "
+    "docs share the base's icon), armor's body type 1 icon (iconIdM; see "
+    "icon_id_body_type_2), and a spell's goods-row inventory icon (Magic's own "
     "iconId is a separate id range). Absent when the row has none (0)",
+    "icon_id_body_type_2": "armor only (#327): the body type 2 menu icon (iconIdF), "
+    "set only when it differs from icon_id, the body type 1 icon (8 pieces, e.g. "
+    "Chain Armor 14891 / 14896). Absent = both body types use icon_id. Not compared "
+    "between variants",
     "affinity": "infusable weapon's affinity (Standard, Heavy, Keen, … Occult); each affinity "
     "is its own doc, linked to the Standard row by base_item",
     "base_item": "on an item variant doc: its family's base. Weapon affinity -> Standard "
