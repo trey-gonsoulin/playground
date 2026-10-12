@@ -27,3 +27,16 @@ def test_inventory_notes():
         assert leaf in note, leaf
     assert "can't be sold" in note
     assert "0-3" in _FIELD_NOTES["rarity"]
+
+
+def test_param_and_icon_ids_mapped_and_documented():  # #327
+    assert _PROPS["param_id"] == {"type": "integer"}
+    assert _PROPS["icon_id"] == {"type": "integer"}
+    assert "Paramdex" in _FIELD_NOTES["param_id"]
+    assert "iconId" in _FIELD_NOTES["icon_id"]
+    assert _PROPS["icon_id_body_type_2"] == {"type": "integer"}
+    note = _FIELD_NOTES["icon_id_body_type_2"]
+    assert "body type 2" in note and "iconIdF" in note
+    assert "body type 1" in _FIELD_NOTES["icon_id"]
+    for n in ("icon_id", "icon_id_body_type_2"):
+        assert "male" not in _FIELD_NOTES[n].lower(), n
