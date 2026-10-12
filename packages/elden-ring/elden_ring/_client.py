@@ -2939,7 +2939,9 @@ _FIELD_NOTES: dict[str, str] = {
     "[Dryleaf Arts]",
     "given_by": "on an item doc: NPCs whose talk script gives the item (#23), named via the "
     "NPC's map placement. One script can serve several personas of the same character "
-    "(Roderika / Roderika, Spirit Tuner) or a shared questline (Irina and Hyetta). "
+    "(Roderika / Roderika, Spirit Tuner) or a shared questline (Irina and Hyetta); a "
+    "gift under the flag of one character's own death lot is that character's alone "
+    "(Irina's Letter is Irina's, not Hyetta's; #354). "
     "Melina's script has no placement and is named directly (Spectral Steed Whistle, "
     "Rold Medallion; #304); gifts from other scripts with no named placement (some DLC "
     "characters, Haligtree Secret Medallion (Left)) have acquisition_types "
@@ -3025,7 +3027,10 @@ _FIELD_NOTES: dict[str, str] = {
     "placements, #68) and generic mobs named by their spirit-ash model label (#104). It "
     "also covers awards a script gives once a character's death turns a flag on, e.g. NPC "
     "invaders (Hornsent -> Falx), and a boss model's bar-less copy, named by the model's "
-    "one health-bar name (Erdtree Avatar -> Staff of the Avatar; #303). An "
+    "one health-bar name (Erdtree Avatar -> Staff of the Avatar; #303). Characters "
+    "sharing one NpcParam number keep their own death lots: a chained lot row copying "
+    "another character's drop, or a body borrowing another's lot, doesn't count "
+    "(Irina's Letter is Irina's, Frenzyflame Stone Hyetta's; #354). An "
     "enemy_drop item can have no dropped_by when the game data gives its killer no name "
     "(Teardrop Scarabs, the Fort Haight Godrick Knight dropping Ash of War: Bloody Slash; "
     "#153)",
