@@ -4467,7 +4467,11 @@ _FIELD_NOTES: dict[str, str] = {
     "flags are set with no death / hostility evidence uses all 20 as phases "
     "(Roderika 3060, Moore 4920)",
     "related_npcs": "on a quest doc: other NPCs whose quest phase or life state gates "
-    "one of its steps or outcomes",
+    "one of its steps or outcomes (or that the player must hit). The NPC's own other "
+    "personas are left out: a name under the same NPC number placed with the same "
+    "character model (Renna the Witch on Ranni the Witch's quest). A second character "
+    "under that number who shares only the generic humanoid body (Lightseeker Hyetta / "
+    "Irina of Morne) is kept",
     "steps": "on a quest doc: one entry per scripted phase transition (a phase set "
     "under different conditions has several entries), from the event scripts read "
     "control-flow aware (skips, gotos and returns on every path to the set) with each "
