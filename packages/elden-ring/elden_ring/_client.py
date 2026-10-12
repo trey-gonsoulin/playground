@@ -2742,12 +2742,15 @@ _FIELD_NOTES: dict[str, str] = {
     "EquipParamGem, EquipParamGoods and Magic (a spell's row id is also its goods "
     "row id). A name on several rows is the row the doc's fields come from: a spirit "
     "ash's +0 row, else the lowest-id uncut row. Absent on cut items whose row is "
-    "gone (text only). Not compared between variants",
+    "gone (text only). Gestures (#355): the GestureParam row (Bow 0; The Ring's "
+    "lowest of its two rows, 108). Not compared between variants",
     "icon_id": "the item's menu icon id (#327), the number in its MENU_Knowledge "
     "icon texture name: iconId of the param_id row (Uchigatana 10320; affinity "
     "docs share the base's icon), armor's body type 1 icon (iconIdM; see "
     "icon_id_body_type_2), and a spell's goods-row inventory icon (Magic's own "
-    "iconId is a separate id range). Absent when the row has none (0)",
+    "iconId is a separate id range), and a gesture's goods-row icon (GoodIcon of "
+    "its GestureParam ItemId row, #355). Absent when the row has none (0) or a cut "
+    "gesture has no goods row",
     "icon_id_body_type_2": "armor only (#327): the body type 2 menu icon (iconIdF), "
     "set only when it differs from icon_id, the body type 1 icon (8 pieces, e.g. "
     "Chain Armor 14891 / 14896). Absent = both body types use icon_id. Not compared "
