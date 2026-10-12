@@ -3532,8 +3532,14 @@ _FIELD_NOTES: dict[str, str] = {
     "alterable": "armor piece can be altered (Boc / Master Hewg service)",
     "altered_variant": "name of the altered version of this armor",
     "altered_from": "name of the base armor this piece is altered from",
-    "armor_set": "armor set this piece belongs to, e.g. Banished Knight Set (helm, "
-    "armor, gauntlets, greaves and their (Altered) pieces). No param lists sets: pieces "
+    "armor_set": "list of armor sets this piece belongs to, e.g. ['Banished Knight Set'] "
+    "(helm, armor, gauntlets, greaves and their (Altered) pieces). The piece's own set "
+    "comes first; a shared piece also lists every set it completes, e.g. Foot Soldier "
+    "Gauntlets ['Chain-Draped Tabard Set', 'Foot Soldier Set', 'Haligtree Foot Soldier "
+    "Set', 'Leyndell Foot Soldier Set', 'Radahn Foot Soldier Set'] (Nox Bracelets, "
+    "Crucible Gauntlets, Horned Warrior Gauntlets alike): a set with no piece of its "
+    "own for a slot borrows the one every NPC loadout wearing it (two or more, "
+    "CharaInitParam) wears there. No param lists sets: pieces "
     "sharing an EquipParamProtector row base, named '<shared leading words> Set' "
     "(Night Set for Helm/Armor of Night), else after the body piece (Eye Surcoat Set). "
     "A few sets split across row bases are merged (Bandit Mask into Bandit Set), and a "
