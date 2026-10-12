@@ -359,7 +359,10 @@ def search_entities(
       reward_sources     — per scripted award: {type, map, flags, locations, step
                            (quest step), npc (invader, else the step's NPC, else
                            the NPC who sets a map-local gating flag, #332, else
-                           the NPC the pickup sits on, #358)} (#304)
+                           the NPC the pickup sits on, #358, else the NPC of a
+                           required item's quest_reward, #360), requires_items
+                           (items held), requires_interaction (action prompt),
+                           #360} (#304)
       rewards            — on a quest doc: items its steps award + its NPC's gifts
                            (#304)
       crafted_from       — crafting recipe materials [{item, quantity}], with
