@@ -40,3 +40,10 @@ def test_param_and_icon_ids_mapped_and_documented():  # #327
     assert "body type 1" in _FIELD_NOTES["icon_id"]
     for n in ("icon_id", "icon_id_body_type_2"):
         assert "male" not in _FIELD_NOTES[n].lower(), n
+
+
+def test_param_and_icon_ids_cover_gestures():  # #355
+    assert "GestureParam" in _FIELD_NOTES["param_id"]
+    assert (
+        "gesture" in _FIELD_NOTES["icon_id"] and "GoodIcon" in _FIELD_NOTES["icon_id"]
+    )
