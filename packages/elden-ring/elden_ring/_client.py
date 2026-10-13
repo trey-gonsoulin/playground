@@ -2742,7 +2742,7 @@ _FIELD_NOTES: dict[str, str] = {
     "weapons (498 with affinities), 145 armor, 42 spells, 25 Ashes of War, 39 "
     "talismans, 20 spirit ashes, 43 bosses, 68 enemies. Always false before 1.12.0",
     "availability": "'cut' for scrapped content: an [ERROR]-marked in-game name row (e.g. "
-    "Millicent's set), item text whose param row is gone (Storm Arrow, Golden Dung), or a "
+    "Millicent's set), item text whose param row is gone (Storm Arrow, Golden Dung, Burial Axe), or a "
     "key item nothing hands out (Keep Wall Key, Erdtree Codex); 'unobtainable' for real-named armor with no acquisition path — "
     "enemy-only gear / reused assets like the Ragged set (#71); absent for normal obtainable "
     "content. Both flagged states are excluded from search by default — pass "
