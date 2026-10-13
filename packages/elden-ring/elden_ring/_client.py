@@ -4083,14 +4083,18 @@ _FIELD_NOTES: dict[str, str] = {
     "on scripted ones (grace conversations, summoned phantoms)",
     "npcs": "on a talk_option doc (#307): the NPCs whose talk scripts show "
     "the option: talk-menu entries (AddTalkListData), notices and confirmations "
-    "(OpenGenericDialog: 'No Sacred Tear in inventory'), and entries built from a "
+    "(OpenGenericDialog: 'No Sacred Tear in inventory'), count prompts (#370: "
+    "Gurranq's 'Choose how many to hand over'), and entries built from a "
     "counter, expanded over the loop's bounds (#336: the Twin Maiden Husks' "
-    "'Offer Pidia's Bell Bearing' and 'Offered …' notices). Named like npc_dialogue "
+    "'Offer Pidia's Bell Bearing' and 'Offered …' notices, each notice over the "
+    "offers that lead to it, #370). Named like npc_dialogue "
     "speakers; menus with no NPC keep their label (Site of Grace, Church of Vows), "
     "except entries another character answers (#367: the grace menu's 'Talk to "
     "miniature Ranni' -> ['Miniature Ranni'], 'Talk to Melina' -> ['Melina']). "
-    "Absent on about 1 option in 11: counters with no literal bound (the grace "
-    "menu's 'Use two Golden Seeds …') and options no script shows",
+    "Absent on about 1 option in 14: counters with no literal bound (the grace "
+    "menu's 'Use two Golden Seeds …'), the unnamed colosseum entrance scripts "
+    "('Colosseums are only available online') and options no script shows (FMG-only "
+    "text such as 'Purchase' / 'Sell', 'Atone', 'Enter the Deathbed Dream')",
     "cutscenes": "on a boss doc (#92): the cutscene docs linked to the encounter, each "
     "{id: cutscene_id, kind: boss_intro / boss_defeat / ending}",
     "region": "on a site_of_grace doc: the grace's map-menu region (Stormhill, Liurnia "
