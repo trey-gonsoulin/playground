@@ -1091,6 +1091,13 @@ INDEX_MAPPING = {
                     # The range when merged variant lots disagree (#275).
                     "chance_min": {"type": "float"},
                     "chance_max": {"type": "float"},
+                    # Per-quantity chances when one roll can give more than one (#279).
+                    "quantities": {
+                        "properties": {
+                            "quantity": {"type": "integer"},
+                            "chance": {"type": "float"},
+                        }
+                    },
                 }
             },
             "drops": {"type": "keyword"},
@@ -3053,12 +3060,21 @@ _FIELD_NOTES: dict[str, str] = {
     "(Teardrop Scarabs, the Fort Haight Godrick Knight dropping Ash of War: Bloody Slash; "
     "#153)",
     "drop_sources": "on item docs (#230): how each killer drops it, a list of "
-    "{enemy, scope, chance | chance_min + chance_max}. scope 'placement' = a map-script "
+    "{enemy, scope, chance | chance_min + chance_max, quantities}. scope 'placement' = "
+    "a map-script "
     "award or death lot one "
     "placed instance gives (Commander O'Neil -> Commander's Standard); scope 'type' = "
     "the NpcParam death lot every enemy of that type rolls, with chance = its drop "
-    "chance (0-1) when it's one simple roll (Godrick Soldier -> Smithing Stone [1], "
-    "0.04; omitted when the item is in several slots or uses pity points). When "
+    "chance (0-1) of getting it at all (Godrick Soldier -> Smithing Stone [1], "
+    "0.04): an item in several slots of one lot row adds their points (Messmer "
+    "Soldier -> Smithing Stone [4], 0.125), and the rows of a lot chain roll on "
+    "their own (Skeletal Bandit -> Bandit's Curved Sword, two 1.5% rows = 0.0298); "
+    "omitted when a slot uses cumulative (pity) points. quantities = [{quantity, "
+    "chance}] when a roll can give more than one, the chance of each total "
+    "(Messmer Soldier -> Smithing Stone [4]: x1 0.06, x2 0.06, x4 0.005; Vulgar "
+    "Militia -> Kukri: x5 0.05; #279), omitted when merged variant lots give "
+    "different breakdowns or a one-time lot chain repeats the item (Nepheli Loux -> "
+    "Stormhawk Axe), so a missing quantities doesn't mean x1. When "
     "the type's variant lots disagree, chance_min/chance_max give the range instead "
     "of chance (Vulgar Militia -> Vulgar Militia Saw, 0.02-0.04; Noble Sorcerer -> "
     "Glintstone Staff, 0.0204-1.0 as one variant's death lot is guaranteed). A "
