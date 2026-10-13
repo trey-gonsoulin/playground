@@ -2932,7 +2932,12 @@ _FIELD_NOTES: dict[str, str] = {
     "common scripts), flags (the event flags the award waits on), locations (the map's "
     "location names), step (the quest step a flag stands for: {quest, npc, phase_flag, "
     "order} or {quest, npc, life_state}), npc (the invader for an invader_drop, named "
-    "through the invasion's character; else the step's NPC; else, for a quest_reward "
+    "through the character whose death ends the invasion (Ensha for the Royal Remains "
+    "set) or, for an invader's own death award, the dying character (Leda's Sword: "
+    "Needle Knight Leda), #333; when the invasion ends on a group of characters with no "
+    "single name, the one NPC with a talk script in that invasion's world (Rotten "
+    "Winged Sword Insignia: Millicent, whose sisters are the foes); else the step's "
+    "NPC; else, for a quest_reward "
     "on a map-local flag, the one NPC whose talk script, quest flags or death turn "
     "that flag on (#332; the death of a character with no talk script of its own "
     "counts for whoever brings it in, #359: the Baleful Shadow appears on Miniature Ranni's grace talk, so the "
@@ -2953,8 +2958,7 @@ _FIELD_NOTES: dict[str, str] = {
     "an open-world tile, locations are the tile's landmarks and region, not the exact "
     "spot. A pickup the award puts on a map object also gets a placement with "
     "requires_flag. Flags no single NPC turns on (picking up another item, a boss "
-    "defeat), unless the pickup sits on an NPC, and invasions with no named character (the Roundtable Hold's Royal "
-    "Remains) carry no npc",
+    "defeat), unless the pickup sits on an NPC, carry no npc",
     "from_weapons": "on an Ash of War doc with acquisition_types from_weapon (#305): the "
     "reward weapons that come with it attached (an EquipParamCustomWeapon row that an "
     "item lot or shop row hands out, for a weapon the player can obtain), e.g. "
