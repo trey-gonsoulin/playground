@@ -296,6 +296,14 @@ def test_calculate_attack_rating_with_spell(monkeypatch):
             ],
         },
         "Golden Vow": {"name": "Golden Vow", "menu_category": "Incantation"},
+        # #331: the rolling thorns, a flat hit no catalyst scales
+        "Mantle of Thorns": {
+            "name": "Mantle of Thorns",
+            "menu_category": "Sorcery",
+            "spell_attacks": [
+                {"spell": "x", "attack_power": {"physical": 87}, "flat": True}
+            ],
+        },
     }
 
     class Client:
@@ -349,6 +357,11 @@ def test_calculate_attack_rating_with_spell(monkeypatch):
     }, r
     assert r["spell_charged"]["total"] == 293, r
     assert any("can't cast incantations" in n for n in r["notes"]), r
+    r = _client.calculate_attack_rating(
+        Client(), "Test Staff", dict(stats), spell="Mantle of Thorns"
+    )
+    assert r["spell_attack_power"] == {"physical": {"base": 87, "total": 87}}, r
+    assert any("doesn't scale" in n for n in r["notes"]), r
     for name, msg in (("Golden Vow", "deals no damage"), ("Nope", "not found")):
         r = _client.calculate_attack_rating(Client(), "Test Staff", stats, spell=name)
         assert msg in r["error"], r

@@ -513,7 +513,8 @@ def calculate_attack_rating(
       spell_attacks attack_power, the largest hit, charged casts included) x
       spell_scaling / 100 (Glintstone Pebble 152 from a Meteorite Staff at 80 Int,
       scaling 272 -> 413). Every hit is scaled, though the wiki measures Law of
-      Causality's counter (holy 487) as flat;
+      Causality's counter (holy 487) as flat. A flat=true entry is returned
+      unscaled (Mantle of Thorns' rolling thorns, physical 87, #331);
     - thrown consumables (Fire Pot, Kukri, Poisonbone Dart) scale their flat hit
       power and buildup the same way through a hidden weapon row, at level 0 with
       no requirements (Fire Pot 230 fire -> 284 at 10 Str / 10 Dex).
