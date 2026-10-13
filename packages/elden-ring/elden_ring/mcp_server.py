@@ -361,7 +361,8 @@ def search_entities(
                            the NPC who sets a map-local gating flag, #332, else
                            the NPC the pickup sits on, #358, else the NPC of a
                            required item's quest_reward, #360), requires_items
-                           (items held; per path on an interaction_reward,
+                           (items held, all of them), requires_any_items
+                           (interaction_reward: holding any one is enough,
                            #368), requires_interaction (action prompt),
                            #360} (#304)
       rewards            — on a quest doc: items its steps award + its NPC's gifts
