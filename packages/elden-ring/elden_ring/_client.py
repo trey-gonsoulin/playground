@@ -1106,7 +1106,15 @@ INDEX_MAPPING = {
             "reward_sources": {
                 "properties": {
                     **_props(
-                        "keyword", ("type", "map", "npc", "locations", "requires_items")
+                        "keyword",
+                        (
+                            "type",
+                            "map",
+                            "npc",
+                            "locations",
+                            "requires_items",
+                            "requires_any_items",  # #368
+                        ),
                     ),
                     "flags": {"type": "long"},
                     "step": {"properties": _QUEST_LINK},
@@ -2935,11 +2943,12 @@ _FIELD_NOTES: dict[str, str] = {
     "given_by when that is the placement's own persona (Renna, not Ranni), #358; or "
     "the NPC of the item's other quest_reward on the same map, #332; or the NPC and "
     "step of the quest_reward of an item it requires, #360), requires_items (items "
-    "the player must hold for the award, #360; on an interaction_reward, the items "
-    "the award's script path checks are held, one entry per path, #368: the Crimson "
-    "Seed Talisman +1 needs the Hole-Laden Necklace held when the bell is rung, and "
-    "the Sword of Light has one entry needing the Stone-Sheathed Sword and one "
-    "needing the Sword of Darkness, either one is swapped at the altar), "
+    "the player must hold for the award, all of them, #360; on an interaction_reward, "
+    "the items every path through the award's script checks are held, #368: the "
+    "Crimson Seed Talisman +1 needs the Hole-Laden Necklace held), requires_any_items "
+    "(on an interaction_reward whose script paths each check a different held item, "
+    "the items of which holding any one is enough, #368: the Sword of Light needs "
+    "the Stone-Sheathed Sword or the Sword of Darkness), "
     "requires_interaction (true when the "
     "award also waits on an action prompt or object interaction, #360)}. E.g. Rogier's Bell "
     "Bearing: quest_reward, m11_10_00_00, flags [3909], Roundtable Hold, npc Sorcerer "
