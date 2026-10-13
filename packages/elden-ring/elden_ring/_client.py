@@ -951,6 +951,7 @@ INDEX_MAPPING = {
                     },
                     "channeled": {"type": "boolean"},
                     "guard_pierce": {"type": "integer"},  # #293
+                    "flat": {"type": "boolean"},  # #331 unscaled contact hit
                     **{
                         cast: {
                             "properties": {
@@ -2489,6 +2490,9 @@ def _spell_cast(
         return {
             "error": f"'{name}' deals no damage (a buff, heal or status-only spell)"
         }
+    if entry.get("flat"):
+        # a flat contact hit no catalyst scales (Mantle of Thorns' thorns, #331)
+        scaling = {}
     power = spell_damage(base, scaling)
     out = {
         "spell": name,
@@ -2527,6 +2531,10 @@ def _spell_cast(
         out["notes"] = [
             f"a {catalyst['menu_category']} can't cast {doc['menu_category'].lower()}s"
         ]
+    if entry.get("flat"):
+        out.setdefault("notes", []).append(
+            "a flat contact hit (the caster's rolls): the catalyst doesn't scale it"
+        )
     return out
 
 
@@ -3181,7 +3189,10 @@ _FIELD_NOTES: dict[str, str] = {
     "one, as on Roar of Rugalea, stays unsplit). attack_power stays the larger of "
     "the two. "
     "Buffs and heals (no damaging or status-inflicting hit, e.g. Golden Vow, Bloodflame "
-    "Blade) are left out",
+    "Blade) are left out. A spell whose buff makes the caster's rolls hit (#331: "
+    "Mantle of Thorns, physical 87 for 30s, the Briar set's thorn state) has one "
+    "more entry with flat=true: attack_power is a flat hit no catalyst scales, so "
+    "calculate_attack_rating(spell=) returns it unscaled",
     "name_source": "on an enemy doc: where the name comes from — 'npc_name' (the per-character "
     "NpcName roster) or 'spirit_ash' (a generic-mob model label taken from its spirit ash, "
     "e.g. 'Godrick Soldier'; covers every placement of that model, #104)",
@@ -3264,7 +3275,11 @@ _FIELD_NOTES: dict[str, str] = {
     "target ally: it never heals the drinker). Only "
     "confirmed fields are decoded, so some effects are missing (e.g. casting "
     "hyperarmor, which is animation data, not a SpEffect)",
-    "effect_duration": "longest effects duration in seconds (absent = instant or permanent)",
+    "effect_duration": "longest effects duration in seconds (absent = instant or "
+    "permanent). On a spell doc whose effects give none (#331): the duration of its "
+    "buff SpEffect the Old Lord's Talisman extends (Mantle of Thorns 30, "
+    "Electrocharge 45, Unseen Blade 45, Starlight 180, Law of Causality 120), else "
+    "the life of its zone cloud (Eternal Darkness 9 = 4 + 5 s; the wiki says 10)",
     "is_legendary": "part of a legendary set (achievement-tracked)",
     "weight": "equip load of a weapon, shield, armor piece or talisman. Ammo has none: "
     "arrows and bolts add nothing to equip load, so ammo docs carry no weight (#286)",
