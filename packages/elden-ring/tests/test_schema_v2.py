@@ -265,6 +265,8 @@ def test_grouped_leaves_mapped():
         "drop_sources.chance": "float",
         "drop_sources.chance_min": "float",  # #275
         "drop_sources.chance_max": "float",
+        "drop_sources.quantities.quantity": "integer",  # #279
+        "drop_sources.quantities.chance": "float",
         "equipment.weapons": "keyword",
         "equipment.ashes_of_war": "keyword",
         "equipment.spells": "keyword",
