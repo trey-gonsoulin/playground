@@ -106,6 +106,34 @@ def test_combat_details_mapped_and_documented():
     assert "9.231" in _FIELD_NOTES["poise_regen_delay"]
 
 
+def test_scripted_damage_taken_mapped_and_documented():
+    # Scripted damage-taken states (#323): top level, per variant and per phase; not
+    # on summon_stats, and not folded into negation.
+    props = INDEX_MAPPING["mappings"]["properties"]
+    for where, prefix in (
+        (props, ""),
+        (props["variants"]["properties"], "variants."),
+        (props["phases"]["properties"], "phases."),
+    ):
+        sdt = where["scripted_damage_taken"]["properties"]
+        assert sdt["speffect_id"] == {"type": "integer"}
+        assert sdt["lifted_when"] == {"type": "keyword"}
+        mult = sdt["multiplier"]["properties"]
+        assert set(mult) == set(where["negation"]["properties"])
+        assert all(v == {"type": "float"} for v in mult.values())
+        assert set(sdt["lifted_by"]["properties"]) == {
+            "speffect_ids",
+            "animation_ids",
+            "event_ids",
+        }
+        assert prefix + "scripted_damage_taken" in _FIELD_NOTES
+    assert "scripted_damage_taken" not in props["summon_stats"]["properties"]
+    for leaf in ("speffect_id", "multiplier", "lifted_when", "lifted_by"):
+        assert "scripted_damage_taken." + leaf in _FIELD_NOTES
+    assert "scripted_damage_taken" in _FIELD_NOTES["negation"]
+    assert "90%" in _FIELD_NOTES["scripted_damage_taken"]
+
+
 def test_parryable_mapped_and_documented():
     # Enemy attack animations with a TAE get-parried window (#302); enemy attacks only.
     props = INDEX_MAPPING["mappings"]["properties"]
