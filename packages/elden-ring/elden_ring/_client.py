@@ -1205,6 +1205,16 @@ INDEX_MAPPING = {
                 }
             },
             "starting_classes": {"type": "keyword"},
+            # Great Rune twins: key item <-> restored rune (#312).
+            "restoration": {
+                "properties": {
+                    "location": {"type": "keyword"},
+                    "map": {"type": "keyword"},
+                    "twin_entity_type": {"type": "keyword"},
+                    "twin_param_id": {"type": "integer"},
+                    "dropped_by": {"type": "keyword"},
+                }
+            },
             # Crafting (#87).
             "crafted_from": {
                 "properties": {
@@ -3123,7 +3133,19 @@ _FIELD_NOTES: dict[str, str] = {
     "exchanged_for": "on a handed-in item doc: the NPC gift(s) handing it over gets (#97), the "
     "reverse of in_exchange_for, e.g. Rya's Necklace: [Volcano Manor Invitation]; a counted "
     "turn-in lists them in hand-in order (#193), e.g. Deathroot: [Clawmark Seal, Beast Eye, "
-    "Bestial Sling, … Ancient Dragon Smithing Stone]",
+    "Bestial Sling, … Ancient Dragon Smithing Stone]. On a remembrance doc (#312): the "
+    "items trading it at Finger Reader Enia or the Twin Maiden Husks gets, in shop row "
+    "order, from the shop rows that take it as materials (each one's shop_listings), e.g. "
+    "Remembrance of the Shadow Sunflower: [Shadow Sunflower Blossom, Land of Shadow]; "
+    "Remembrance of a God and a Lord lists 3",
+    "restoration": "on a Great Rune's two docs (#312): the link between the key_item a "
+    "demigod drops and the great_rune its Divine Tower restores, from the restoration "
+    "script that takes the one and gives the other. {location (the tower), map, "
+    "twin_entity_type, twin_param_id (the other doc's param_id)}; the great_rune's copy "
+    "adds dropped_by, the key item's bosses. E.g. Radahn's Great Rune (great_rune 192): "
+    "{location: Divine Tower of Caelid, map: m34_13_00_00, twin_entity_type: key_item, "
+    "twin_param_id: 8149, dropped_by: [Starscourge Radahn]}. Both docs share one name, so "
+    "tell them apart by entity_type. Great Rune of the Unborn has none (never restored)",
     "duplication": "on an ash_of_war or remembrance doc: the menu that makes another copy of "
     "the item once you hold it (#223). Not a sale, so it never adds sold_by / shop_listings / "
     "an acquisition_types value; from the ShopLineupParam rows a talk script opens with a "
@@ -3317,7 +3339,9 @@ _FIELD_NOTES: dict[str, str] = {
     "effect": "readable effect text decoded from SpEffectParam, one phrase per effects "
     "entry, each timed one stating its own duration (e.g. Golden Vow: '+15% attack for "
     "80s; -10% damage taken for 80s'). On talismans, "
-    "consumables, crystal tears, spells (#88), great runes (#156) and weapons, whose "
+    "consumables, crystal tears, spells (#88), great runes (#156), remembrances (#312: "
+    "the runes using one gives, e.g. Remembrance of the Shadow Sunflower '+40000 runes') "
+    "and weapons, whose "
     "effect is the passive granted while held (#163: Blasphemous Blade '40 HP restored (on "
     "defeating an enemy); 4% max HP restored (on defeating an enemy)', Carian Regal "
     "Scepter '+10% attack (full moon sorceries)', Icon Shield '3 HP restored every 1s'; "
