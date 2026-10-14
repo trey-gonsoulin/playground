@@ -380,7 +380,7 @@ def search_entities(
                            used_in lists them back, #308)
       sub_category / usage — goods inventory sort group (Pot, Grease, Online…) and
                            consumable usage flags (reusable, horseback, ladder,
-                           multiplayer, offline) (#308)
+                           multiplayer, offline, bulk_use) (#308/#382)
       unlocks_shop_items — on bell bearings / scrolls / bosses: items whose shop rows
                            they unlock (#144)
       placements / maps  — where it is picked up in the world (MSB treasure: map,
