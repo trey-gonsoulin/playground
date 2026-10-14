@@ -1051,6 +1051,7 @@ INDEX_MAPPING = {
                 }
             },
             "trigger_items": {"type": "keyword"},
+            "trigger_options": {"type": "keyword"},  # #334
             "warp_region": {"type": "long"},
             "is_ending": {"type": "boolean"},
             "unskippable": {"type": "boolean"},
@@ -1066,7 +1067,10 @@ INDEX_MAPPING = {
             "talk_ids": {"type": "long"},
             "speakers": {"type": "keyword"},  # #191; npc_dialogue too (#307)
             "talk_contexts": {"type": "keyword"},  # npc_dialogue (#307)
+            "requires_flags": {"type": "long"},  # npc_dialogue (#335)
+            "requires_steps": {"properties": _QUEST_LINK},  # npc_dialogue (#335)
             "npcs": {"type": "keyword"},  # talk_option (#307)
+            "sets_flags": {"type": "long"},  # talk_option (#334)
             # Back-link on npc_dialogue subtitle lines (#192); cutscene_id shared.
             "cutscene": {"type": "keyword"},
             "cutscenes": {
@@ -4280,12 +4284,17 @@ _FIELD_NOTES: dict[str, str] = {
     "the last digit (a …0 / …1 pair, Melina's eight 60420000-60420007 meetings) are "
     "one doc; the others are in variant_ids. On a warp doc of kind cutscene (#94): the "
     "cutscene that plays before the warp (PlayCutsceneToPlayerAndWarp). On an "
-    "npc_dialogue doc (#192): the scene the line is a subtitle of (see cutscene)",
+    "npc_dialogue doc (#192): the scene the line is a subtitle of (see cutscene); "
+    "on a talk_option doc (#334): the scene the option triggers (see cutscene)",
     "cutscene": "on an npc_dialogue doc (#192): the cutscene doc ('Cutscene <id>') the "
     "line is a subtitle of, the reverse of that doc's talk_ids. Absent on lines no "
     "cutscene speaks; a line several scenes share (the 3 opening narration lines "
     "of the ending scenes) names the lowest id. On a warp doc with a cutscene_id "
-    "(#189): the cutscene doc that plays (variant ids folded)",
+    "(#189): the cutscene doc that plays (variant ids folded). On a talk_option doc "
+    "(#334): the scene its sets_flags trigger, when they trigger exactly one (Fractured "
+    "Marika's 'Use Mending Rune of Perfect Order' sets 9401 -> 'Cutscene 19000060', the "
+    "Age of Order ending; Castellan Jerren's 'Ready as I'll ever be' -> his festival "
+    "proclamation 60510000); the scene lists it back under trigger_options",
     "variant_ids": "on a cutscene doc: the other cutscene ids folded into this scene",
     "asset": "on a cutscene doc: the cutscenebnd asset name (s10_00_0010 for "
     "10000010); absent when the current game files hold no such asset (15000020)",
@@ -4312,7 +4321,10 @@ _FIELD_NOTES: dict[str, str] = {
     "festival-started flag 9411; a boss flag, see trigger_kind), a flag that only "
     "picks one alternative of a wait (the endings' 'Frenzied Flame 108 not taken, "
     "or cured 116'), or one the script exits on (Gostoc's gate scene waits on "
-    "10009374 or 10009377 but ends on 10009377)",
+    "10009374 or 10009377 but ends on 10009377). A script that waits on any of "
+    "several flags and then jumps to one scene per flag gives each scene only its own "
+    "(#334): the Erdtree endings 9400 Age of Fracture, 9401 Age of Order, 9402 Age "
+    "of the Duskborn, 9403 Blessing of Despair; Dung Eater's 35002725 / 35002726",
     "trigger_steps": "on a cutscene doc (#189): the quest steps behind its "
     "trigger_flags, one per distinct step, each {quest, npc, phase_flag, order, "
     "life_state} as in npc_summons.requires_step (Patches' 60370000: phase 3688). "
@@ -4327,6 +4339,10 @@ _FIELD_NOTES: dict[str, str] = {
     "35001500, in their own world; flag 1051362702 = talk to Castellan Jerren, "
     "#232). A flag is left out when it links to a phase or life_state step, or when "
     "its set_when would be absent for any of the reasons gate_set_when lists",
+    "trigger_options": "on a cutscene doc (#334): the talk_option docs ('Talk Option "
+    "<id>') whose sets_flags trigger this scene and no other: the Age of Order ending "
+    "['Talk Option 26071001'] ('Use Mending Rune of Perfect Order'); the reverse of "
+    "the option's cutscene",
     "trigger_items": "on a cutscene doc: the items the player must hold (Dectus "
     "Medallion (Left) / (Right) for the Grand Lift of Dectus)",
     "warp_region": "on a cutscene doc: the MSB region entity the player is moved to "
@@ -4369,6 +4385,25 @@ _FIELD_NOTES: dict[str, str] = {
     "hostile), killed (the NPC's death), player_killed (the NPC killed the player). "
     "Matched against Kenneth Haight's wiki page. Absent on lines no script plays and "
     "on scripted ones (grace conversations, summoned phantoms)",
+    "requires_flags": "on an npc_dialogue doc (#335): the event flags every talk "
+    "script playing the line needs on first: the f15(flag) == 1 tests on each way "
+    "the script reaches the conversation, down its helper machines (flag arguments "
+    "filled in). A flag only some ways need is dropped, and an else branch or an "
+    "untested way gates nothing. Mostly an NPC's quest phase (Nepheli Loux: 4225 "
+    "'Well, who do we have here?', 4226 her Roundtable lines, 4227 the Village of "
+    "the Albinaurics), plus map-local talk flags ('already said this'). Absent when "
+    "nothing gates the line (approach, hostile and death lines usually)",
+    "requires_steps": "on an npc_dialogue doc (#335): the quest steps behind "
+    "requires_flags, each {quest, npc, phase_flag, order, life_state} as in "
+    "trigger_steps (a quest-only link dropped beside a step of that quest): Nepheli "
+    "Loux's 'Oh, it's you...' -> phase 4227, order 3. Only on the current patch's "
+    "lines, which the full reindex builds with the quest docs; the per-version "
+    "dialogue keeps requires_flags only",
+    "sets_flags": "on a talk_option doc (#334): the event flags choosing the option "
+    "turns on (SetEventFlag on its menu branch, within 4 plain steps of the choice; "
+    "literal menu entries only): Fractured Marika's 'Mend the Elden Ring' 9400, 'Use "
+    "Mending Rune of Perfect Order' 9401, '… of the Death-Prince' 9402, '… of the "
+    "Fell Curse' 9403. See cutscene for the scene a flag triggers",
     "npcs": "on a talk_option doc (#307): the NPCs whose talk scripts show "
     "the option: talk-menu entries (AddTalkListData), notices and confirmations "
     "(OpenGenericDialog: 'No Sacred Tear in inventory'), count prompts (#370: "
