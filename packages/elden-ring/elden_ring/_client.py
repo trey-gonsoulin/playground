@@ -298,6 +298,22 @@ _NPC_COMBAT = {
     "poise_damage_taken_multiplier": {"type": "float"},
     "resistance_increase_per_proc": {"properties": _props("integer", _STATUSES)},
     "resistance_multiplier_per_proc": {"properties": _props("float", _STATUSES)},
+    # Scripted damage-taken states (#323): resident slot SpEffect damage multipliers
+    # kept out of negation, with what lifts them.
+    "scripted_damage_taken": {
+        "properties": {
+            "speffect_id": {"type": "integer"},
+            "multiplier": {"properties": _props("float", _NEGATION_TYPES)},
+            "lifted_when": {"type": "keyword"},
+            "lifted_by": {
+                "properties": {
+                    "speffect_ids": {"type": "integer"},
+                    "animation_ids": {"type": "integer"},
+                    "event_ids": {"type": "integer"},
+                }
+            },
+        }
+    },
 }
 
 # Attack profile over an NpcParam row's move table (#81), shared by enemy docs and
@@ -3664,7 +3680,8 @@ _FIELD_NOTES: dict[str, str] = {
     "25.5, wiki 26). Their NpcParam rows carry a 1.25 lightning cut rate (-25%) that is "
     "multiplied in too, so their lightning reads about 20 below the wiki's armor-only "
     "figure (Rakshasa 2.2, wiki 22). Not scaled by area or NG+; scripted resident "
-    "damage-taken effects (Rennala's barrier) are left out. Per phase in phases.negation "
+    "damage-taken effects (Rennala's barrier) are left out (see scripted_damage_taken). "
+    "Per phase in phases.negation "
     "(Messmer holy 40, then 0 as Base Serpent Messmer). Boss docs (#301): the same "
     "values from the encounter boss's own placed NpcParam row",
     "net_negation": "armor damage negation % net of the piece's resident damage-taken "
@@ -3774,6 +3791,29 @@ _FIELD_NOTES: dict[str, str] = {
     "resistance after the 1st, 2nd, ... proc (ResistCorrectParam addRate1-5, #302). "
     "Only humanoid (c0000) NPCs and invaders use it: [1.3, 1.77, 2.44, 4.0, 8.6] on "
     "every status, like a player",
+    "scripted_damage_taken": "damage-taken multipliers from scripted states the enemy "
+    "spawns in (#323), kept out of negation: one entry per resident NpcParam slot "
+    "SpEffect (speffect_id) with its per-type multiplier (the negation keys; 0 = no "
+    "damage, 0.1 = 10% damage; types left out are unchanged), what lifts it in plain "
+    'words (lifted_when; "unknown" when nothing in the data does) and the raw ids '
+    "behind that (lifted_by: the replacing SpEffects, TAE animation ids and EMEVD "
+    "event ids). Crystalians x0.1 on all but strike until their stance is first "
+    "broken (the wiki's extra 90% negation); Rennala phase 1 x0 until three of the "
+    "glowing students are hit (her barrier). Absent = none",
+    "scripted_damage_taken.speffect_id": "the resident SpEffectParam row holding the "
+    "state",
+    "scripted_damage_taken.multiplier": "per damage type: multiplier on damage taken "
+    "while the state holds (physical, strike, slash, pierce, magic, fire, lightning, "
+    "holy); absent types = 1",
+    "scripted_damage_taken.lifted_when": "what lifts the state, in plain words; "
+    '"unknown" when no EMEVD, TAE or param link was found',
+    "scripted_damage_taken.lifted_by": "raw ids behind lifted_when: speffect_ids (the "
+    "SpEffects that replace the state: same category and priority), animation_ids "
+    "(TAE animations applying them) and event_ids (EMEVD events)",
+    "variants.scripted_damage_taken": "this stat block's scripted_damage_taken (see "
+    "the top-level field)",
+    "phases.scripted_damage_taken": "this character's scripted_damage_taken (see the "
+    "top-level field): Rennala's phase 1 has her barrier, phase 2 none",
     "variants.poise_regen_delay": "this stat block's poise_regen_delay (see the "
     "top-level field)",
     "variants.poise_damage_taken_multiplier": "this stat block's "
