@@ -587,6 +587,8 @@ INDEX_MAPPING = {
                             "hit_radius",
                         ),
                     ),
+                    # Thrown goods: the main hit's stance damage (#308).
+                    "poise_damage": {"type": "float"},
                     "follow_up_hits": {"type": "integer"},
                     "follow_up_attack_power": {
                         "properties": _props("integer", _DAMAGE_TYPES)
@@ -690,6 +692,22 @@ INDEX_MAPPING = {
             # Item param row id + menu icon id; armor's body type 2 icon (#327).
             **_props("integer", ("param_id", "icon_id", "icon_id_body_type_2")),
             "menu_category": {"type": "keyword"},
+            # Goods inventory sort group (sortGroupId) within the tab (#308).
+            "sub_category": {"type": "keyword"},
+            # Consumable usage flags (#308).
+            "usage": {
+                "properties": _props(
+                    "boolean",
+                    (
+                        "reusable",
+                        "horseback",
+                        "horseback_only",
+                        "ladder",
+                        "multiplayer",
+                        "offline",
+                    ),
+                )
+            },
             "npc_id": {"type": "keyword"},
             "name_source": {"type": "keyword"},
             "chr_models": {"type": "keyword"},
@@ -1175,6 +1193,8 @@ INDEX_MAPPING = {
             "crafted_yield": {"type": "integer"},
             "recipe_unlock": {"type": "keyword"},
             "used_in": {"type": "keyword"},
+            # Pot / aromatic -> the tool it is crafted in, by potGroupId (#308).
+            "crafting_container": {"type": "keyword"},
             "unlocks_recipes": {"type": "keyword"},
             "unlocks_shop_items": {"type": "keyword"},  # #144
             "base_item": {"type": "keyword"},
@@ -2788,6 +2808,22 @@ _FIELD_NOTES: dict[str, str] = {
     "include_unavailable=True to include them.",
     "display_name": "per-patch in-game FMG name; differs from name when an item was renamed across patches",
     "menu_category": "in-game equipment menu grouping (e.g. 'Straight Sword', 'Reaper', 'Head')",
+    "sub_category": "on consumable, key_item, crafting_material and upgrade_material docs: "
+    "the inventory sort group within the tab (EquipParamGoods sortGroupId, #308). The game "
+    "shows no group names, so the labels are descriptive. Consumables: Essential (flasks, "
+    "Spectral Steed Whistle, Memory of Grace), Edible, Pot, Aromatic, Throwable, Special "
+    "Tool (Blasphemous Claw, shackles, Omen Bairns), Grease, Utility (raisins, Telescope, "
+    "Prattling Pates), Quest, Golden Rune, Online (multiplayer fingers, effigies). Key "
+    "items: Great Rune, Character Upgrade, Key, Quest, Tool (bells, whetblades, cookbooks), "
+    "Map, Bell Bearing, Scroll. Crafting materials: Fauna, Flora, Object. Upgrade "
+    "materials: Flask Upgrade, Blessing, Smithing Stone, Somber Smithing Stone, Glovewort",
+    "usage": "on consumable docs: when the item can be used (#308), from EquipParamGoods "
+    "flags. reusable (not consumed on use: Tarnished's Furled Finger, Telescope; a flask "
+    "spends a charge, so false), horseback (usable while riding; the shackles and Mimic's "
+    "Veil aren't), horseback_only (only while riding: the raisins fed to Torrent), ladder "
+    "(usable on a ladder: the flasks), multiplayer (usable while other players are in "
+    "your world; the multiplayer fingers aren't), offline (false for online-only items: "
+    "the fingers and cipher rings)",
     "sort_id": "in-game sort index; affinity variants are their base + N. Most "
     "armament bases are multiples of 1000, but not all: base-game Butchering Knife "
     "(2106500) and Prelate's Inferno Crozier (2504500), and many DLC armaments "
@@ -2959,7 +2995,9 @@ _FIELD_NOTES: dict[str, str] = {
     "comes fixed on a reward weapon, so the player gets it by duplicating it from that "
     "weapon; see from_weapons; #305) / preorder_bonus (a pre-order bonus: a common map "
     "event script awards it on an entitlement flag that no game script sets, and can "
-    "take it back; only the gestures The Ring and Ring of Miquella; #306). "
+    "take it back; only the gestures The Ring and Ring of Miquella; #306) / upgraded "
+    "(a Flask of Crimson or Cerulean Tears +N: the flask upgraded with Sacred Tears at a "
+    "site of grace, see base_item; #308). "
     "found_in_world still shows for the scripted types, since their lots are map lots. "
     "On a gesture doc (#306) the types say how it's unlocked: starting_equipment (every "
     "class starts with 12), found_in_world (a pickup, e.g. Strength!, or one unlocked by "
@@ -3101,7 +3139,15 @@ _FIELD_NOTES: dict[str, str] = {
     "recipe_unlock": "on a craftable doc: the cookbook(s) whose pickup or purchase unlocks "
     "the recipe (#87); absent when the recipe is known from the start (Fire Pot, Rowa Raisin)",
     "used_in": "on a material doc: the items it is a crafting ingredient of (reverse of "
-    "crafted_from, #87)",
+    "crafted_from, #87); on a tool doc (Cracked Pot, Hefty Cracked Pot, Ritual Pot, "
+    "Perfume Bottle): the pots or aromatics crafted in it (reverse of crafting_container, "
+    "#308)",
+    "crafting_container": "on a pot or aromatic doc: the tool it is crafted in, matched "
+    "by EquipParamGoods potGroupId (#308): Cracked Pot (Fire Pot), Ritual Pot (Sacred "
+    "Order Pot), Hefty Cracked Pot (Hefty Furnace Pot), Perfume Bottle (Uplifting "
+    "Aromatic). Not part of crafted_from: the container comes back once the item is "
+    "used, and the tool's inventory.max_held caps how many can be carried (Cracked Pot "
+    "20, the other three 10)",
     "unlocks_recipes": "on a cookbook doc: the items whose recipes it unlocks (#87)",
     "unlocks_shop_items": "on a goods doc (bell bearing, scroll, prayerbook, quest item) or "
     "boss doc: the items whose shop rows it unlocks — the reverse of shop_listings "
@@ -3477,7 +3523,9 @@ _FIELD_NOTES: dict[str, str] = {
     "the thrown item's flight, follow_up_hits = the other hits one throw lands on a "
     "target (Fan Daggers' 4 extra blades, Lightning Pot's strike after the pot; an "
     "upper bound) with their follow_up_attack_power; no motion values (thrown items "
-    "deal flat power)",
+    "deal flat power). A thrown item's projectile.poise_damage is its main hit's stance "
+    "(poise) damage, AtkParam_Pc atkSuperArmor (#308): Hefty Furnace Pot 10, Fire Pot 3, "
+    "Throwing Dagger 1",
     "skill_shots": "ammo: the bow/crossbow skills' shots with this ammo (#151), one "
     "entry per skill and hit (FP and no-FP shots are separate hits, hit_label 'FP' / "
     "'no FP', or 'FP/no FP' when both fire the same hit; ammo with its own on-hit "
