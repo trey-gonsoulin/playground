@@ -299,11 +299,16 @@ _NPC_COMBAT = {
     "resistance_increase_per_proc": {"properties": _props("integer", _STATUSES)},
     "resistance_multiplier_per_proc": {"properties": _props("float", _STATUSES)},
     # Scripted damage-taken states (#323): resident slot SpEffect damage multipliers
-    # kept out of negation, with what lifts them.
+    # kept out of negation, with what lifts them, plus the same row's status buildup
+    # and poise damage multipliers under the summon names (#380).
     "scripted_damage_taken": {
         "properties": {
             "speffect_id": {"type": "integer"},
             "multiplier": {"properties": _props("float", _NEGATION_TYPES)},
+            "status_buildup_taken_multiplier": {
+                "properties": _props("float", _STATUSES)
+            },
+            "poise_damage_taken_multiplier": {"type": "float"},
             "lifted_when": {"type": "keyword"},
             "lifted_by": {
                 "properties": {
@@ -3849,17 +3854,28 @@ _FIELD_NOTES: dict[str, str] = {
     "scripted_damage_taken": "damage-taken multipliers from scripted states the enemy "
     "spawns in (#323), kept out of negation: one entry per resident NpcParam slot "
     "SpEffect (speffect_id) with its per-type multiplier (the negation keys; 0 = no "
-    "damage, 0.1 = 10% damage; types left out are unchanged), what lifts it in plain "
+    "damage, 0.1 = 10% damage; types left out are unchanged), the same state's status "
+    "buildup and poise damage multipliers where not 1 (status_buildup_taken_multiplier, "
+    "poise_damage_taken_multiplier), what lifts it in plain "
     'words (lifted_when; "unknown" when nothing in the data does) and the raw ids '
     "behind that (lifted_by: the replacing SpEffects, TAE animation ids and EMEVD "
     "event ids). Crystalians x0.1 on all but strike until their stance is first "
-    "broken (the wiki's extra 90% negation); Rennala phase 1 x0 until three of the "
-    "glowing students are hit (her barrier). Absent = none",
+    "broken (the wiki's extra 90% negation); Rennala phase 1 x0 damage and x0 status "
+    "buildup until three of the glowing students are hit (her barrier). Absent = none",
     "scripted_damage_taken.speffect_id": "the resident SpEffectParam row holding the "
     "state",
     "scripted_damage_taken.multiplier": "per damage type: multiplier on damage taken "
     "while the state holds (physical, strike, slash, pierce, magic, fire, lightning, "
     "holy); absent types = 1",
+    "scripted_damage_taken.status_buildup_taken_multiplier": "per status: multiplier "
+    "on status buildup received while the state holds, from the same SpEffect row "
+    "(#380; as summon_stats.status_buildup_taken_multiplier); absent statuses = 1. "
+    "Rennala's barrier 14361: 0 on every status",
+    "scripted_damage_taken.poise_damage_taken_multiplier": "multiplier on poise "
+    "damage taken while the state holds, from the same SpEffect row (#380; as "
+    "summon_stats.poise_damage_taken_multiplier); absent = 1. Already folded into "
+    "the top-level poise_damage_taken_multiplier, which multiplies every resident "
+    "slot SpEffect",
     "scripted_damage_taken.lifted_when": "what lifts the state, in plain words; "
     '"unknown" when no EMEVD, TAE or param link was found',
     "scripted_damage_taken.lifted_by": "raw ids behind lifted_when: speffect_ids (the "
