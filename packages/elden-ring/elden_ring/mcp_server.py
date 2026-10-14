@@ -359,7 +359,8 @@ def search_entities(
                            from_weapon (an Ash of War fixed on a reward weapon,
                            see from_weapons, #305) /
                            preorder_bonus (a pre-order entitlement award: the
-                           gestures The Ring and Ring of Miquella, #306)
+                           gestures The Ring and Ring of Miquella, #306) /
+                           upgraded (a Flask +N, upgraded with Sacred Tears, #308)
       reward_sources     — per scripted award: {type, map, flags, locations, step
                            (quest step), npc (invader, else the step's NPC, else
                            the NPC who sets a map-local gating flag, #332, else
@@ -374,6 +375,12 @@ def search_entities(
       crafted_from       — crafting recipe materials [{item, quantity}], with
                            crafted_yield and recipe_unlock (cookbooks) (#87)
       used_in / unlocks_recipes — on materials / cookbooks: the items they craft (#87)
+      crafting_container — on pots / aromatics: the tool crafted in (Cracked Pot,
+                           Ritual Pot, Hefty Cracked Pot, Perfume Bottle; the tool's
+                           used_in lists them back, #308)
+      sub_category / usage — goods inventory sort group (Pot, Grease, Online…) and
+                           consumable usage flags (reusable, horseback, ladder,
+                           multiplayer, offline) (#308)
       unlocks_shop_items — on bell bearings / scrolls / bosses: items whose shop rows
                            they unlock (#144)
       placements / maps  — where it is picked up in the world (MSB treasure: map,
