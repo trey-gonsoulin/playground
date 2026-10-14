@@ -197,29 +197,29 @@ _WEAPON_STATS = {
 
 # Weapon poise damage per attack, by hand (#119); more attacks + powerstance (#122).
 _POISE_ATTACKS = (
-    "r1",
-    "r2",
-    "charged_r2",
+    "light",
+    "heavy",
+    "charged_heavy",
     "guard_counter",
-    "running_r1",
-    "running_r2",
-    "rolling_r1",
-    "crouch_r1",
-    "jumping_r1",
-    "jumping_r2",
+    "running_light",
+    "running_heavy",
+    "rolling_light",
+    "crouch_light",
+    "jumping_light",
+    "jumping_heavy",
     "powerstance",
     # One-handed only (#126).
-    "left_r1",
-    "mounted_r1",
-    "mounted_r2",
-    "mounted_charged_r2",
-    "mounted_jumping_r1",
-    "mounted_jumping_r2",
-    "mounted_left_r1",
-    "mounted_left_r2",
-    "mounted_left_charged_r2",
-    "mounted_left_jumping_r1",
-    "mounted_left_jumping_r2",
+    "off_hand_light",
+    "mounted_light",
+    "mounted_heavy",
+    "mounted_charged_heavy",
+    "mounted_jumping_light",
+    "mounted_jumping_heavy",
+    "mounted_left_light",
+    "mounted_left_heavy",
+    "mounted_left_charged_heavy",
+    "mounted_left_jumping_light",
+    "mounted_left_jumping_heavy",
     "powerstance_running",
     "powerstance_rolling",
     "powerstance_backstep",
@@ -3506,25 +3506,27 @@ _FIELD_NOTES: dict[str, str] = {
     "passive effect number, e.g. Uchigatana bleed 45. Cold/Poison/Blood affinities add "
     "or raise it and it grows with upgrade level (see max_level / upgrade_curve)",
     "poise_damage": "weapon poise (stance) damage per attack, first hit, by hand "
-    "(one_handed / two_handed) and attack: r1, r2, charged_r2, guard_counter, "
-    "running_r1, running_r2, rolling_r1, crouch_r1, jumping_r1, jumping_r2. One_handed "
-    "only: powerstance (dual-wield L1 combo, e.g. Dagger 1.8 per hit) and "
-    "powerstance_running/_rolling/_backstep/_jumping; left_r1 (left-hand light chain); "
-    "mounted (Torrent) attacks mounted_r1, mounted_r2, mounted_charged_r2, "
-    "mounted_jumping_r1/_r2 and the same swung to the left side as mounted_left_*. PvE "
-    "values are in the same units as an enemy's stats.poise (Greatsword 2H charged R2 "
-    "39.6; Dagger 1H jumping_r2 12); upgrades never change them. An attack a weapon "
+    "(one_handed / two_handed) and attack: light (light attack chain), heavy, "
+    "charged_heavy, guard_counter, running_light, running_heavy, rolling_light, "
+    "crouch_light, jumping_light, jumping_heavy. One_handed only: powerstance "
+    "(dual-wield combo with the off-hand attack, e.g. Dagger 1.8 per hit) and "
+    "powerstance_running/_rolling/_backstep/_jumping; off_hand_light (left-hand light "
+    "chain); mounted (Torrent) attacks mounted_light, mounted_heavy, "
+    "mounted_charged_heavy, mounted_jumping_light/_heavy and the same swung to the left "
+    "side as mounted_left_*. PvE values are in the same units as an enemy's stats.poise "
+    "(Greatsword 2H charged heavy attack 39.6; Dagger 1H jumping_heavy 12); upgrades "
+    "never change them. An attack a weapon "
     "lacks is absent (staves/seals/shields have no running/rolling/crouch rows). Ash of "
     "War / weapon skill hits are in skill_poise_damage. Full hit chains in "
     "poise_damage_chains. Omitted on bows/crossbows/ballistas (the shot's poise damage "
     "comes from the ammo)",
     "poise_damage.pvp": "the same attacks against players, on the wiki's displayed-poise "
-    "scale (PvE x the attack's PvP rate x 10, e.g. Dagger 1H R1 40.5); compare with a "
+    "scale (PvE x the attack's PvP rate x 10, e.g. Dagger 1H light attack 40.5); compare with a "
     "player's displayed poise. Only from 1.07, when the PvP rates were introduced",
     "poise_damage_chains": "not searchable; returned by get_entity. Every hit of each "
-    "chain, e.g. poise_damage_chains.pvp.one_handed.r1 = Dagger [40.5, 63, 63, 63, 63, "
+    "chain, e.g. poise_damage_chains.pvp.one_handed.light = Dagger [40.5, 63, 63, 63, 63, "
     "126]. Jumping chains hold the jump's two hit rows: equal on most weapons, a "
-    "stronger second hit on some two-handed jumps (Hookclaws two_handed.jumping_r1 "
+    "stronger second hit on some two-handed jumps (Hookclaws two_handed.jumping_light "
     "[2.7, 5.4], Twinblade [3.25, 5])",
     "skill_poise_damage": "poise (stance) damage of the weapon's DEFAULT skill "
     "(default_ash_of_war; a unique weapon's fixed skill), from the judges the skill's "
@@ -3558,7 +3560,7 @@ _FIELD_NOTES: dict[str, str] = {
     "too; projectile_hits have projectile_hit_labels): 'FP' (skill used with enough FP) "
     "or 'no FP' "
     "(the weaker version without), then the move when it isn't the skill's main swing: "
-    "light / heavy (the R1 / R2 follow-up of a stance skill like Unsheathe, Square Off, "
+    "light / heavy (the light / heavy attack follow-up of a stance skill like Unsheathe, Square Off, "
     "Wild Strikes), follow-up / follow-up 2, early release / late release (a held skill "
     "let go), start / loop / loop end / end, roll, guard counter. 'FP/no FP' = the same "
     "hit either way. From the game's behavior graph states (the no-FP state of every "
