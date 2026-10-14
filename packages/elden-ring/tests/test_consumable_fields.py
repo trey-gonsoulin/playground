@@ -15,6 +15,7 @@ def test_sub_category_and_usage_mapped():
         "ladder",
         "multiplayer",
         "offline",
+        "bulk_use",
     ):
         assert usage[leaf] == {"type": "boolean"}, leaf
         assert leaf in _FIELD_NOTES["usage"], leaf
@@ -36,3 +37,9 @@ def test_thrown_poise_and_upgraded_type():
     assert proj["poise_damage"] == {"type": "float"}
     assert "Hefty Furnace Pot 10" in _FIELD_NOTES["projectile"]
     assert "upgraded" in _FIELD_NOTES["acquisition_types"]
+
+
+def test_system_lot_rule_documented():
+    """#381: low lot rows count only when handed out; #382 bulk_use names its items."""
+    assert "below 10000" in _FIELD_NOTES["acquisition_types"]
+    assert "Golden Runes" in _FIELD_NOTES["usage"]

@@ -721,6 +721,7 @@ INDEX_MAPPING = {
                         "ladder",
                         "multiplayer",
                         "offline",
+                        "bulk_use",
                     ),
                 )
             },
@@ -2839,7 +2840,8 @@ _FIELD_NOTES: dict[str, str] = {
     "Veil aren't), horseback_only (only while riding: the raisins fed to Torrent), ladder "
     "(usable on a ladder: the flasks), multiplayer (usable while other players are in "
     "your world; the multiplayer fingers aren't), offline (false for online-only items: "
-    "the fingers and cipher rings)",
+    "the fingers and cipher rings), bulk_use (several can be used at once from the "
+    "inventory menu: the Golden Runes and the Broken Rune; #382)",
     "sort_id": "in-game sort index; affinity variants are their base + N. Most "
     "armament bases are multiples of 1000, but not all: base-game Butchering Knife "
     "(2106500) and Prelate's Inferno Crozier (2504500), and many DLC armaments "
@@ -3015,6 +3017,9 @@ _FIELD_NOTES: dict[str, str] = {
     "(a Flask of Crimson or Cerulean Tears +N: the flask upgraded with Sacred Tears at a "
     "site of grace, see base_item; #308). "
     "found_in_world still shows for the scripted types, since their lots are map lots. "
+    "Lot rows below 10000 are test and system rows: they count only when a treasure, "
+    "event script, enemy or talk script hands them out (the starting flasks, the "
+    "Mending Runes), so the test lots with mixed flask levels add no edge (#381). "
     "On a gesture doc (#306) the types say how it's unlocked: starting_equipment (every "
     "class starts with 12), found_in_world (a pickup, e.g. Strength!, or one unlocked by "
     "picking up a treasure, May the Best Win), given_by_npc (an NPC's talk script, or a "
