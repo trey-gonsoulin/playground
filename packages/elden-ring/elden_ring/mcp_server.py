@@ -222,7 +222,9 @@ def search_entities(
                            list what's inside; area_scaling gives the enemy scaling
                            tiers there (hp/stamina/attack/defense/resistance
                            multipliers, most common first). A repeated marker name
-                           gets its region appended: "Minor Erdtree (Caelid)".
+                           gets its region appended: "Minor Erdtree (Caelid)"; twice
+                           in one region, a compass direction too (#312): "Minor
+                           Erdtree (Liurnia of the Lakes, northeast)".
                            To list what's in a place, search enemy / item docs with
                            search_entities_literal(pattern="Caelid",
                            fields=["regions"]) or fields=["locations"] (a dungeon);
@@ -333,7 +335,8 @@ def search_entities(
       equipped_by        — humanoid enemies/NPCs whose loadout includes it (#85)
       given_by           — NPCs whose dialogue gives this item (talk scripts, #23)
       in_exchange_for    — the item the giving NPC takes for it (turn-in, #97);
-                           exchanged_for is the reverse, on the handed-in item;
+                           exchanged_for is the reverse, on the handed-in item
+                           (and on a remembrance: its two Enia / Husks trades, #312);
                            in_exchange_count = the n-th hand-in (Gurranq's Deathroot, #193);
                            in_exchange_flag / in_exchange_step = the flag that hand-in
                            also needs on (his aggression event 3647 for the 5th–9th, #200)
@@ -343,6 +346,9 @@ def search_entities(
                            of War at Smithing Master Hewg (1 Lost Ashes of War),
                            remembrances at a Wandering Mausoleum (free, once; also_at the
                            DLC Stone Coffin Altars, 1.12+; demigods' only at the bell ones)
+      restoration        — a Great Rune's key_item <-> great_rune link (#312): {location
+                           (its Divine Tower), map, twin_entity_type, twin_param_id,
+                           dropped_by (great_rune copy only)}
       starting_classes   — starting classes whose initial loadout includes it (#23)
       acquisition_types  — how it's obtained: merchant / enemy_drop / found_in_world /
                            chest / corpse (looted from a body, #136) /
