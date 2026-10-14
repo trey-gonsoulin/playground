@@ -121,6 +121,15 @@ def test_scripted_damage_taken_mapped_and_documented():
         mult = sdt["multiplier"]["properties"]
         assert set(mult) == set(where["negation"]["properties"])
         assert all(v == {"type": "float"} for v in mult.values())
+        # #380: the same row's status / poise multipliers, under the summon names.
+        status = sdt["status_buildup_taken_multiplier"]["properties"]
+        assert (
+            status
+            == props["summon_stats"]["properties"]["status_buildup_taken_multiplier"][
+                "properties"
+            ]
+        )
+        assert sdt["poise_damage_taken_multiplier"] == {"type": "float"}
         assert set(sdt["lifted_by"]["properties"]) == {
             "speffect_ids",
             "animation_ids",
@@ -128,7 +137,14 @@ def test_scripted_damage_taken_mapped_and_documented():
         }
         assert prefix + "scripted_damage_taken" in _FIELD_NOTES
     assert "scripted_damage_taken" not in props["summon_stats"]["properties"]
-    for leaf in ("speffect_id", "multiplier", "lifted_when", "lifted_by"):
+    for leaf in (
+        "speffect_id",
+        "multiplier",
+        "status_buildup_taken_multiplier",
+        "poise_damage_taken_multiplier",
+        "lifted_when",
+        "lifted_by",
+    ):
         assert "scripted_damage_taken." + leaf in _FIELD_NOTES
     assert "scripted_damage_taken" in _FIELD_NOTES["negation"]
     assert "90%" in _FIELD_NOTES["scripted_damage_taken"]
