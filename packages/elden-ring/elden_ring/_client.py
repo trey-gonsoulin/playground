@@ -645,6 +645,7 @@ INDEX_MAPPING = {
                 "properties": {
                     "level": {"type": "integer"},
                     **_WEAPON_STATS,
+                    "spell_scaling": {"type": "integer"},  # #309
                     "summon_count": {"type": "integer"},
                     "summon_stats": {"properties": _SUMMON_STATS},
                 }
@@ -1180,6 +1181,17 @@ INDEX_MAPPING = {
             },
             "effect_duration": {"type": "float"},
             "infusable": {"type": "boolean"},
+            # Weapon flags / rates, trait multipliers, guard pierce and the staff /
+            # seal scaling at its requirements (#309).
+            **_props("boolean", ("buffable", "can_guard")),
+            **_props("integer", ("bow_range_change", "guard_pierce", "spell_scaling")),
+            "stamina_cost_multiplier": {"type": "float"},
+            "damage_vs_traits": {
+                "properties": _props(
+                    "float",
+                    ("weak_to_gravity", "lives_in_death", "ancient_dragon", "dragon"),
+                )
+            },
             "default_ash_of_war": {"type": "keyword"},
             # Weapon / Ash of War skill: FP costs, chargeable, caption (#289).
             "skill": {
@@ -3229,7 +3241,9 @@ _FIELD_NOTES: dict[str, str] = {
     "per unit, absent for cure / inflict / state), unit ('%' or 'points'), pvp_value (the value against "
     "players when it differs, e.g. Exalted Flesh 20 / 15), condition (the attacks or state "
     "it's limited to: 'charged attacks', 'jump attacks', 'skills', 'at full HP', 'HP at or "
-    "below 20%', 'on hit', 'successive attacks', 'on defeating an enemy' (on-kill talismans "
+    "below 20%', 'on hit' (#309: the Celebrant weapons' runes per hit, Skull 20 and "
+    "the rest 10; Great Stars' and the Butchering Knives' 1% HP per hit), "
+    "'successive attacks', 'on defeating an enemy' (on-kill talismans "
     "such as Taker's Cameo), 'vs undead' (healing incantations' damage to undead enemies), "
     "'when blood loss / poison or rot / sleep / madness occurs within 7m' (#170: Exultation "
     "talismans, St. Trina's Smile, Poisoned / Madding Hand, Sacred Bloody Flesh; poison and "
@@ -3346,6 +3360,35 @@ _FIELD_NOTES: dict[str, str] = {
     "multiplayer-share disabled): weapons, armor, Golden Runes, meats yes; Smithing "
     "Stones, Remembrances, spirit ashes and key items no",
     "infusable": "weapon can take an affinity/ash-of-war infusion",
+    "buffable": "weapon can take greases and weapon-buff spells (EquipParamWeapon "
+    "isEnhance, #309). False on Star-Lined Sword, Black Knife, Sword of Night and Flame "
+    "and most unique weapons, and on elemental affinities; staves, seals, bows and "
+    "most shields are false too",
+    "can_guard": "weapon guards when held in the left hand instead of attacking "
+    "(enableGuard, #309): true on shields and perfume bottles, false on every other "
+    "weapon",
+    "bow_range_change": "bow / crossbow only: % change this bow applies to its ammo's "
+    "range (bowDistRate, #309). Light bows -40 (Misbegotten Shortbow -50), crossbows "
+    "-15, longbows and greatbows 0, Pulley Bow +10. The wiki's Attack Range is 50 x "
+    "(1 + this / 100) (Misbegotten Shortbow 25)",
+    "stamina_cost_multiplier": "weapon's multiplier on the stamina its attacks cost "
+    "(staminaConsumptionRate, #309): 0.86 to 1.435 at 1.17, set per weapon class "
+    "(1.0 on about a fifth of weapons)",
+    "damage_vs_traits": "weapon/ammo damage multiplier against enemies with a trait "
+    "(EquipParamWeapon weakA-D_DamageRate, #309), keyed like the enemy traits "
+    "field: weak_to_gravity (Starscourge Greatsword 1.3), lives_in_death (Golden "
+    "Epitaph 1.3), ancient_dragon and dragon (Igon's Harpoon / Dragon-Hunter's Great "
+    "Katana 1.15 / 1.3). Absent when the weapon has no bonus",
+    "guard_pierce": "weapon only: the largest share (%) of a blocking target's guard "
+    "negation its normal attacks ignore (AtkParam_Pc guardCutCancelRate, #309), like "
+    "spell_attacks.guard_pierce. Lucerne and Nightrider Glaive 80 (light attack 50, heavy 70, "
+    "charged heavy 80; the glaive only mounted), the reapers and shotels 30 (heavy 20, "
+    "charged heavy 30). Celebrant's Sickle has none in the params, "
+    "despite the wiki",
+    "spell_scaling": "staff / seal only: its Sorcery or Incantation Scaling at +0 for "
+    "a character at exactly its stat requirements (#309), the wikis' minimum-"
+    "requirement figure (Demi-Human Queen's Staff 114; max_level.spell_scaling 142 at "
+    "+25). Use calculate_attack_rating for other stats",
     "default_ash_of_war": "the skill a weapon ships with (SwordArtsParam's ArtsName text, "
     "as shown in game: crossbows and ballistas have Kick)",
     "skill": "weapons (their default skill, default_ash_of_war) and Ashes of War: the "
@@ -3377,7 +3420,8 @@ _FIELD_NOTES: dict[str, str] = {
     "attack_power": "weapon/ammo attack power at +0 by damage type, as shown in game "
     "(affinity multiplier applied). Weapons also carry stamina (damage dealt to the "
     "target's stamina) and critical (critical-hit multiplier, 100 = base; daggers 130). "
-    "Ammo carries every element it deals (Fire Arrow physical 15 + fire 95). Thrown "
+    "Ammo carries every element it deals (Fire Arrow physical 15 + fire 95) and its "
+    "own stamina damage (5 on arrows, #309). Thrown "
     "consumables (#150: darts, knives, pots, stones) carry their hit's flat base power "
     "before stat scaling, e.g. Throwing Dagger physical 67, Fire Pot fire 230 (its "
     "burst). Most also carry stat scaling in scaling, which calculate_attack_rating "
@@ -3549,7 +3593,8 @@ _FIELD_NOTES: dict[str, str] = {
     "types are 100-offset), kept for traceability",
     "max_level": "weapon stats at its max upgrade, in the same shape as the +0 fields "
     "(attack_power / scaling / guard / status_buildup, affinity applied); max_level.level is the max "
-    "(+25 regular, +10 somber, 0 if it can't be upgraded). Sort on "
+    "(+25 regular, +10 somber, 0 if it can't be upgraded); staves and seals also carry "
+    "max_level.spell_scaling (#309). Sort on "
     "max_level.attack_power.physical for the strongest fully upgraded weapons. On a "
     "spirit_ash doc: the summons at +10 (max_level.summon_stats / max_level.summon_count), "
     "e.g. filter max_level.summon_stats.stats.hp for the tankiest fully upgraded spirits",
