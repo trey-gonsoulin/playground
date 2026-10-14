@@ -953,6 +953,7 @@ INDEX_MAPPING = {
                     "channeled": {"type": "boolean"},
                     "guard_pierce": {"type": "integer"},  # #293
                     "flat": {"type": "boolean"},  # #331 unscaled contact hit
+                    "lingering_duration": {"type": "float"},  # #375 pool seconds
                     **{
                         cast: {
                             "properties": {
@@ -967,6 +968,7 @@ INDEX_MAPPING = {
                                 "attack_power_per_cast": {
                                     "properties": _props("integer", _DAMAGE_TYPES)
                                 },
+                                "lingering_duration": {"type": "float"},  # #375
                             }
                         }
                         for cast in ("uncharged", "charged")
@@ -3193,7 +3195,8 @@ _FIELD_NOTES: dict[str, str] = {
     "negation a hit ignores (AtkParam_Pc guardCutCancelRate; Frenzied Burst charged "
     "70, Fire's Deadly Sin 100; absent = 0). A chargeable spell (Magic "
     "Staminacharge > 0) also has uncharged and charged = {attack_power, "
-    "poise_damage, status_buildup, guard_pierce, hit_count, attack_power_per_cast} "
+    "poise_damage, status_buildup, guard_pierce, hit_count, attack_power_per_cast, "
+    "lingering_duration} "
     "per cast (#269, #293; Lightning Spear lightning 234 / 293, the wiki's x2.34 / "
     "x2.93; Frenzied Burst madness 90 / 105). The charged cast is the Magic row's bullets with id n >= 50 (1e7 + "
     "Magic id x 100 + n), its AtkParam refs with id % 10 >= 5 (DLC rows: % 100 >= "
@@ -3202,6 +3205,15 @@ _FIELD_NOTES: dict[str, str] = {
     "is stronger (equal power, as on Burn, O Flame! or Magic Downpour, or a weaker "
     "one, as on Roar of Rugalea, stays unsplit). attack_power stays the larger of "
     "the two. "
+    "lingering_duration (#375) = seconds the damaging pool or cloud a spell leaves "
+    "after a moving or one-hit damaging bullet lasts (a stationary bullet that "
+    "passes through characters and hits again while it stays; the longest, summed "
+    "over the pools it continues into): Magma Breath and Theodorix's Magma 6, Flame "
+    "of the Fell God 6, Scarlet Aeonia 4.2, Explosive Ghostflame 4, Death Lightning "
+    "3, Magma Shot 2.3; also per cast in uncharged/charged (Zamor Ice Storm 2 / 3). "
+    "Absent when the spell hits only through its cloud (that is effect_duration, "
+    "#373) or leaves no pool over 1 s; hitless emitters (Glintstone Stars, Rain of "
+    "Fire) never count. "
     "Buffs and heals (no damaging or status-inflicting hit, e.g. Golden Vow, Bloodflame "
     "Blade) are left out. A spell whose buff makes the caster's rolls hit (#331: "
     "Mantle of Thorns, physical 87 for 30s, the Briar set's thorn state) has one "
@@ -3300,7 +3312,11 @@ _FIELD_NOTES: dict[str, str] = {
     "the life of its zone cloud (Eternal Darkness 9 = 4 + 5 s; the wiki says 10), "
     "or, on a spell that only hits through a lingering damaging cloud, how long the "
     "cloud lasts after its launch (#373: Freezing Mist 15, Poison Mist 15, Fia's "
-    "Mist 5; the wiki says 6)",
+    "Mist 5; the wiki says 6). Such a cloud's life also replaces a shorter effects "
+    "duration, which each cloud hit re-applies and so is only a per-hit window "
+    "(#376: Night Maiden's Mist 15 = 7.5 + 7.5 s, not its 1.7 s HP-loss window). "
+    "A pool left after a moving or one-hit bullet is "
+    "spell_attacks.lingering_duration instead (#375)",
     "is_legendary": "part of a legendary set (achievement-tracked)",
     "weight": "equip load of a weapon, shield, armor piece or talisman. Ammo has none: "
     "arrows and bolts add nothing to equip load, so ammo docs carry no weight (#286)",
