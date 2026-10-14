@@ -74,3 +74,48 @@ def test_npc_param_values_mapped_and_documented():
     assert "#285" in _FIELD_NOTES["npc_param_values"]
     assert "npc_param_values" in _FIELD_NOTES["resistances"]
     assert "npc_param_values" in _FIELD_NOTES["stats.poise"]
+
+
+def test_combat_details_mapped_and_documented():
+    # Poise regeneration, poise damage taken, per-proc resistance escalation (#302):
+    # top level, per variant and per phase; summon_stats gets no new keys.
+    props = INDEX_MAPPING["mappings"]["properties"]
+    for where, prefix in (
+        (props, ""),
+        (props["variants"]["properties"], "variants."),
+        (props["phases"]["properties"], "phases."),
+    ):
+        assert where["poise_regen_delay"] == {"type": "float"}
+        assert where["poise_damage_taken_multiplier"] == {"type": "float"}
+        inc = where["resistance_increase_per_proc"]["properties"]
+        mult = where["resistance_multiplier_per_proc"]["properties"]
+        assert set(inc) == set(mult) == _RESISTS
+        assert all(v == {"type": "integer"} for v in inc.values())
+        assert all(v == {"type": "float"} for v in mult.values())
+        for f in (
+            "poise_regen_delay",
+            "poise_damage_taken_multiplier",
+            "resistance_increase_per_proc",
+            "resistance_multiplier_per_proc",
+        ):
+            assert prefix + f in _FIELD_NOTES, prefix + f
+    summon = props["summon_stats"]["properties"]
+    assert "poise_regen_delay" not in summon
+    assert "resistance_increase_per_proc" not in summon
+    assert "316 -> 414 / 704 / 1161" in _FIELD_NOTES["resistance_increase_per_proc"]
+    assert "9.231" in _FIELD_NOTES["poise_regen_delay"]
+
+
+def test_parryable_mapped_and_documented():
+    # Enemy attack animations with a TAE get-parried window (#302); enemy attacks only.
+    props = INDEX_MAPPING["mappings"]["properties"]
+    attacks = props["attacks"]["properties"]
+    assert attacks["parryable"] == {"type": "boolean"}
+    assert attacks["parryable_animations"] == {"type": "integer"}
+    assert attacks["attack_animations"] == {"type": "integer"}
+    summon_attacks = props["summon_stats"]["properties"]["attacks"]["properties"]
+    assert "parryable" not in summon_attacks
+    note = _FIELD_NOTES["attacks.parryable"]
+    assert "Commander Gaius false" in note and "Grafted Scion true" in note
+    assert "attacks.parryable_animations" in _FIELD_NOTES
+    assert "attacks.attack_animations" in _FIELD_NOTES

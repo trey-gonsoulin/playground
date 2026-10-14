@@ -290,6 +290,16 @@ _NPC_STATS = {
     "weak_point_damage_multiplier": {"type": "float"},
 }
 
+# Enemy-only NpcParam combat fields (#302): poise regeneration delay, resident poise
+# damage taken rate, per-proc resistance escalation (ResistCorrectParam). On enemy
+# docs, variants and phases; not on summon_stats.
+_NPC_COMBAT = {
+    "poise_regen_delay": {"type": "float"},
+    "poise_damage_taken_multiplier": {"type": "float"},
+    "resistance_increase_per_proc": {"properties": _props("integer", _STATUSES)},
+    "resistance_multiplier_per_proc": {"properties": _props("float", _STATUSES)},
+}
+
 # Attack profile over an NpcParam row's move table (#81), shared by enemy docs and
 # spirit-ash summon_stats (#124).
 _NPC_ATTACKS = {
@@ -685,6 +695,7 @@ INDEX_MAPPING = {
             # Enemy (NpcParam) combat stats, from the row bound by health bar / NameID
             # / spirit-ash label (#84).
             **_NPC_STATS,
+            **_NPC_COMBAT,
             # A humanoid's own NpcParam poise / resistances, replaced in stats /
             # resistances by its armor loadout (#285).
             "npc_param_values": {
@@ -700,6 +711,9 @@ INDEX_MAPPING = {
                     "shared_with": {"type": "keyword"},
                     # status_effects + every other_tables[].status_effects (#255).
                     "all_status_effects": {"type": "keyword"},
+                    # Attack animations with a TAE get-parried window (#302).
+                    "parryable": {"type": "boolean"},
+                    **_props("integer", ("parryable_animations", "attack_animations")),
                     # Moves other placed rows add under a TAE gate state (#180).
                     "state_variants": {
                         "properties": {
@@ -778,6 +792,7 @@ INDEX_MAPPING = {
                     "npc_ids": {"type": "keyword"},
                     "npc_param_ids": {"type": "integer"},
                     **_NPC_STATS,
+                    **_NPC_COMBAT,
                     "negation": {"properties": _props("float", _NEGATION_TYPES)},
                     **_NPC_SCALED_RANGES,
                     "maps": {"type": "keyword"},
@@ -791,6 +806,7 @@ INDEX_MAPPING = {
                     "npc_id": {"type": "keyword"},
                     "npc_param_id": {"type": "integer"},
                     **_NPC_STATS,
+                    **_NPC_COMBAT,
                     "negation": {
                         "properties": _props("float", _NEGATION_TYPES)
                     },  # #298
@@ -3714,6 +3730,56 @@ _FIELD_NOTES: dict[str, str] = {
     "gravity weapons), lives_in_death (Golden Order weapons), ancient_dragon, dragon "
     "(dragon-slaying weapons), undead. Empty list = none; absent = no NpcParam row bound",
     "weak_point_damage_multiplier": "enemy damage multiplier on hits to weak body parts",
+    "poise_regen_delay": "seconds without taking poise (stance) damage before an "
+    "enemy's poise starts to regenerate (#302): 5 s x (1 + NpcParam "
+    "superArmorRecoverCorrection). For most enemies this equals the wiki's "
+    "poise / 13 rule (Bayle the Dread 120 -> 9.231, Starscourge Radahn 200 -> 15.385). "
+    "Some rows set their own value (Commander Gaius: poise 100, delay 6.154). Absent "
+    "when the enemy has no poise",
+    "poise_damage_taken_multiplier": "multiplier on poise (stance) damage the enemy "
+    "takes, from its resident NpcParam slot SpEffects (saReceiveDamageRate, #302): "
+    "Night's Cavalry 0.2 (the wiki's 80% less while mounted; the data has no "
+    "dismounted state), ancient dragons and Lichdragon Fortissax 0.2, Guardian Golem "
+    "0.4096, Abductor Virgins 0 (no poise damage). Per-body-part rates (the wiki's "
+    "dragon headshots) are not in params. Absent = 1",
+    "resistance_increase_per_proc": "per status: how much the enemy's resistance rises "
+    "after the 1st, 2nd, ... proc (NpcParam resistCorrectId -> ResistCorrectParam "
+    "addPoint1-5, #302), on top of its in-game value (stats_scaled.resistances). The "
+    "last value holds for later procs. Night's Cavalry poison [98, 388, 845]: "
+    "316 -> 414 / 704 / 1161; Messmer 435 -> 533 / 823 / 1280 (both as the wiki). "
+    "Immune statuses are left out; absent = no escalation",
+    "resistance_multiplier_per_proc": "per status: the multiplier on the enemy's "
+    "resistance after the 1st, 2nd, ... proc (ResistCorrectParam addRate1-5, #302). "
+    "Only humanoid (c0000) NPCs and invaders use it: [1.3, 1.77, 2.44, 4.0, 8.6] on "
+    "every status, like a player",
+    "variants.poise_regen_delay": "this stat block's poise_regen_delay (see the "
+    "top-level field)",
+    "variants.poise_damage_taken_multiplier": "this stat block's "
+    "poise_damage_taken_multiplier (see the top-level field)",
+    "variants.resistance_increase_per_proc": "this stat block's "
+    "resistance_increase_per_proc (see the top-level field)",
+    "variants.resistance_multiplier_per_proc": "this stat block's "
+    "resistance_multiplier_per_proc (see the top-level field)",
+    "phases.poise_regen_delay": "this character's poise_regen_delay (see the "
+    "top-level field)",
+    "phases.poise_damage_taken_multiplier": "this character's "
+    "poise_damage_taken_multiplier (see the top-level field)",
+    "phases.resistance_increase_per_proc": "this character's "
+    "resistance_increase_per_proc (see the top-level field)",
+    "phases.resistance_multiplier_per_proc": "this character's "
+    "resistance_multiplier_per_proc (see the top-level field)",
+    "attacks.parryable": "whether any of the enemy's attacks can be parried (#302): one "
+    "of its attack animations (those firing this profile's moves) has a get-parried "
+    "window in the TAE. Commander Gaius false, Godrick false, Grafted Scion true, "
+    "Margit true, Night's Cavalry true (18 of 36). See attacks.parryable_animations "
+    "for how many. AtkParam_Npc isDisableParry is not the signal. Absent without a "
+    "melee attack animation (pure casters like Rennala) and on humanoids, which fight "
+    "with equipped weapons. Animations are from the current patch",
+    "attacks.parryable_animations": "attack animations with a get-parried window "
+    "(#302). Fewer than attacks.attack_animations means only some attacks can be "
+    "parried (Margit 48 of 88)",
+    "attacks.attack_animations": "the enemy's animations that fire an attack of this "
+    "profile (#302), the base of attacks.parryable_animations",
     "attacks": "enemy attack profile (#81), aggregated over the move table of its NpcParam "
     "BehaviorVariationID (BehaviorParam -> AtkParam_Npc / Bullet -> on-hit SpEffect). A table "
     "belongs to a whole model family; the profile keeps only the moves this enemy's "
