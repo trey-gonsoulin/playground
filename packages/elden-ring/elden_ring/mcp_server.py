@@ -336,7 +336,7 @@ def search_entities(
       given_by           — NPCs whose dialogue gives this item (talk scripts, #23)
       in_exchange_for    — the item the giving NPC takes for it (turn-in, #97);
                            exchanged_for is the reverse, on the handed-in item
-                           (and on a remembrance: its two Enia / Husks trades, #312);
+                           (and on a remembrance: its Enia / Husks trades, #312);
                            in_exchange_count = the n-th hand-in (Gurranq's Deathroot, #193);
                            in_exchange_flag / in_exchange_step = the flag that hand-in
                            also needs on (his aggression event 3647 for the 5th–9th, #200)
