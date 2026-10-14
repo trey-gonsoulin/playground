@@ -3281,7 +3281,10 @@ _FIELD_NOTES: dict[str, str] = {
     "permanent). On a spell doc whose effects give none (#331): the duration of its "
     "buff SpEffect the Old Lord's Talisman extends (Mantle of Thorns 30, "
     "Electrocharge 45, Unseen Blade 45, Starlight 180, Law of Causality 120), else "
-    "the life of its zone cloud (Eternal Darkness 9 = 4 + 5 s; the wiki says 10)",
+    "the life of its zone cloud (Eternal Darkness 9 = 4 + 5 s; the wiki says 10), "
+    "or, on a spell that only hits through a lingering damaging cloud, how long the "
+    "cloud lasts after its launch (#373: Freezing Mist 15, Poison Mist 15, Fia's "
+    "Mist 5; the wiki says 6)",
     "is_legendary": "part of a legendary set (achievement-tracked)",
     "weight": "equip load of a weapon, shield, armor piece or talisman. Ammo has none: "
     "arrows and bolts add nothing to equip load, so ammo docs carry no weight (#286)",
