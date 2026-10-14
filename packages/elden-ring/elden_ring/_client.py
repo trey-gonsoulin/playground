@@ -3735,7 +3735,10 @@ _FIELD_NOTES: dict[str, str] = {
     "superArmorRecoverCorrection). For most enemies this equals the wiki's "
     "poise / 13 rule (Bayle the Dread 120 -> 9.231, Starscourge Radahn 200 -> 15.385). "
     "Some rows set their own value (Commander Gaius: poise 100, delay 6.154). Absent "
-    "when the enemy has no poise",
+    "when the enemy has no poise, and on humanoids whose poise comes from an armor "
+    "loadout (those with npc_param_values): the NpcParam value derives from the "
+    "placeholder poise the loadout replaces, and their player-style poise recovery "
+    "delay isn't in the data",
     "poise_damage_taken_multiplier": "multiplier on poise (stance) damage the enemy "
     "takes, from its resident NpcParam slot SpEffects (saReceiveDamageRate, #302): "
     "Night's Cavalry 0.2 (the wiki's 80% less while mounted; the data has no "
