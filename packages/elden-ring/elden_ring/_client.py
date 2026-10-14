@@ -1183,7 +1183,7 @@ INDEX_MAPPING = {
             "infusable": {"type": "boolean"},
             # Weapon flags / rates, trait multipliers, guard pierce and the staff /
             # seal scaling at its requirements (#309).
-            **_props("boolean", ("buffable", "l1_guard")),
+            **_props("boolean", ("buffable", "can_guard")),
             **_props("integer", ("bow_range_change", "guard_pierce", "spell_scaling")),
             "stamina_cost_multiplier": {"type": "float"},
             "damage_vs_traits": {
@@ -3359,7 +3359,7 @@ _FIELD_NOTES: dict[str, str] = {
     "isEnhance, #309). False on Star-Lined Sword, Black Knife, Sword of Night and Flame "
     "and most unique weapons, and on elemental affinities; staves, seals, bows and "
     "most shields are false too",
-    "l1_guard": "weapon guards with L1 when held in the left hand instead of attacking "
+    "can_guard": "weapon guards when held in the left hand instead of attacking "
     "(enableGuard, #309): true on shields and perfume bottles, false on every other "
     "weapon",
     "bow_range_change": "bow / crossbow only: % change this bow applies to its ammo's "
@@ -3376,9 +3376,9 @@ _FIELD_NOTES: dict[str, str] = {
     "Katana 1.15 / 1.3). Absent when the weapon has no bonus",
     "guard_pierce": "weapon only: the largest share (%) of a blocking target's guard "
     "negation its normal attacks ignore (AtkParam_Pc guardCutCancelRate, #309), like "
-    "spell_attacks.guard_pierce. Lucerne and Nightrider Glaive 80 (R1 50, R2 70, "
-    "charged R2 80; the glaive only mounted), the reapers and shotels 30 (R2 20, "
-    "charged R2 30). Celebrant's Sickle has none in the params, "
+    "spell_attacks.guard_pierce. Lucerne and Nightrider Glaive 80 (light attack 50, heavy 70, "
+    "charged heavy 80; the glaive only mounted), the reapers and shotels 30 (heavy 20, "
+    "charged heavy 30). Celebrant's Sickle has none in the params, "
     "despite the wiki",
     "spell_scaling": "staff / seal only: its Sorcery or Incantation Scaling at +0 for "
     "a character at exactly its stat requirements (#309), the wikis' minimum-"
