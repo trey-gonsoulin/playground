@@ -1317,6 +1317,16 @@ INDEX_MAPPING = {
     },
 }
 
+# Spirits that fight with a CharaInitParam loadout (the c0000 Puppets and DLC
+# humans, #310) carry the humanoid enemy's gear groups, mapped the same way. One
+# shared dict, so this covers summon_stats and max_level.summon_stats.
+_SUMMON_STATS.update(
+    {
+        k: INDEX_MAPPING["mappings"]["properties"][k]
+        for k in ("equipment", "weapon_attacks", "spell_attacks")
+    }
+)
+
 
 def ensure_index(client: OpenSearch) -> None:
     if not client.indices.exists(index=INDEX):
@@ -3471,7 +3481,11 @@ _FIELD_NOTES: dict[str, str] = {
     "(#376: Night Maiden's Mist 15 = 7.5 + 7.5 s, not its 1.7 s HP-loss window). "
     "A pool left after a moving or one-hit bullet is "
     "spell_attacks.lingering_duration instead (#375)",
-    "is_legendary": "part of a legendary set (achievement-tracked)",
+    "is_legendary": "part of a legendary set (achievement-tracked): Legendary Armaments, "
+    "Talismans, Sorceries/Incantations and, on spirit_ash docs, the six Legendary Ashes "
+    "(Black Knife Tiche, Mimic Tear, Cleanrot Knight Finlay, Ancient Dragon Knight "
+    "Kristoff, Redmane Knight Ogha, Lhutel the Headless; EquipParamGoods trophy group 15, "
+    "#310)",
     "weight": "equip load of a weapon, shield, armor piece or talisman. Ammo has none: "
     "arrows and bolts add nothing to equip load, so ammo docs carry no weight (#286)",
     "fp_cost": "FP spent per use: spells (Magic mp) and goods, i.e. spirit ashes "
@@ -4822,8 +4836,19 @@ _FIELD_NOTES: dict[str, str] = {
     "status resistance) on top of the spirit row's resident SpEffects (#181; the "
     "per-spirit balance effects since 1.13, e.g. Gravebird Ashes HP x1.3, Stormhawk "
     "Deenh x2.2). A filter like summon_stats.stats.hp matches if any spirit matches. "
-    "Each spirit also has an attacks profile (summon_stats.attacks). Mimic Tear also "
-    "lists its player-copy row. +10 in max_level, every level in upgrade_curve",
+    "Each spirit also has an attacks profile (summon_stats.attacks), or, for the "
+    "humanoid spirits that fight with gear, equipment / weapon_attacks / spell_attacks "
+    "instead (#310). Mimic Tear also lists its player-copy row. +10 in max_level, "
+    "every level in upgrade_curve",
+    "summon_stats.equipment": "on a spirit_ash doc: the gear of a humanoid spirit that "
+    "fights with a loadout instead of an attacks profile (#310): the Puppets (Dung Eater "
+    "Puppet: Sword of Milos + Omen set) and the DLC humans (Ancient Dragon Florissax, "
+    "Fire Knight Queelign, Swordhand of Night Jolán, Jolán and Anna), from BuddyParam "
+    "NpcPlayerInitParamId -> CharaInitParam. Same groups as an enemy's equipment, with "
+    "summon_stats.weapon_attacks and summon_stats.spell_attacks read like an enemy's "
+    "(weapon numbers before stat scaling, not scaled by the upgrade level; the spirit's "
+    "damage_vs_enemies_multiplier still applies in game). The same at every upgrade "
+    "level. Mimic Tear copies the summoner's gear, so it has none",
     "summon_stats.damage_multiplier": "spirit's outgoing damage multiplier at that upgrade "
     "level (1.0 at +0, ~3.8 at +10 for most base-game spirits); the resident per-element "
     "multipliers, including every spirit's x0.25 damage vs enemies (#248), are folded "
