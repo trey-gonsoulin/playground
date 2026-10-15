@@ -113,7 +113,9 @@ def search_entities(
                            speakers names the NPC and talk_contexts when it plays
                            (talk, nearby, attacked, hostile, killed,
                            player_killed; #307); requires_flags / requires_steps
-                           give the quest phase a line needs (#335); cutscene
+                           give the quest phase a line needs (#335), and
+                           requires_flags_off / requires_steps_off what must not
+                           have happened yet (first-meeting lines, #389); cutscene
                            subtitle lines name their scene in cutscene / cutscene_id
             game_text    — other in-game text lines (#98), one doc per FMG id ("Loading
                            Tip 4", "Map Event 80810"); tags give the kind:
