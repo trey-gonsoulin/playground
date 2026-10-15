@@ -14,6 +14,15 @@ _PROPS = INDEX_MAPPING["mappings"]["properties"]
 _NEW = ("effect_text", "info_text")
 
 
+def test_message_and_network_streams_documented():
+    # #387: the new game_text kinds and a message word's category
+    assert _PROPS["message_category"] == {"type": "keyword"}
+    for kind in ("network_message", "menu_dialog", "message_word", "placed_message"):
+        assert kind in _FIELD_NOTES["tags"]
+    assert "Enemies" in _FIELD_NOTES["message_category"]
+    assert "map event scripts" not in _FIELD_NOTES["raised_by_items"]  # #386
+
+
 def test_fields_mapped_as_text_with_jp_analyzers():
     for f in _NEW:
         assert _PROPS[f] == {"type": "text"}

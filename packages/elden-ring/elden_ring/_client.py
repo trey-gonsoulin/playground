@@ -907,6 +907,7 @@ INDEX_MAPPING = {
             "unlock_set_when": {"properties": _SET_WHEN},  # #202
             "grants_item": {"type": "keyword"},  # tutorial game_text (#384)
             "raised_by_items": {"type": "keyword"},  # item_dialog game_text (#316)
+            "message_category": {"type": "keyword"},  # message_word game_text (#387)
             "bosses": {"type": "keyword"},
             # Locations (map-menu regions + WorldMapPointParam markers, #77); name /
             # region / parent_region / map / positions / bosses shared with graces.
@@ -2912,7 +2913,9 @@ _FIELD_NOTES: dict[str, str] = {
     "text_added_lines": "the variant's text lines (EN + JP) with no counterpart in base_item, "
     "e.g. 「伝説のタリスマン」のひとつ on Erdtree's Favor +2",
     "tags": "free-form keyword tags (spell school/role, weapon category, 'Talisman', etc.); "
-    "on game_text the kind: action_button, map_event, tutorial, loading_tip, item_dialog",
+    "on game_text the kind: action_button, map_event, tutorial, loading_tip, item_dialog, "
+    "network_message, menu_dialog, placed_message, message_template, message_word, "
+    "message_conjunction",
     "effect_text": "the game's own short effect lines for an item (list, #90): a weapon's or "
     "ammo's WeaponEffect lines ('Causes blood loss buildup', 'Boosts Crystalian sorcery'; "
     "the buildup number is in status_buildup), a talisman's AccessoryInfo ('Raises maximum "
@@ -4760,7 +4763,12 @@ _FIELD_NOTES: dict[str, str] = {
     "raised_by_items": "on an item_dialog game_text doc (#316): the goods whose use "
     "asks this yes / no question (EquipParamGoods ConfirmationMessage), e.g. 'Return "
     "to your world?': [Finger Severer]; the summon-replacement warning lists every "
-    "spirit ash. Absent on the dialogs map event scripts show",
+    "spirit ash. Absent on the multiplayer and spirit / steed notices ('Lure in "
+    "invaders?'), which the game's own item-use code shows: no param or event script "
+    "links them to an item (#386)",
+    "message_category": "on a message_word game_text doc (BloodMsg, #387): the "
+    "message-menu category the word sits under, e.g. 'enemy': Enemies, 'east': "
+    "Directions",
     "unlock_set_when": "on a tutorial game_text doc (#202): what turns unlock_flag "
     "on, shaped as warp gate_set_when: the event scripts' set_when (Sites of Grace: "
     "in_own_world + in_region of the Stranded Graveyard; 710050, #259: also item_held "
