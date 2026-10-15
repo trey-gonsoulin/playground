@@ -204,7 +204,9 @@ def search_entities(
                            map, trigger_flags (+ trigger_steps, the quest steps
                            behind them, #189; trigger_set_when, what turns the
                            other flags on, #228; trigger_options, the talk options
-                           choosing it, #334) / trigger_items (e.g. the Dectus medallion
+                           choosing it, #334) / trigger_speffects (a character's
+                           SpEffect it waits on, e.g. Godrick's death, #280) /
+                           trigger_items (e.g. the Dectus medallion
                            halves), is_ending / unskippable, and its subtitles (EN +
                            subtitles_ja, in playback order; talk_ids join the
                            npc_dialogue lines; speakers names who says them, #191).

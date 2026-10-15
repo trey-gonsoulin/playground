@@ -1054,6 +1054,14 @@ INDEX_MAPPING = {
             },
             "trigger_items": {"type": "keyword"},
             "trigger_options": {"type": "keyword"},  # #334
+            "trigger_speffects": {  # #280
+                "properties": {
+                    "speffect_id": {"type": "long"},
+                    "entity_id": {"type": "long"},
+                    "character": {"type": "keyword"},
+                    "bosses": {"type": "keyword"},
+                }
+            },
             "warp_region": {"type": "long"},
             "is_ending": {"type": "boolean"},
             "unskippable": {"type": "boolean"},
@@ -4380,6 +4388,13 @@ _FIELD_NOTES: dict[str, str] = {
     "the option's cutscene",
     "trigger_items": "on a cutscene doc: the items the player must hold (Dectus "
     "Medallion (Left) / (Right) for the Grand Lift of Dectus)",
+    "trigger_speffects": "on a cutscene doc (#280): the SpEffects its script waits "
+    "for a character to have, each {speffect_id, entity_id (the MSB character), "
+    "character (its NPC name), bosses (the boss docs that character fights in)}. "
+    "Godrick's defeat scene 10000030 waits on his death SpEffect 14785 or his "
+    "defeat flag 10000800 (kept in trigger_flags); Rykard's scene 16000020 plays "
+    "when the God-Devouring Serpent (entity 16000801) gets SpEffect 11920. Only "
+    "those two scenes wait on one",
     "warp_region": "on a cutscene doc: the MSB region entity the player is moved to "
     "after the scene (…AndWarp plays)",
     "is_ending": "on a cutscene doc: an ending cutscene (cutscene flag 64 or an "
