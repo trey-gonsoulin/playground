@@ -1244,6 +1244,19 @@ INDEX_MAPPING = {
             "crafted_yield": {"type": "integer"},
             "recipe_unlock": {"type": "keyword"},
             "used_in": {"type": "keyword"},
+            # Upgrade material -> the levels it pays for (reverse of
+            # upgrade_curve.materials, #311).
+            "upgrade_use": {
+                "properties": {
+                    "target": {"type": "keyword"},
+                    "level": {"type": "integer"},
+                    "quantity": {"type": "integer"},
+                }
+            },
+            # Whetblades' affinities; per-level blessing / flask tables (#311).
+            "unlocks_affinities": {"type": "keyword"},
+            "blessing": {"type": "object", "enabled": False},
+            "flask_restoration": {"type": "object", "enabled": False},
             # Pot / aromatic -> the tool it is crafted in, by potGroupId (#308).
             "crafting_container": {"type": "keyword"},
             "unlocks_recipes": {"type": "keyword"},
@@ -1298,6 +1311,12 @@ INDEX_MAPPING = {
             # Ash of War affinities and the weapon classes it mounts on (#290).
             "default_affinity": {"type": "keyword"},
             "affinities": {"type": "keyword"},
+            "affinity_whetblades": {
+                "properties": {
+                    "affinity": {"type": "keyword"},
+                    "whetblade": {"type": "keyword"},
+                }
+            },
             "weapon_classes": {"type": "keyword"},
             "depicted_in_talisman": {"type": "keyword"},
             "depicts_weapon": {"type": "keyword"},
@@ -3255,6 +3274,32 @@ _FIELD_NOTES: dict[str, str] = {
     "used, and the tool's inventory.max_held caps how many can be carried (Cracked Pot "
     "20, the other three 10)",
     "unlocks_recipes": "on a cookbook doc: the items whose recipes it unlocks (#87)",
+    "upgrade_use": "on an upgrade material doc (Smithing / Somber stones, Gloveworts): "
+    "[{target, level, quantity}] for every upgrade it pays for, the reverse of "
+    "upgrade_curve.materials (#311). target is the upgraded doc type (weapon, "
+    "spirit_ash), level the level reached: Smithing Stone [3] reaches weapon +7, +8 "
+    "and +9 at 2, 4 and 6 stones; Ancient Dragon Smithing Stone weapon +25 (1); "
+    "Somber Ancient Dragon Smithing Stone weapon +10 (1); Grave Glovewort [1] "
+    "spirit_ash +1 (1). Filter upgrade_use.level / upgrade_use.target",
+    "blessing": "not searchable; returned by get_entity. On Scadutree Fragment and "
+    "Revered Spirit Ash (#311): [{applies_to, speffect_id, damage_dealt, "
+    "damage_taken, attack_type_rate}], arrays indexed by blessing level (0 = no "
+    "blessing). From GameSystemCommonParam's base SpEffect rows, level L = row "
+    "speffect_id + L. applies_to: player (Scadutree Blessing, levels 0-20: "
+    "damage_dealt 2.05 and damage_taken 0.4878 at 20, matching the wiki), spirit_ash "
+    "and torrent (Revered Spirit Ash, levels 0-10: spirit ashes deal 1.89 and take "
+    "0.575 at 10; Torrent takes 0.46). Every element, magic included, carries the "
+    "same damage_dealt. attack_type_rate is the spirit-ash rows' separate "
+    "slash/strike/pierce/standard (physical attack-type) rate, 1.75 at 10; how it "
+    "combines with damage_dealt isn't confirmed. Spirit ash rows also chain to a "
+    "state-gated row that trims level 5+ (x0.9259 dealt, x1.087 taken at 10; with it "
+    "+10 gives 1.75 / 0.625, which is what wiki.gg lists), not included, so the "
+    "in-game spirit-ash values are unconfirmed. The fragments / ashes each level "
+    "costs aren't in any param",
+    "flask_restoration": "not searchable; returned by get_entity. On the Sacred Tear "
+    "(#311): {hp_restored, fp_restored} indexed by flask level (+0 to +12), from the "
+    "Flask of Crimson / Cerulean Tears docs' effects (+0 250 HP / 80 FP, +12 810 / "
+    "220). The Golden Seed's charge counts and seed costs aren't in any param",
     "unlocks_shop_items": "on a goods doc (bell bearing, scroll, prayerbook, quest item) or "
     "boss doc: the items whose shop rows it unlocks — the reverse of shop_listings "
     "unlocked_by / unlocked_by_defeating (#144), e.g. Somberstone Miner's Bell Bearing [5]: "
@@ -3598,8 +3643,16 @@ _FIELD_NOTES: dict[str, str] = {
     "(EquipParamGem defaultWepAttr; Golden Parry Sacred, Lion's Claw Heavy) (#290)",
     "affinities": "Ash of War: every affinity it allows (#290), named like weapon "
     "affinity (Flame Skewer: Standard, Heavy, Keen, Quality, Fire, Flame Art). "
-    "Some still need a whetblade (Heavy/Keen/Quality the Iron Whetblade, Fire the "
-    "Red-Hot Whetblade); that link isn't modelled",
+    "Every affinity but Standard also needs a whetblade: see affinity_whetblades",
+    "affinity_whetblades": "Ash of War: [{affinity, whetblade}] for each of its "
+    "affinities that needs a whetblade key item first (#311): Heavy/Keen/Quality the "
+    "Iron Whetblade, Fire/Flame Art the Red-Hot, Lightning/Sacred the Sanctified, "
+    "Magic/Cold the Glintstone, Poison/Blood/Occult the Black Whetblade. Standard "
+    "needs none. A static table from the whetblades' captions: no param or script "
+    "encodes the link",
+    "unlocks_affinities": "on a whetblade key-item doc: the affinities it lets an Ash "
+    "of War apply (#311; Red-Hot Whetblade: Fire, Flame Art); the reverse of "
+    "affinity_whetblades",
     "weapon_classes": "Ash of War: the weapon classes it can be applied to, as "
     "menu_category names (EquipParamGem canMountWep flags) (#290). Holy Ground: Small "
     "Shield, Medium Shield, Greatshield, Thrusting Shield. Every class is listed, even "
@@ -4581,7 +4634,12 @@ _FIELD_NOTES: dict[str, str] = {
     "for treasure chests (altar and tree pickups aren't chests); on_corpse is true when "
     "the pickup is a body (its MSB part is a corpse model) or lies on a corpse asset "
     "within 0.75 m (#136); absent doesn't rule out a body (a few wiki bodies have no "
-    "corpse asset in the map data); plus one entry per "
+    "corpse asset in the map data); shared_pickup is true on a second placement of "
+    "the same pickup (its lot's pickup flag already seen, #311): the Golden Seed on "
+    "both Leyndell maps, or on a Mohgwyn tree and a nearby corpse, where taking one "
+    "clears the other, so count pickups without it; a lot placed twice on one map "
+    "(two spots for one pickup, sometimes 200-300 m apart) also marks the later "
+    "copy, and which copy is marked is arbitrary; plus one entry per "
     "gathering node (an herb, flower, butterfly, mushroom or ore asset whose model "
     "carries the pickup lot, #135), {map, world_position | position, lot_id, "
     "gathering: true}, so common materials have thousands; plus one entry per map "
