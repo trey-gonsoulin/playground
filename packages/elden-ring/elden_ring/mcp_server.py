@@ -112,8 +112,9 @@ def search_entities(
             npc_dialogue — individual spoken lines from the TalkMsg text (searchable by quote);
                            speakers names the NPC and talk_contexts when it plays
                            (talk, nearby, attacked, hostile, killed,
-                           player_killed; #307); cutscene subtitle lines name
-                           their scene in cutscene / cutscene_id
+                           player_killed; #307); requires_flags / requires_steps
+                           give the quest phase a line needs (#335); cutscene
+                           subtitle lines name their scene in cutscene / cutscene_id
             game_text    — other in-game text lines (#98), one doc per FMG id ("Loading
                            Tip 4", "Map Event 80810"); tags give the kind:
                            action_button (interaction prompts: "Touch grace"),
@@ -127,7 +128,9 @@ def search_entities(
                            ("Talk Option 15000380"): menu choices like "Tell him
                            that Radagon is Marika", plus notices and
                            confirmations like "No Golden Seed in inventory";
-                           npcs names whose menus list a choice (#307)
+                           npcs names whose menus list a choice (#307);
+                           sets_flags the flags a choice turns on, cutscene the
+                           scene they trigger (Erdtree endings, #334)
             enemy      — bosses, creatures, and named enemies (from the NpcName roster)
                            with EN + JP names (name_ja); most also carry NpcParam
                            HP/stamina/poise/elemental defenses, damage negation %
@@ -200,7 +203,8 @@ def search_entities(
                            ending, item, quest, scripted), the boss it belongs to,
                            map, trigger_flags (+ trigger_steps, the quest steps
                            behind them, #189; trigger_set_when, what turns the
-                           other flags on, #228) / trigger_items (e.g. the Dectus medallion
+                           other flags on, #228; trigger_options, the talk options
+                           choosing it, #334) / trigger_items (e.g. the Dectus medallion
                            halves), is_ending / unskippable, and its subtitles (EN +
                            subtitles_ja, in playback order; talk_ids join the
                            npc_dialogue lines; speakers names who says them, #191).
