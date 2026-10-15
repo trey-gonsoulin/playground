@@ -123,7 +123,13 @@ def search_entities(
                            a tutorial's unlock_flag + unlock_set_when, #202, and
                            grants_item, the 'About …' item it adds, #384),
                            item_dialog (item-use confirmations: "Use Stonesword
-                           Key?"; #90; raised_by_items, #316)
+                           Key?"; #90; raised_by_items, #316), network_message
+                           (online notices: "Summon this cooperator?"),
+                           menu_dialog (system / menu dialogs) and the message
+                           parts (BloodMsg): placed_message (the developers'
+                           messages), message_template ("<?bmsg?> ahead"),
+                           message_word (message_category: "Enemies"…) and
+                           message_conjunction (#387)
             talk_option  — talk-script text, one doc per EventTextForTalk id
                            ("Talk Option 15000380"): menu choices like "Tell him
                            that Radagon is Marika", plus notices and
