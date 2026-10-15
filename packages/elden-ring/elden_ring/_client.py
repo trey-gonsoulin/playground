@@ -905,6 +905,8 @@ INDEX_MAPPING = {
             "entity_id": {"type": "long"},
             "unlock_flag": {"type": "long"},  # also on tutorial game_text (#202)
             "unlock_set_when": {"properties": _SET_WHEN},  # #202
+            "grants_item": {"type": "keyword"},  # tutorial game_text (#384)
+            "raised_by_items": {"type": "keyword"},  # item_dialog game_text (#316)
             "bosses": {"type": "keyword"},
             # Locations (map-menu regions + WorldMapPointParam markers, #77); name /
             # region / parent_region / map / positions / bosses shared with graces.
@@ -1190,6 +1192,11 @@ INDEX_MAPPING = {
                 }
             },
             "from_weapons": {"type": "keyword"},  # #305
+            # Paintings (#316): reward <-> painting, and where the reward waits.
+            "from_paintings": {"type": "keyword"},
+            "painting_rewards": {"type": "keyword"},
+            "viewpoints": {"type": "object", "enabled": False},
+            "from_tutorial": {"type": "keyword"},  # 'About …' items (#384)
             # Duplication menus (#223): Ash of War / remembrance copies.
             "duplication": {
                 "properties": {
@@ -2840,7 +2847,8 @@ _FIELD_NOTES: dict[str, str] = {
     "include_unavailable=True to include them.",
     "display_name": "per-patch in-game FMG name; differs from name when an item was renamed across patches",
     "menu_category": "in-game equipment menu grouping (e.g. 'Straight Sword', 'Reaper', 'Head')",
-    "sub_category": "on consumable, key_item, crafting_material and upgrade_material docs: "
+    "sub_category": "on consumable, key_item, crafting_material, upgrade_material and "
+    "info docs: "
     "the inventory sort group within the tab (EquipParamGoods sortGroupId, #308). The game "
     "shows no group names, so the labels are descriptive. Consumables: Essential (flasks, "
     "Spectral Steed Whistle, Memory of Grace), Edible, Pot, Aromatic, Throwable, Special "
@@ -2848,7 +2856,13 @@ _FIELD_NOTES: dict[str, str] = {
     "Prattling Pates), Quest, Golden Rune, Online (multiplayer fingers, effigies). Key "
     "items: Great Rune, Character Upgrade, Key, Quest, Tool (bells, whetblades, cookbooks), "
     "Map, Bell Bearing, Scroll. Crafting materials: Fauna, Flora, Object. Upgrade "
-    "materials: Flask Upgrade, Blessing, Smithing Stone, Somber Smithing Stone, Glovewort",
+    "materials: Flask Upgrade, Blessing, Smithing Stone, Somber Smithing Stone, "
+    "Glovewort. Info items (#316), from the item's run of sortIndex within its group: "
+    "Note (the 'Note: …' items, Knifeprint Clue, Furnace Keeper's Note, Torn Diary "
+    "Page), Letter (Volcano Manor letters, Red Letter, Zorayas's and Rogier's "
+    "letters; the DLC cross messages, Message from Leda, Monk's Missive), Simple Map "
+    "(Meeting Place Map, Sellia's Secret, Mirage Riddle, Weathered Map, Cross Map, "
+    "Ruins Map), Painting, Tutorial (the 'About …' items)",
     "usage": "on consumable docs: when the item can be used (#308), from EquipParamGoods "
     "flags. reusable (not consumed on use: Tarnished's Furled Finger, Telescope; a flask "
     "spends a charge, so false), horseback (usable while riding; the shackles and Mimic's "
@@ -3030,13 +3044,16 @@ _FIELD_NOTES: dict[str, str] = {
     "event script awards it on an entitlement flag that no game script sets, and can "
     "take it back; only the gestures The Ring and Ring of Miquella; #306) / upgraded "
     "(a Flask of Crimson or Cerulean Tears +N: the flask upgraded with Sacred Tears at a "
-    "site of grace, see base_item; #308). "
+    "site of grace, see base_item; #308) / painting_reward (waits at a painting's "
+    'viewpoint once the painting is picked up, e.g. Warhawk Ashes for the "Prophecy" '
+    "Painting; see from_paintings; #316) / tutorial (an 'About …' info item the game "
+    "adds when its tutorial pops up; see from_tutorial; #384). "
     "found_in_world still shows for the scripted types, since their lots are map lots. "
-    "Lot rows below 10000 are test and system rows: they count only when a treasure, "
-    "event script, enemy or talk script hands them out (the starting flasks, the "
-    "Mending Runes), or when an event script counts the item by the lot's pickup flag "
-    "(the Small Golden Effigy, #383), so the test lots with mixed flask levels don't "
-    "count (#381). "
+    "A map lot counts only when a treasure, gathering node, event script, enemy or "
+    "talk script hands it out, or when an event script counts the item by the lot's "
+    "pickup flag (the Small Golden Effigy, #383) (#381, #384): the test lots with "
+    "mixed flask levels, the tutorial lots and leftover rows such as the Confessor "
+    "set's or Flame Sling's (items sold or dropped elsewhere) don't count. "
     "On a gesture doc (#306) the types say how it's unlocked: starting_equipment (every "
     "class starts with 12), found_in_world (a pickup, e.g. Strength!, or one unlocked by "
     "picking up a treasure, May the Best Win), given_by_npc (an NPC's talk script, or a "
@@ -3095,6 +3112,22 @@ _FIELD_NOTES: dict[str, str] = {
     "item lot or shop row hands out, for a weapon the player can obtain), e.g. "
     "Spinning Gravity Thrust: [Sword Lance], Piercing Fang: [Nagakiba], Palm Blast: "
     "[Dryleaf Arts]",
+    "from_paintings": "on an item doc with acquisition_types painting_reward (#316): the "
+    "paintings whose viewpoint it waits at. A map event script (90005633) shows the "
+    "painting's phantom as the player nears the spot with the painting picked up, then "
+    "switches the reward's treasure on; there's no action prompt. E.g. Warhawk Ashes: "
+    '["Prophecy" Painting]; Juvenile Scholar Cap: ["Resurrection" Painting]',
+    "painting_rewards": "on a painting info doc (#316): the items waiting at its "
+    'viewpoint (see from_paintings), e.g. "Prophecy" Painting: [Warhawk Ashes]. '
+    "The painting's own placements are its wall",
+    "viewpoints": "on a painting info doc (#316): where its rewards wait, the spot the "
+    "painting shows, as placements {map, world_position | position, region, "
+    "parent_region, location, area}: the phantom's MSB position. Returned, not "
+    "searchable",
+    "from_tutorial": "on an 'About …' info doc with acquisition_types tutorial (#384): "
+    "the game_text tutorial doc whose pop-up adds it, e.g. About Sites of Grace: "
+    "Tutorial 301020 (see its unlock_set_when for what shows it). Paired by text: the "
+    "item's caption is the tutorial body, or its name the tutorial title",
     "given_by": "on an item doc: NPCs whose talk script gives the item (#23), named via the "
     "NPC's map placement. One script can serve several personas of the same character "
     "(Roderika / Roderika, Spirit Tuner) or a shared questline (Irina and Hyetta); a "
@@ -4685,6 +4718,13 @@ _FIELD_NOTES: dict[str, str] = {
     "show the tutorial's pop-up). Two tutorials can share one (Adding Skills and "
     "Adding Affinities: 710600). Absent when no TutorialParam row with a flag shows "
     "the text",
+    "grants_item": "on a tutorial game_text doc (#384): the 'About …' info item its "
+    "pop-up adds to the inventory (reverse of from_tutorial), e.g. Tutorial 301020 "
+    "(Sites of Grace): About Sites of Grace",
+    "raised_by_items": "on an item_dialog game_text doc (#316): the goods whose use "
+    "asks this yes / no question (EquipParamGoods ConfirmationMessage), e.g. 'Return "
+    "to your world?': [Finger Severer]; the summon-replacement warning lists every "
+    "spirit ash. Absent on the dialogs map event scripts show",
     "unlock_set_when": "on a tutorial game_text doc (#202): what turns unlock_flag "
     "on, shaped as warp gate_set_when: the event scripts' set_when (Sites of Grace: "
     "in_own_world + in_region of the Stranded Graveyard; 710050, #259: also item_held "

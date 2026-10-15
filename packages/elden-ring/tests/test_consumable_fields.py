@@ -40,6 +40,20 @@ def test_thrown_poise_and_upgraded_type():
 
 
 def test_system_lot_rule_documented():
-    """#381: low lot rows count only when handed out; #382 bulk_use names its items."""
-    assert "below 10000" in _FIELD_NOTES["acquisition_types"]
+    """#381/#384: map lots count only when handed out; #382 bulk_use names its items."""
+    assert "A map lot counts only when" in _FIELD_NOTES["acquisition_types"]
     assert "Golden Runes" in _FIELD_NOTES["usage"]
+
+
+def test_painting_tutorial_and_dialog_fields():
+    """#316 paintings / info sub_category / item dialogs, #384 tutorial items."""
+    for field in ("from_paintings", "painting_rewards", "from_tutorial"):
+        assert _PROPS[field] == {"type": "keyword"}, field
+        assert field in _FIELD_NOTES, field
+    assert _PROPS["viewpoints"] == {"type": "object", "enabled": False}
+    for field in ("grants_item", "raised_by_items"):
+        assert _PROPS[field] == {"type": "keyword"}, field
+        assert field in _FIELD_NOTES, field
+    note = _FIELD_NOTES["acquisition_types"]
+    assert "painting_reward" in note and "tutorial (" in note
+    assert "Simple Map" in _FIELD_NOTES["sub_category"]

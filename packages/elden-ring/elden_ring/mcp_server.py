@@ -119,9 +119,10 @@ def search_entities(
                            action_button (interaction prompts: "Touch grace"),
                            map_event (area/event banners: "Summoned Blaidd…"),
                            tutorial and loading_tip (display_name = title;
-                           a tutorial's unlock_flag + unlock_set_when, #202),
+                           a tutorial's unlock_flag + unlock_set_when, #202, and
+                           grants_item, the 'About …' item it adds, #384),
                            item_dialog (item-use confirmations: "Use Stonesword
-                           Key?"; #90)
+                           Key?"; #90; raised_by_items, #316)
             talk_option  — talk-script text, one doc per EventTextForTalk id
                            ("Talk Option 15000380"): menu choices like "Tell him
                            that Radagon is Marika", plus notices and
@@ -366,7 +367,13 @@ def search_entities(
                            see from_weapons, #305) /
                            preorder_bonus (a pre-order entitlement award: the
                            gestures The Ring and Ring of Miquella, #306) /
-                           upgraded (a Flask +N, upgraded with Sacred Tears, #308)
+                           upgraded (a Flask +N, upgraded with Sacred Tears, #308) /
+                           painting_reward (waits at a painting's viewpoint, see
+                           from_paintings, #316) /
+                           tutorial (an 'About …' item a tutorial pop-up adds, see
+                           from_tutorial, #384)
+      from_paintings / painting_rewards / viewpoints — painting reward <-> painting
+                           links and where the reward waits (#316)
       reward_sources     — per scripted award: {type, map, flags, locations, step
                            (quest step), npc (invader, else the step's NPC, else
                            the NPC who sets a map-local gating flag, #332, else
@@ -384,7 +391,8 @@ def search_entities(
       crafting_container — on pots / aromatics: the tool crafted in (Cracked Pot,
                            Ritual Pot, Hefty Cracked Pot, Perfume Bottle; the tool's
                            used_in lists them back, #308)
-      sub_category / usage — goods inventory sort group (Pot, Grease, Online…) and
+      sub_category / usage — goods inventory sort group (Pot, Grease, Online…; info:
+                           Note, Letter, Simple Map, Painting, Tutorial, #316) and
                            consumable usage flags (reusable, horseback, ladder,
                            multiplayer, offline, bulk_use) (#308/#382)
       unlocks_shop_items — on bell bearings / scrolls / bosses: items whose shop rows
