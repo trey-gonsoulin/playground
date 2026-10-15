@@ -4546,9 +4546,11 @@ _FIELD_NOTES: dict[str, str] = {
     "only the flags every one of their scripts turns on): Fractured Marika's 'Mend "
     "the Elden Ring' 9400, 'Use Mending Rune of Perfect Order' 9401, '… of the "
     "Death-Prince' 9402, '… of the Fell Curse' 9403. Menus listed through helper "
-    "machines or past a nested call (the grace menu's 'Talk to Melina' 4652/4655) and "
-    "counter-built entries count (#390): each Twin Maiden Husks 'Offer …' entry sets "
-    "its own flag (11109709 + entry), the flag the Husks' re-sold lineup unlocks on. "
+    "machines or past a nested call (the grace menu's 'Talk to Melina' 4652/4655, "
+    "which its helper sets only once 4651 is on) and counter-built entries count "
+    "(#390): each Twin Maiden Husks 'Offer …' entry sets its own flag (11109709 + "
+    "entry for the base game's, 11109790 + entry - 60 for the DLC's), the flag the "
+    "Husks' re-sold lineup unlocks on. "
     "See cutscene for the scene a flag triggers",
     "npcs": "on a talk_option doc (#307): the NPCs whose talk scripts show "
     "the option: talk-menu entries (AddTalkListData), notices and confirmations "
@@ -4879,9 +4881,10 @@ _FIELD_NOTES: dict[str, str] = {
     "raised_by_items": "on an item_dialog game_text doc (#316): the goods whose use "
     "asks this yes / no question (EquipParamGoods ConfirmationMessage), e.g. 'Return "
     "to your world?': [Finger Severer]; the summon-replacement warning lists every "
-    "spirit ash. Absent on the multiplayer and spirit / steed notices ('Lure in "
-    "invaders?'), which the game's own item-use code shows: no param or event script "
-    "links them to an item (#386)",
+    "spirit ash. Absent on the item notices no param or event script links to an "
+    "item, which the game's own item-use code shows: the multiplayer prompts ('Lure "
+    "in invaders?'), the spirit / steed notices, the Physick rune notice, 'Use "
+    "Alluring Pot?' and the Finger Remedy warning (#386)",
     "message_category": "on a message_word game_text doc (BloodMsg, #387): the "
     "message-menu category the word sits under, e.g. 'enemy': Enemies, 'east': "
     "Directions",
@@ -4948,7 +4951,7 @@ _FIELD_NOTES: dict[str, str] = {
     "Deenh x2.2). A filter like summon_stats.stats.hp matches if any spirit matches. "
     "Each spirit also has an attacks profile (summon_stats.attacks), or, for the "
     "humanoid spirits that fight with gear, equipment / weapon_attacks / spell_attacks "
-    "instead (#310). Mimic Tear also lists its player-copy row. +10 in max_level, "
+    "instead (#310; Jarwight Puppet fights unarmed, so it has armor only). Mimic Tear also lists its player-copy row. +10 in max_level, "
     "every level in upgrade_curve",
     "summon_stats.equipment": "on a spirit_ash doc: the gear of a humanoid spirit that "
     "fights with a loadout instead of an attacks profile (#310): the Puppets (Dung Eater "

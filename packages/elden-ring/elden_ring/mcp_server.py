@@ -126,7 +126,7 @@ def search_entities(
                            grants_item, the 'About …' item it adds, #384),
                            item_dialog (item-use confirmations: "Use Stonesword
                            Key?"; #90; raised_by_items, #316), network_message
-                           (online notices: "Summon this cooperator?"),
+                           (online notices: "Summon this adversary?"),
                            menu_dialog (system / menu dialogs) and the message
                            parts (BloodMsg): placed_message (the developers'
                            messages), message_template ("<?bmsg?> ahead"),
