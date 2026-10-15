@@ -17,6 +17,17 @@ _LINE = {
         {"quest": "Nepheli Loux, Warrior", "phase_flag": 4227, "order": 3}
     ],
 }
+# A first-meeting line (#389), as rep-built per-version dialogue (#388).
+_FIRST_MEETING = {
+    "entity_type": "npc_dialogue",
+    "name": "Dialogue 309175010",
+    "patch_version": "1.02",
+    "requires_flags_off": [3685, 3686, 31009255],
+    "requires_steps_off": [
+        {"quest": "Patches", "phase_flag": 3685, "order": 1},
+        {"quest": "Patches", "phase_flag": 3686, "order": 2},
+    ],
+}
 _OPTION = {
     "entity_type": "talk_option",
     "name": "Talk Option 26071001",
@@ -44,9 +55,11 @@ def _leaves(doc, props, path=""):
 
 
 def test_fields_mapped():
-    for doc in (_LINE, _OPTION, _SCENE):
+    for doc in (_LINE, _FIRST_MEETING, _OPTION, _SCENE):
         _leaves(doc, _PROPS)
     assert _PROPS["requires_flags"] == {"type": "long"}
+    assert _PROPS["requires_flags_off"] == {"type": "long"}
+    assert _PROPS["requires_steps_off"] == _PROPS["requires_steps"]
     assert _PROPS["sets_flags"] == {"type": "long"}
     assert _PROPS["trigger_options"] == {"type": "keyword"}
     assert set(_PROPS["requires_steps"]["properties"]) >= {
@@ -57,8 +70,18 @@ def test_fields_mapped():
 
 
 def test_fields_documented():
-    for field in ("requires_flags", "requires_steps", "sets_flags", "trigger_options"):
+    for field in (
+        "requires_flags",
+        "requires_steps",
+        "requires_flags_off",
+        "requires_steps_off",
+        "sets_flags",
+        "trigger_options",
+    ):
         assert field in _FIELD_NOTES, field
+    assert "#388" in _FIELD_NOTES["requires_steps"]  # per-version dialogue too
+    assert "first-meeting" in _FIELD_NOTES["requires_flags_off"]
+    assert "11109709" in _FIELD_NOTES["sets_flags"]  # counter-built entries (#390)
     assert "npc_dialogue" in _FIELD_NOTES["requires_flags"]
     assert "Nepheli Loux" in _FIELD_NOTES["requires_steps"]
     assert "9401" in _FIELD_NOTES["sets_flags"]

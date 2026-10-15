@@ -1080,6 +1080,8 @@ INDEX_MAPPING = {
             "talk_contexts": {"type": "keyword"},  # npc_dialogue (#307)
             "requires_flags": {"type": "long"},  # npc_dialogue (#335)
             "requires_steps": {"properties": _QUEST_LINK},  # npc_dialogue (#335)
+            "requires_flags_off": {"type": "long"},  # npc_dialogue (#389)
+            "requires_steps_off": {"properties": _QUEST_LINK},  # npc_dialogue (#389)
             "npcs": {"type": "keyword"},  # talk_option (#307)
             "sets_flags": {"type": "long"},  # talk_option (#334)
             # Back-link on npc_dialogue subtitle lines (#192); cutscene_id shared.
@@ -4513,19 +4515,35 @@ _FIELD_NOTES: dict[str, str] = {
     "untested way gates nothing. Mostly an NPC's quest phase (Nepheli Loux: 4225 "
     "'Well, who do we have here?', 4226 her Roundtable lines, 4227 the Village of "
     "the Albinaurics), plus map-local talk flags ('already said this'). Absent when "
-    "nothing gates the line (approach, hostile and death lines usually)",
+    "nothing gates the line (approach, hostile and death lines usually). Flags the "
+    "line needs off are in requires_flags_off",
     "requires_steps": "on an npc_dialogue doc (#335): the quest steps behind "
     "requires_flags, each {quest, npc, phase_flag, order, life_state} as in "
     "trigger_steps (a quest-only link dropped beside a step of that quest): Nepheli "
-    "Loux's 'Oh, it's you...' -> phase 4227, order 3. Only on the current patch's "
-    "lines, which the full reindex builds with the quest docs; the per-version "
-    "dialogue keeps requires_flags only",
+    "Loux's 'Oh, it's you...' -> phase 4227, order 3. On every loaded version's "
+    "lines: the per-version dialogue links that version's own quest docs (#388)",
+    "requires_flags_off": "on an npc_dialogue doc (#389): the event flags every talk "
+    "script playing the line needs off, the mirror of requires_flags: f15(flag) == 0 "
+    "tests, and the else of an f15(flag) == 1 test (or of an OR of such tests) on "
+    "each way to the conversation; a flag the script sets on the way is dropped, "
+    "and the line's own machine's tests win over its caller's. Mostly first-meeting "
+    "and 'not yet' lines: Alexander's 'Oh my stars I'm so happy to see you!' needs "
+    "1043399305 and 1043399306 off (his 'Ah!' once freed needs 1043399306 on)",
+    "requires_steps_off": "on an npc_dialogue doc (#389): the quest steps behind "
+    "requires_flags_off, shaped like requires_steps: the line plays only while the "
+    "NPC is not at these steps. A quest's steps are left out when requires_steps "
+    "already puts the line at one of that quest's phases (its other phases are off "
+    "anyway): Patches' 'It's been ages since I've seen you.' needs phases 3685-3690 off",
     "sets_flags": "on a talk_option doc (#334): the event flags choosing the option "
-    "turns on (SetEventFlag on its menu branch, within 4 plain steps of the choice; "
-    "literal menu entries only; on an option several NPCs show, only the flags "
-    "every one of their scripts turns on): Fractured Marika's 'Mend the Elden Ring' 9400, 'Use "
-    "Mending Rune of Perfect Order' 9401, '… of the Death-Prince' 9402, '… of the "
-    "Fell Curse' 9403. See cutscene for the scene a flag triggers",
+    "turns on (SetEventFlag on its menu branch, within 4 plain steps of the choice, "
+    "and in the helper machines the branch calls; on an option several NPCs show, "
+    "only the flags every one of their scripts turns on): Fractured Marika's 'Mend "
+    "the Elden Ring' 9400, 'Use Mending Rune of Perfect Order' 9401, '… of the "
+    "Death-Prince' 9402, '… of the Fell Curse' 9403. Menus listed through helper "
+    "machines or past a nested call (the grace menu's 'Talk to Melina' 4652/4655) and "
+    "counter-built entries count (#390): each Twin Maiden Husks 'Offer …' entry sets "
+    "its own flag (11109709 + entry), the flag the Husks' re-sold lineup unlocks on. "
+    "See cutscene for the scene a flag triggers",
     "npcs": "on a talk_option doc (#307): the NPCs whose talk scripts show "
     "the option: talk-menu entries (AddTalkListData), notices and confirmations "
     "(OpenGenericDialog: 'No Sacred Tear in inventory'), count prompts (#370: "
