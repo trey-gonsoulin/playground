@@ -4401,7 +4401,8 @@ _FIELD_NOTES: dict[str, str] = {
     "dialogue keeps requires_flags only",
     "sets_flags": "on a talk_option doc (#334): the event flags choosing the option "
     "turns on (SetEventFlag on its menu branch, within 4 plain steps of the choice; "
-    "literal menu entries only): Fractured Marika's 'Mend the Elden Ring' 9400, 'Use "
+    "literal menu entries only; on an option several NPCs show, only the flags "
+    "every one of their scripts turns on): Fractured Marika's 'Mend the Elden Ring' 9400, 'Use "
     "Mending Rune of Perfect Order' 9401, '… of the Death-Prince' 9402, '… of the "
     "Fell Curse' 9403. See cutscene for the scene a flag triggers",
     "npcs": "on a talk_option doc (#307): the NPCs whose talk scripts show "
