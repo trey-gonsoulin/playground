@@ -129,7 +129,8 @@ def search_entities(
                            (online notices: "Summon this adversary?"),
                            menu_dialog (system / menu dialogs) and the message
                            parts (BloodMsg): placed_message (the developers'
-                           messages), message_template ("<?bmsg?> ahead"),
+                           messages; placements / maps where they lie, #393),
+                           message_template ("<?bmsg?> ahead"),
                            message_word (message_category: "Enemies"…) and
                            message_conjunction (#387)
             talk_option  — talk-script text, one doc per EventTextForTalk id
