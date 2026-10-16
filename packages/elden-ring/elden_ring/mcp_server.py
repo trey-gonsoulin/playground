@@ -214,6 +214,8 @@ def search_entities(
                            other flags on, #228; trigger_options, the talk options
                            choosing it, #334) / trigger_speffects (a character's
                            SpEffect it waits on, e.g. Godrick's death, #280) /
+                           trigger_health / trigger_deaths (a character's HP
+                           ratio or death it waits on: phase changes, #394) /
                            trigger_items (e.g. the Dectus medallion
                            halves), is_ending / unskippable, and its subtitles (EN +
                            subtitles_ja, in playback order; talk_ids join the
