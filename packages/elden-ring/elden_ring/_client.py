@@ -4966,10 +4966,12 @@ _FIELD_NOTES: dict[str, str] = {
     "summon_stats.model_display_masks": "on a spirit_ash doc: which of the spirit "
     "model's optional mesh parts are drawn, as the numbers of the NpcParam "
     "ModelDisplayMask0-31 bits that are set (weapons, shields, headgear and the like); "
-    "absent when none is (#396). The game data gives the numbers no names. Haligtree "
-    "Soldier Ashes: [0] (143760500) draws the c4376 model's 0.73 m weapon mesh, the mask "
-    "of every field Haligtree Soldier that can drop the Dagger; [1] "
-    "(143762500) draws a 1.17 m blade the data doesn't name",
+    "absent when none is (#396). The model files name the parts only '#NN# weapon'; "
+    "the weapon shows in the drops of enemy rows with the same mask. Haligtree "
+    "Soldier Ashes: [0] (143760500) is the Dagger and [1] (143762500) the Short Sword. "
+    "The sister soldier model c4371 has the same weapon meshes, and its rows drop the "
+    "Dagger with mask [0], the Short Sword with [1], the Soldier's Crossbow with [2] "
+    "and the Short Spear with [3]; field c4376 rows with mask [0] drop the Dagger too",
     "summon_stats.equipment": "on a spirit_ash doc: the gear of a humanoid spirit that "
     "fights with a loadout instead of an attacks profile (#310): the Puppets (Dung Eater "
     "Puppet: Sword of Milos + Omen set) and the DLC humans (Ancient Dragon Florissax, "
