@@ -5065,7 +5065,11 @@ _FIELD_NOTES: dict[str, str] = {
     "scripts check but no parsed event "
     "sets (usually the first) is listed bare. Phases have no names: "
     "meaning is positional (order + locations + when)",
-    "steps.phase_flag": "the phase's event flag (in flag_block)",
+    "steps.phase_flag": "the phase's event flag: in flag_block, or (#398) a map-local "
+    "flag of an NPC whose quest runs on them (Count Ymir: the flags his talk scripts "
+    "share with the event scripts, such as the Finger Ruins of Rhia / Dheo bells "
+    "2050400600 / 2053460600, and those his quest manager sets). A when or "
+    "requires_steps on such a flag reads as that NPC's quest_phase",
     "steps.order": "1-based depth of the phase in the transition chain (the longest "
     "entered_from path); sibling branches share an order (Millicent 4191 help vs 4194 "
     "betray)",
