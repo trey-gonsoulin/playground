@@ -337,6 +337,9 @@ _NPC_ATTACKS = {
 
 # One spirit-ash summon entry (#86) at a given upgrade level (#117).
 _SUMMON_STATS = {
+    # The spirit's NpcParam row and its drawn mesh parts (ModelDisplayMask bits, #396)
+    "npc_param_id": {"type": "integer"},
+    "model_display_masks": {"type": "integer"},
     "count": {"type": "integer"},
     **_NPC_STATS,
     "damage_multiplier": {"type": "float"},
@@ -4958,6 +4961,22 @@ _FIELD_NOTES: dict[str, str] = {
     "humanoid spirits that fight with gear, equipment / weapon_attacks / spell_attacks "
     "instead (#310; Jarwight Puppet fights unarmed, so it has armor only). Mimic Tear also lists its player-copy row. +10 in max_level, "
     "every level in upgrade_curve",
+    "summon_stats.npc_param_id": "on a spirit_ash doc: the spirit's NpcParam row "
+    "(BuddyParam NpcParamId); summon_stats has one entry per row (#396). On 9 ashes "
+    "(1.17) two or more entries have the same stats on different rows: Haligtree "
+    "Soldier Ashes (143760500 and 143762500, two soldiers each), Godrick, Raya Lucaria, "
+    "Mausoleum and Messmer Soldier Ashes, Wandering Noble, Demi-Human and Man-Fly Ashes, "
+    "and Nightmaiden & Swordstress Puppets. Those rows differ in how the spirit looks "
+    "(summon_stats.model_display_masks) or in NpcParam fields these stats don't cover",
+    "summon_stats.model_display_masks": "on a spirit_ash doc: which of the spirit "
+    "model's optional mesh parts are drawn, as the numbers of the NpcParam "
+    "ModelDisplayMask0-31 bits that are set (weapons, shields, headgear and the like); "
+    "absent when none is (#396). The model files name the parts only '#NN# weapon'; "
+    "the weapon shows in the drops of enemy rows with the same mask. Haligtree "
+    "Soldier Ashes: [0] (143760500) is the Dagger and [1] (143762500) the Short Sword. "
+    "The sister soldier model c4371 has the same weapon meshes, and its rows drop the "
+    "Dagger with mask [0], the Short Sword with [1], the Soldier's Crossbow with [2] "
+    "and the Short Spear with [3]; field c4376 rows with mask [0] drop the Dagger too",
     "summon_stats.equipment": "on a spirit_ash doc: the gear of a humanoid spirit that "
     "fights with a loadout instead of an attacks profile (#310): the Puppets (Dung Eater "
     "Puppet: Sword of Milos + Omen set) and the DLC humans (Ancient Dragon Florissax, "
