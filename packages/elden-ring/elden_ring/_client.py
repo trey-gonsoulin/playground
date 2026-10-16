@@ -1063,6 +1063,22 @@ INDEX_MAPPING = {
                     "bosses": {"type": "keyword"},
                 }
             },
+            "trigger_health": {  # #394
+                "properties": {
+                    "entity_id": {"type": "long"},
+                    "character": {"type": "keyword"},
+                    "bosses": {"type": "keyword"},
+                    "comparison": {"type": "keyword"},
+                    "ratio": {"type": "float"},
+                }
+            },
+            "trigger_deaths": {  # #394
+                "properties": {
+                    "entity_id": {"type": "long"},
+                    "character": {"type": "keyword"},
+                    "bosses": {"type": "keyword"},
+                }
+            },
             "warp_region": {"type": "long"},
             "is_ending": {"type": "boolean"},
             "unskippable": {"type": "boolean"},
@@ -4474,6 +4490,19 @@ _FIELD_NOTES: dict[str, str] = {
     "defeat flag 10000800 (kept in trigger_flags); Rykard's scene 16000020 plays "
     "when the God-Devouring Serpent (entity 16000801) gets SpEffect 11920. Only "
     "those two scenes wait on one",
+    "trigger_health": "on a cutscene doc (#394): the characters whose HP ratio its "
+    "script waits on, each {entity_id (the MSB character), character (its NPC "
+    "name), bosses (the boss docs that character fights in), comparison (e.g. "
+    "'<='), ratio (0-1 of max HP)}. These are phase-change scenes: Maliketh "
+    "13000040 at Beast Clergyman <= 0.55, Rykard 16000020 at God-Devouring Serpent "
+    "<= 0.01 (with trigger_speffects 11920), Promised Consort Radahn 20010010 at "
+    "<= 0.65, Messmer 21010010 at <= 0.5, and the Fire Giant 60520010 at <= 0 (no "
+    "character name). Player HP tests aren't included",
+    "trigger_deaths": "on a cutscene doc (#394): the characters whose death its "
+    "script waits on, each {entity_id, character, bosses} as in trigger_health. "
+    "Rennala 14000010 (her first phase dying), Lichdragon Fortissax 12030020, "
+    "Elden Beast 19000050, and Stormveil scene 10000050 (entity 10000281, no "
+    "character name). Player death tests aren't included",
     "warp_region": "on a cutscene doc: the MSB region entity the player is moved to "
     "after the scene (…AndWarp plays)",
     "is_ending": "on a cutscene doc: an ending cutscene (cutscene flag 64 or an "
