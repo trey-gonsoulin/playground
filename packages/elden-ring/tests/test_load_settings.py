@@ -1,4 +1,5 @@
-"""Loader exit status (#411) and reindex load settings (#406). No OpenSearch needed."""
+"""Loader exit status (#411, #415) and reindex load settings (#406). No OpenSearch
+needed."""
 
 import json
 import sys
@@ -12,7 +13,7 @@ import load_data  # noqa: E402
 import load_dataset  # noqa: E402
 
 
-def _run_main(monkeypatch, tmp_path, errors, *flags):
+def _run_main(monkeypatch, tmp_path, errors, *flags, prune_errors=()):
     ds = tmp_path / "ds.json"
     ds.write_text(json.dumps([{"entity_type": "weapon", "name": "Dagger"}]))
     pruned = []
@@ -21,9 +22,12 @@ def _run_main(monkeypatch, tmp_path, errors, *flags):
     monkeypatch.setattr(
         load_dataset, "load_documents", lambda c, docs, dry_run: (1, errors)
     )
-    monkeypatch.setattr(
-        load_dataset, "prune_stale", lambda c, docs, dry_run: pruned.append(1)
-    )
+
+    def _prune(c, docs, dry_run):
+        pruned.append(1)
+        return 0, list(prune_errors)
+
+    monkeypatch.setattr(load_dataset, "prune_stale", _prune)
     monkeypatch.setattr(sys, "argv", ["load_dataset.py", str(ds), *flags])
     load_dataset.main()
     return pruned
@@ -39,6 +43,36 @@ def test_bulk_errors_with_prune_exit_nonzero_and_skip_prune(monkeypatch, tmp_pat
     with pytest.raises(SystemExit) as e:
         _run_main(monkeypatch, tmp_path, [{"index": {"status": 400}}], "--prune")
     assert "skipping prune" in str(e.value.code)
+
+
+def test_prune_delete_errors_exit_nonzero(monkeypatch, tmp_path):
+    with pytest.raises(SystemExit) as e:
+        _run_main(
+            monkeypatch,
+            tmp_path,
+            [],
+            "--prune",
+            prune_errors=[{"delete": {"status": 503}}],
+        )
+    assert "prune had 1 delete errors" in str(e.value.code)
+
+
+def test_prune_stale_returns_delete_errors(monkeypatch):
+    doc = {"entity_type": "enemy", "name": "A", "patch_version": "1.02"}
+    live = [{"_id": "enemy::A::1.02"}, {"_id": "enemy::B::1.02"}]
+    live += [{"_id": f"enemy::K{i}::1.02"} for i in range(8)]
+    docs = [doc] + [
+        {"entity_type": "enemy", "name": f"K{i}", "patch_version": "1.02"}
+        for i in range(8)
+    ]
+    monkeypatch.setattr(load_data, "_stale_ids", lambda live_ids, d: ["enemy::B::1.02"])
+    monkeypatch.setattr(load_data, "scan", lambda client, **kw: iter(live))
+    err = {"delete": {"_id": "enemy::B::1.02", "status": 503}}
+    monkeypatch.setattr(load_data, "bulk", lambda client, actions, **kw: (0, [err]))
+    assert load_data.prune_stale(object(), docs, dry_run=False) == (0, [err])
+    monkeypatch.setattr(load_data, "bulk", lambda client, actions, **kw: (1, []))
+    assert load_data.prune_stale(object(), docs, dry_run=False) == (1, [])
+    assert load_data.prune_stale(object(), docs, dry_run=True) == (0, [])
 
 
 def test_clean_load_exits_zero(monkeypatch, tmp_path):
