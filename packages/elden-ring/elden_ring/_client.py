@@ -340,6 +340,8 @@ _SUMMON_STATS = {
     # The spirit's NpcParam row and its drawn mesh parts (ModelDisplayMask bits, #396)
     "npc_param_id": {"type": "integer"},
     "model_display_masks": {"type": "integer"},
+    # What a spirit with a same-stats twin wields, read from its mask (#418)
+    "weapons": {"type": "keyword"},
     "count": {"type": "integer"},
     **_NPC_STATS,
     "damage_multiplier": {"type": "float"},
@@ -5005,7 +5007,8 @@ _FIELD_NOTES: dict[str, str] = {
     "Soldier Ashes (143760500 and 143762500, two soldiers each), Godrick, Raya Lucaria, "
     "Mausoleum and Messmer Soldier Ashes, Wandering Noble, Demi-Human and Man-Fly Ashes, "
     "and Nightmaiden & Swordstress Puppets. Those rows differ in how the spirit looks "
-    "(summon_stats.model_display_masks) or in NpcParam fields these stats don't cover",
+    "(summon_stats.model_display_masks, labelled by summon_stats.weapons) or in "
+    "NpcParam fields these stats don't cover",
     "summon_stats.model_display_masks": "on a spirit_ash doc: which of the spirit "
     "model's optional mesh parts are drawn, as the numbers of the NpcParam "
     "ModelDisplayMask0-31 bits that are set (weapons, shields, headgear and the like); "
@@ -5014,7 +5017,24 @@ _FIELD_NOTES: dict[str, str] = {
     "Soldier Ashes: [0] (143760500) is the Dagger and [1] (143762500) the Short Sword. "
     "The sister soldier model c4371 has the same weapon meshes, and its rows drop the "
     "Dagger with mask [0], the Short Sword with [1], the Soldier's Crossbow with [2] "
-    "and the Short Spear with [3]; field c4376 rows with mask [0] drop the Dagger too",
+    "and the Short Spear with [3]; field c4376 rows with mask [0] drop the Dagger too. "
+    "summon_stats.weapons names these weapons",
+    "summon_stats.weapons": "on a spirit_ash doc: what a spirit wields, on entries "
+    "whose stats match another entry of the same ash, so the label tells them apart "
+    "(#418; humanoid spirits with a loadout use summon_stats.equipment instead). Read "
+    "from the drops of field enemy rows of the same model drawn with the same "
+    "summon_stats.model_display_masks: a weapon (ammo excluded) dropped by more than "
+    "half of them, using the model's family (e.g. c4371-c4377) when the model itself "
+    "has no such row. Haligtree and Raya Lucaria Soldier Ashes: Dagger / Short Sword; "
+    "Messmer Soldier Ashes: Messmer Soldier's Axe / Messmer Soldier's Spear (each with "
+    "the Messmer Soldier Shield); Godrick and Mausoleum Soldier Ashes: Lordsworn's "
+    "Straight Sword / Warpick (each with the Brass Shield); Demi-Human Ashes: Falchion "
+    "/ Club; Wandering Noble Ashes: Noble's Slender Sword (two), Noble's Estoc and "
+    "Torch (two; the torch bearers' field rows drop no weapon, so this one is "
+    "hand-written, after Fextralife's '3 Nobles are armed with swords and 2 with "
+    "Torches'). The same at 1.02, apart from the DLC Messmer ash. Absent when no weapon is known: the "
+    "Mausoleum Soldier Ashes entry drawn with [22, 27, 28], Man-Fly Ashes and "
+    "Nightmaiden & Swordstress Puppets",
     "summon_stats.equipment": "on a spirit_ash doc: the gear of a humanoid spirit that "
     "fights with a loadout instead of an attacks profile (#310): the Puppets (Dung Eater "
     "Puppet: Sword of Milos + Omen set) and the DLC humans (Ancient Dragon Florissax, "
