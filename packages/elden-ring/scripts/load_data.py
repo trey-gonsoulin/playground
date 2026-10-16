@@ -52,6 +52,11 @@ from elden_ring._client import INDEX, INDEX_MAPPING  # reuse index name + mappin
 # ---------------------------------------------------------------------------
 
 
+def _env_on(name: str) -> bool:
+    """Load-tuning knobs (#406) default on; ``NAME=0`` (or false/no/off) turns one off."""
+    return os.environ.get(name, "1").strip().lower() not in ("0", "false", "no", "off")
+
+
 def _get_client() -> OpenSearch:
     endpoint = os.environ.get("OPENSEARCH_ENDPOINT")
     user = os.environ.get("OPENSEARCH_USER", "admin")
@@ -67,6 +72,8 @@ def _get_client() -> OpenSearch:
         verify_certs=False,
         connection_class=RequestsHttpConnection,
         timeout=60,
+        # gzip the bulk bodies (~11x smaller, #406); ER_LOAD_COMPRESS=0 turns it off
+        http_compress=_env_on("ER_LOAD_COMPRESS"),
     )
 
 
@@ -1957,6 +1964,68 @@ def ensure_index(client: OpenSearch, recreate: bool = False) -> None:
         client.indices.put_mapping(index=INDEX, body=INDEX_MAPPING["mappings"])
 
 
+def _concrete_indices(client: OpenSearch) -> list[str]:
+    """The concrete index (or indices) behind ``INDEX``, which is usually an alias
+    (#115); empty when it doesn't exist yet."""
+    if not client.indices.exists(index=INDEX):
+        return []
+    return sorted(client.indices.get_settings(index=INDEX))
+
+
+# Index settings a reindex changes while it loads (#406). ``None`` resets a setting
+# to the OpenSearch default (refresh 1s, per-request translog fsync), which is what
+# the live index runs with, so a restore needs no record of the previous values.
+_PAUSED_SETTINGS = {
+    "index.refresh_interval": "-1",
+    "index.translog.durability": "async",
+}
+
+
+def _pause_settings() -> dict:
+    """The settings ``pause_refresh`` applies under the env knobs:
+    ER_LOAD_PAUSE_REFRESH=0 skips the refresh pause, ER_LOAD_ASYNC_TRANSLOG=0
+    keeps per-request translog fsync."""
+    body = {}
+    if _env_on("ER_LOAD_PAUSE_REFRESH"):
+        body["index.refresh_interval"] = _PAUSED_SETTINGS["index.refresh_interval"]
+    if _env_on("ER_LOAD_ASYNC_TRANSLOG"):
+        body["index.translog.durability"] = _PAUSED_SETTINGS[
+            "index.translog.durability"
+        ]
+    return body
+
+
+def pause_refresh(client: OpenSearch) -> list[str]:
+    """Stop periodic refreshes (and fsync the translog asynchronously) on the
+    concrete index for a bulk reindex. Searches keep serving the last refreshed
+    view; ``restore_refresh`` must run afterwards. Returns the indices changed."""
+    body = _pause_settings()
+    if not body:
+        print("  Refresh pause and async translog are both turned off; no change.")
+        return []
+    indices = _concrete_indices(client)
+    for name in indices:
+        client.indices.put_settings(index=name, body=body)
+        print(f"  Paused '{name}': {body}")
+    if not indices:
+        print(f"  Index '{INDEX}' doesn't exist yet; nothing to pause.")
+    return indices
+
+
+def restore_refresh(client: OpenSearch) -> list[str]:
+    """Reset what ``pause_refresh`` changed to the defaults and force a refresh so
+    every loaded and pruned doc is searchable. Safe to run at any time (a
+    reindex runs it at startup too, in case a killed run left refresh off)."""
+    indices = _concrete_indices(client)
+    for name in indices:
+        client.indices.put_settings(index=name, body=dict.fromkeys(_PAUSED_SETTINGS))
+        client.indices.refresh(index=name)
+        print(f"  Restored refresh/translog defaults on '{name}' and refreshed it.")
+    if not indices:
+        print(f"  Index '{INDEX}' doesn't exist; nothing to restore.")
+    return indices
+
+
 def _to_bulk_actions(docs: list[dict]) -> list[dict]:
     return [
         {
@@ -1972,6 +2041,10 @@ def _to_bulk_actions(docs: list[dict]) -> list[dict]:
     ]
 
 
+# Docs per bulk request; ER_BULK_CHUNK_SIZE lets a reindex try larger ones (#406).
+_BULK_CHUNK_SIZE = int(os.environ.get("ER_BULK_CHUNK_SIZE") or 500)
+
+
 def load_documents(
     client: OpenSearch | None, docs: list[dict], dry_run: bool
 ) -> tuple[int, list]:
@@ -1983,7 +2056,9 @@ def load_documents(
         print(f"  [dry-run] Would index {len(actions)} documents.")
         print(json.dumps(actions[:2], indent=2, ensure_ascii=False))
         return 0, []
-    success, errors = bulk(client, actions, raise_on_error=False, chunk_size=500)
+    success, errors = bulk(
+        client, actions, raise_on_error=False, chunk_size=_BULK_CHUNK_SIZE
+    )
     print(f"  Indexed {success} documents.")
     if errors:
         print(f"  {len(errors)} errors (first 3):")

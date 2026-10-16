@@ -9,6 +9,8 @@ touches other patches' documents.
 no longer produces, scoped to the entity_types it contains (#67). Without it, a
 doc written by an earlier wrong build survives every correct reload.
 
+Exits non-zero when any document fails to index, whatever the flags (#411).
+
     OPENSEARCH_ENDPOINT=... OPENSEARCH_PASSWORD=... \
         python load_dataset.py path/to/dataset.json [--prune]
 """
@@ -58,6 +60,10 @@ def main() -> None:
         if errors:
             sys.exit("load had errors — skipping prune so no live doc is lost")
         prune_stale(client, docs, dry_run=args.dry_run)
+    # Any failed doc fails the run, with or without --prune (#411), so callers
+    # that check the exit status can't mistake a partial load for success.
+    if errors:
+        sys.exit(f"load had {len(errors)} errors")
 
 
 if __name__ == "__main__":
