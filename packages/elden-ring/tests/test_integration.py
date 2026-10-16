@@ -748,7 +748,7 @@ def test_reload_prunes_stale_docs_in_scope(client):
         rebuilt = [_d("enemy", "A"), _d("weapon", "W")]
         load_documents(client, rebuilt, dry_run=False)
         client.indices.refresh(index=_os.INDEX)
-        pruned = prune_stale(client, rebuilt, dry_run=False)
+        pruned, prune_errors = prune_stale(client, rebuilt, dry_run=False)
         client.indices.refresh(index=_os.INDEX)
 
         def exists(name, version="test-prune"):
@@ -756,7 +756,7 @@ def test_reload_prunes_stale_docs_in_scope(client):
                 index=_os.INDEX, id=ids[(f"__prune_{name}__", version)]
             )
 
-        assert pruned == 1
+        assert pruned == 1 and prune_errors == []
         assert not exists("B"), "stale enemy at the reloaded patch was not pruned"
         assert exists("A") and exists("W"), "rebuilt docs must survive"
         assert exists("D"), "entity_type absent from the dataset must be untouched"

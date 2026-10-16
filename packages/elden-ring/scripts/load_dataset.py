@@ -59,7 +59,9 @@ def main() -> None:
     if args.prune:
         if errors:
             sys.exit("load had errors — skipping prune so no live doc is lost")
-        prune_stale(client, docs, dry_run=args.dry_run)
+        _, prune_errors = prune_stale(client, docs, dry_run=args.dry_run)
+        if prune_errors:
+            sys.exit(f"prune had {len(prune_errors)} delete errors")
     # Any failed doc fails the run, with or without --prune (#411), so callers
     # that check the exit status can't mistake a partial load for success.
     if errors:

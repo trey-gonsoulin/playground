@@ -2079,7 +2079,9 @@ def _stale_ids(live_ids, docs: list[dict]) -> list[str]:
     return [i for i in live_ids if i not in built]
 
 
-def prune_stale(client: OpenSearch | None, docs: list[dict], dry_run: bool) -> int:
+def prune_stale(
+    client: OpenSearch | None, docs: list[dict], dry_run: bool
+) -> tuple[int, list]:
     """Delete docs a reload no longer produces, scoped per patch_version to the
     entity_types present in ``docs`` (#67).
 
@@ -2088,6 +2090,9 @@ def prune_stale(client: OpenSearch | None, docs: list[dict], dry_run: bool) -> i
     every correct rebuild. Other patches and entity_types absent from ``docs``
     (e.g. npc_dialogue on an --items-only load) are never touched. Aborts without
     deleting if any type would lose more than ``_PRUNE_MAX_FRACTION`` of its docs.
+
+    Returns ``(deleted, errors)`` like ``load_documents``, so callers can fail the
+    run on delete errors instead of mistaking a partial prune for success (#415).
     """
     scopes: dict[str, set[str]] = defaultdict(set)
     for d in docs:
@@ -2136,10 +2141,10 @@ def prune_stale(client: OpenSearch | None, docs: list[dict], dry_run: bool) -> i
 
     if not stale:
         print("  No stale documents.")
-        return 0
+        return 0, []
     if dry_run:
         print(f"  [dry-run] Would delete {len(stale)} stale documents.")
-        return 0
+        return 0, []
     deleted, errors = bulk(
         client,
         [{"_op_type": "delete", "_index": INDEX, "_id": i} for i in stale],
@@ -2149,7 +2154,7 @@ def prune_stale(client: OpenSearch | None, docs: list[dict], dry_run: bool) -> i
     print(f"  Pruned {deleted} stale documents.")
     if errors:
         print(f"  {len(errors)} delete errors (first 3): {errors[:3]}")
-    return deleted
+    return deleted, errors
 
 
 # ---------------------------------------------------------------------------
