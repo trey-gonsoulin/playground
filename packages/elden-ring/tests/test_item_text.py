@@ -23,6 +23,15 @@ def test_message_and_network_streams_documented():
     assert "map event scripts" not in _FIELD_NOTES["raised_by_items"]  # #386
 
 
+def test_placed_message_placements_documented():
+    # #393: placed messages carry placements / maps (both already mapped)
+    assert _PROPS["placements"] == {"type": "object", "enabled": False}
+    assert _PROPS["maps"] == {"type": "keyword"}
+    for f in ("placements", "maps", "regions", "areas", "locations"):
+        assert "placed_message" in _FIELD_NOTES[f], f
+    assert "requires_flag" in _FIELD_NOTES["placements"].split("Placed message")[1]
+
+
 def test_fields_mapped_as_text_with_jp_analyzers():
     for f in _NEW:
         assert _PROPS[f] == {"type": "text"}
