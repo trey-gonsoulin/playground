@@ -928,6 +928,7 @@ INDEX_MAPPING = {
             # region / parent_region / map / positions / bosses shared with graces.
             "kind": {"type": "keyword"},
             "graces": {"type": "keyword"},
+            "items": {"type": "keyword"},  # items placed there (#315); enemies shared
             "area_scaling": {
                 "properties": {
                     "speffect_id": {"type": "long"},
@@ -966,6 +967,7 @@ INDEX_MAPPING = {
             "from": {"properties": _WARP_END},
             "to": {"properties": _WARP_END},
             "prompt": {"type": "keyword"},
+            "item": {"type": "keyword"},  # an item-use warp (#315)
             "gate_flag": {"type": "long"},
             "gate_set_when": {"properties": _SET_WHEN},  # #228
             "event_id": {"type": "long"},
@@ -4395,7 +4397,14 @@ _FIELD_NOTES: dict[str, str] = {
     "Beast, the two Night's Cavalry). The boss doc's name is the defeated character's "
     "(the last phase); a name shared by several encounters of the patch gets the place "
     "in parentheses: 'Night's Cavalry (Gate Town Bridge)', 'Erdtree Burial Watchdog "
-    "(Stormfoot Catacombs)'",
+    "(Stormfoot Catacombs)'. On a location doc (#315): the enemy docs with a placement "
+    "located there (see items), NPCs included (Renna the Witch and Merchant Kalé at "
+    "Church of Elleh); bosses are in bosses",
+    "items": "on a location doc (#315): the item docs with a placement whose location is "
+    "this doc (a dungeon, or a landmark whose MSB footprint holds the pickup), in doc "
+    "order: Murkwater Cave -> Cloth Garb, Cloth Trousers, Glass Shard, Mushroom, Cave "
+    "Moss. Pickups beside a landmark but outside its footprint (Fort Haight's Golden "
+    "Seed) and enemy drops aren't listed (see drop_locations)",
     "boss_encounters": "on an enemy doc: the boss docs where it is fought (reverse of "
     "enemies)",
     "npc_summons": "on a boss doc: the NPCs whose summon sign the map script places for "
@@ -4657,7 +4666,8 @@ _FIELD_NOTES: dict[str, str] = {
     "coffins, Astel's drop, Maliketh -> Ashen Capital) or scripted (other script "
     "warps: trap chests, quest steps, the Radahn festival)",
     "graces": "on a location doc: the site_of_grace docs in it (a region: graces in the "
-    "region or its subregions; a dungeon: graces in its map)",
+    "region or its subregions; a dungeon: graces in its map; a landmark: its "
+    "same-named grace, #315: Church of Elleh)",
     "area_scaling": "on a location doc (#77): the enemy area-scaling tiers of the "
     "enemies placed there, most placements first. Each: speffect_id (the NpcParam "
     "SpecialEffectID3 SpEffect: 7000s base game, 20007000s DLC), placements (placed "
@@ -4722,11 +4732,14 @@ _FIELD_NOTES: dict[str, str] = {
     "out). Enemy: one entry per placed instance of the name (health-bar, NameID or "
     "spirit-ash label), {map, world_position | position, entity_id}. Item: one entry "
     "per pickup (MSB treasure event: corpse, chest, or an enemy carrying it), {map, "
-    "world_position | position, lot_id, in_chest, on_corpse}; in_chest is true only "
-    "for treasure chests (altar and tree pickups aren't chests); on_corpse is true when "
-    "the pickup is a body (its MSB part is a corpse model) or lies on a corpse asset "
-    "within 0.75 m (#136); absent doesn't rule out a body (a few wiki bodies have no "
-    "corpse asset in the map data); shared_pickup is true on a second placement of "
+    "world_position | position, lot_id, in_chest, on_corpse, in_coffin}; in_chest is "
+    "true only for treasure chests (altar and tree pickups aren't chests); on_corpse is "
+    "true when the pickup is a body (its MSB part is a corpse model) or lies on a "
+    "corpse asset within 0.75 m (#136); absent doesn't rule out a body (a few wiki "
+    "bodies have no corpse asset in the map data); in_coffin is true when the pickup "
+    "lies inside a coffin asset (#395: Black Knight Captain Huw in Scorpion River "
+    "Catacombs; a body can be both), not on top of a sarcophagus or beside one; "
+    "shared_pickup is true on a second placement of "
     "the same pickup (its lot's pickup flag already seen, #311): the Golden Seed on "
     "both Leyndell maps, or on a Mohgwyn tree and a nearby corpse, where taking one "
     "clears the other, so count pickups without it; a lot placed twice on one map "
@@ -4842,6 +4855,9 @@ _FIELD_NOTES: dict[str, str] = {
     "prompt": "on a warp doc (#94): the confirmation it asks (EventTextForMap): "
     "'Travel to another location?' (waygates), 'Return to entrance?', 'Enter "
     "evergaol?', 'Head to the realm of shadow?'. Absent when the warp doesn't ask",
+    "item": "on a warp doc (#315): the item whose use starts the warp (the event "
+    "waits for the SpEffect the item applies): Pureblood Knight's Medal on the warp "
+    "to Mohgwyn Palace (Dynasty Mausoleum Entrance). Absent on other warps",
     "gate_flag": "on a warp doc (#94): the event flag that must be on for a waygate "
     "to work; while it's off the gate says 'Cannot be used now' (Four Belfries "
     "gates, the Impassable Greatbridge gates: 9410). These are world-state flags "
