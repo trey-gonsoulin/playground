@@ -158,12 +158,18 @@ const REVIEW = {
 // er-worker (.claude/agents/er-worker.md) is general-purpose with only the tools this work uses, which
 // trims the fixed prompt every turn re-reads. It registers at session start, so fall back if it's missing.
 let AGENT_TYPE = 'er-worker'
+const UNKNOWN_AGENT_TYPE = /agent.?type.*(unknown|not found|no such|unregistered|not registered|does not exist|invalid)|(unknown|invalid|no such) (sub)?agent/i
 const run = async (prompt, opts) => {
+  const tried = AGENT_TYPE
   try {
-    return await agent(prompt, { ...opts, agentType: AGENT_TYPE })
+    return await agent(prompt, { ...opts, agentType: tried })
   } catch (e) {
-    if (AGENT_TYPE === 'general-purpose') throw e
-    log(`agent type ${AGENT_TYPE} unavailable (${e.message || e}); using general-purpose`)
+    // Only an unregistered agent type falls back: any other failure (an implementer dying mid-run,
+    // perhaps after pushing issue-N) must surface, not rerun from scratch into an existing branch.
+    // Check the type this call used, not the global: concurrent calls may have switched it already.
+    const msg = String(e?.message || e)
+    if (tried === 'general-purpose' || !UNKNOWN_AGENT_TYPE.test(msg)) throw e
+    if (AGENT_TYPE === tried) log(`agent type ${tried} unavailable (${msg}); using general-purpose`)
     AGENT_TYPE = 'general-purpose'
     return agent(prompt, { ...opts, agentType: AGENT_TYPE })
   }
@@ -180,17 +186,22 @@ const results = await pipeline(
     : null,
   async (r, g) => {
     if (!r) return { group: g, error: 'implementer returned nothing' }
+    if (!r.review) {
+      log(`${refs(g)}: review returned nothing; marking review_missing`)
+      return { group: g, ...r, review_missing: true }
+    }
     const blocking = (r.review?.problems || []).filter(p => p.severity === 'blocking')
     if (r.review?.verdict !== 'fix' || !blocking.length) return { group: g, ...r }
     log(`${refs(g)}: ${blocking.length} blocking review problem(s), running one fix round`)
     const fixed = await run(fixPrompt(g, r.report, r.review), { label: `fix:${g.key}`, phase: 'Fix', schema: REPORT })
     if (!fixed) return { group: g, ...r, fix_failed: true }
     const rereview = await run(reviewPrompt(g, fixed), { label: `re-review:${g.key}`, phase: 'Fix', schema: REVIEW })
-    return { group: g, report: fixed, review: rereview, first_review: r.review, fixed: true }
+    return { group: g, report: fixed, review: rereview, first_review: r.review, fixed: true, ...(rereview ? {} : { review_missing: true }) }
   },
 )
 
 const out = results.map((r, i) => r || { group: GROUPS[i], error: 'pipeline dropped this group' })
 const needsUser = out.filter(r => r.report && ((r.report.user_visible_changes || []).length || (r.report.decisions || []).some(d => d.needs_user)))
-log(`Done. Passed review: ${out.filter(r => r.review?.verdict === 'pass').length}/${out.length}; needing the user: ${needsUser.map(r => refs(r.group)).join(', ') || 'none'}`)
-return { results: out, needs_user: needsUser.map(r => r.group.key) }
+const reviewMissing = out.filter(r => r.review_missing)
+log(`Done. Passed review: ${out.filter(r => r.review?.verdict === 'pass').length}/${out.length}; review missing: ${reviewMissing.map(r => refs(r.group)).join(', ') || 'none'}; needing the user: ${needsUser.map(r => refs(r.group)).join(', ') || 'none'}`)
+return { results: out, needs_user: needsUser.map(r => r.group.key), review_missing: reviewMissing.map(r => r.group.key) }
