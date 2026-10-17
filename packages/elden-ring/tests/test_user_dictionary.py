@@ -1,9 +1,9 @@
 """Kuromoji user dictionary (#53): rule shape and analyzer wiring. The live check
-builds a throwaway index and needs the integration env vars (see test_integration)."""
-
-import os
+builds a throwaway index and is opt-in like test_integration (`-m live` and
+ER_LIVE_TESTS=1, #445)."""
 
 import pytest
+from _live_index import SKIP_REASON, live_enabled
 
 from elden_ring._client import INDEX_MAPPING, KUROMOJI_USER_DICTIONARY
 
@@ -40,11 +40,6 @@ def test_both_kuromoji_tokenizers_use_the_dictionary():
     assert analyzers["kuromoji_lemmatizer"]["tokenizer"] == "kuromoji_normal"
 
 
-_LIVE = all(
-    os.environ.get(v)
-    for v in ("EC2_INSTANCE_ID", "OPENSEARCH_USER", "OPENSEARCH_PASSWORD_SSM_PATH")
-)
-
 # text -> (.morph tokens, .lemma tokens, .ja tokens) under the new settings
 _EXPECTED = {
     "褪せ人": (["褪せ人"], ["褪せ人"], ["褪せ人"]),
@@ -73,7 +68,8 @@ _EXPECTED = {
 }
 
 
-@pytest.mark.skipif(not _LIVE, reason="integration env vars not set")
+@pytest.mark.live
+@pytest.mark.skipif(not live_enabled(), reason=SKIP_REASON)
 def test_tokens_on_throwaway_index():
     import elden_ring._client as _os
 
