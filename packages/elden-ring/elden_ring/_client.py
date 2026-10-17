@@ -375,6 +375,9 @@ _QUEST_CONDITION = {
     # kind quest_flag (#348): a common close-out also turns the flag on once any of
     # these (leaf conditions) holds; stored, not indexed (the field limit)
     "also_set_when": {"type": "object", "enabled": False},
+    # kind flag (#314): the conditions that turn the flag on (as a set_when);
+    # stored, not indexed (the field limit)
+    "set_when": {"type": "object", "enabled": False},
 }
 # kind any_of (#203): at least one of the nested (leaf) conditions holds
 _QUEST_CONDITION = {**_QUEST_CONDITION, "conditions": {"properties": _QUEST_CONDITION}}
@@ -4797,7 +4800,10 @@ _FIELD_NOTES: dict[str, str] = {
     "fields=['locations'] also matches drop_locations and drop_near_locations "
     "unless include_drop_fields=False (#344, #347). "
     "On a quest doc (#95): every "
-    "step's locations (dungeons, open-world landmarks and regions), in step order",
+    "step's locations (dungeons, open-world landmarks and regions), in step order, "
+    "then (#314) where the NPC invades (its invasions' host placements: Hornsent -> "
+    "Shadow Keep) or is fought as a boss (its GameAreaParam row's placement: Sir "
+    "Gideon Ofnir -> Leyndell, Ashen Capital)",
     "drop_regions": "on item docs (#141): the regions (+ tabs) of the enemies in "
     "dropped_by, counting only the placements that carry the item (their own death "
     "lot or scripted award) when known, else every placement of that enemy. "
@@ -5144,7 +5150,9 @@ _FIELD_NOTES: dict[str, str] = {
     "talk-script or life-template flag is named after the one talk-script character "
     "its map's own events bind (#313: Count Ymir, High Priest 4500)",
     "related_npcs": "on a quest doc: other NPCs whose quest phase or life state gates "
-    "one of its steps or outcomes (or that the player must hit). The NPC's own other "
+    "one of its steps or outcomes (or that the player must hit), and (#314) the NPCs "
+    "fought in an invasion one waits on (Castellan Jerren on Sorceress Sellen's). "
+    "The NPC's own other "
     "personas are left out: a name under the same NPC number placed with the same "
     "character model (Renna the Witch on Ranni the Witch's quest). A second character "
     "under that number who shares only the generic humanoid body (Lightseeker Hyetta / "
@@ -5169,8 +5177,16 @@ _FIELD_NOTES: dict[str, str] = {
     "steps.phase_flag": "the phase's event flag: in flag_block, or (#398) a map-local "
     "flag of an NPC whose quest runs on them (Count Ymir: the flags his talk scripts "
     "share with the event scripts, such as the Finger Ruins of Rhia / Dheo bells "
-    "2050400600 / 2053460600, and those his quest manager sets). A when or "
-    "requires_steps on such a flag reads as that NPC's quest_phase",
+    "2050400600 / 2053460600, and those his quest manager sets; #421: also a map "
+    "flag only events set, each set needing one of his steps or the defeat of his "
+    "own boss form, Count Ymir, Mother of Fingers). #420: any other NPC's map-local "
+    "flags its talk scripts touch that are tied to its block: an event set of a "
+    "block flag needs it on (Swordhand of Night Jolán's talk-set 2051452705 before "
+    "4338), or an event sets it once one of the NPC's phases is on (2051459722 on "
+    "4325); flags only talk reads and writes, or that events touch with no tie to "
+    "the block (talked-once lines), are left out. A when or requires_steps on such "
+    "a flag reads as that NPC's quest_phase, except one only talk sets, which stays "
+    "a talk condition",
     "steps.order": "1-based depth of the phase in the transition chain (the longest "
     "entered_from path); sibling branches share an order (Millicent 4191 help vs 4194 "
     "betray)",
@@ -5178,12 +5194,16 @@ _FIELD_NOTES: dict[str, str] = {
     "steps.locations": "where the phase plays out: the dungeon location docs, else the "
     "landmarks whose MSB footprint is centred on the open-world tile (#190) followed "
     "by the region of the grace nearest the tile's centre, of every map whose event "
-    "script checks the phase flag",
+    "script checks the phase flag; for a map-local phase no map event checks (#421), "
+    "the maps whose events set it, else where the NPC's talk scripts that touch it "
+    "are placed",
     "steps.when": "the other conditions of the transition, all required. kind: "
-    "boss_defeated (bosses), invasion (an NPC-invasion defeat flag, #138), item_pickup "
+    "boss_defeated (bosses), invasion (an NPC-invasion defeat flag, #138; npc = the "
+    "NPC fought, the invasion's host character, #314), item_pickup "
     "(items: the pickup lot's items), item_held (items; negated with several items: "
     "the player holds none of them, #259), talk (a flag the npcs' talk "
-    "scripts set: a dialogue choice, hand-over or line, #257), quest_phase / life_state (npc, "
+    "scripts set: a dialogue choice, hand-over or line, #257; the absolution prompt's "
+    "3000 names Miriel, Pastor of Vows, #314), quest_phase / life_state (npc, "
     "quest when that NPC has several blocks), hit_count (a map flag set once the "
     "player has hit the npc that many times while friendly: hits, entity_ids = its "
     "MSB entities; the hostility counter Ranni / Iji / Seluvis wait on), quest_flag "
@@ -5196,7 +5216,9 @@ _FIELD_NOTES: dict[str, str] = {
     "conditions, any one of which also turns it on through a common close-out that "
     "names no NPC: 4897 once Moore's quest_phase 4928 or invasion 7625 is on), flag "
     "(unresolved; set_at = the "
-    "locations of the maps whose events set it), or any_of (conditions: at least one "
+    "locations of the maps whose events set it; set_when, #314: what turns it on, "
+    "shaped like a set_when, stored unindexed: Igon's 2048429205 = in own world and "
+    "the Jagged Peak Drake or Bayle defeated), or any_of (conditions: at least one "
     "of these nested conditions holds, each shaped as above). negated = the "
     "condition must be off",
     "outcomes": "on a quest doc: life-state changes: flag + slot (0-4) + life_state "
