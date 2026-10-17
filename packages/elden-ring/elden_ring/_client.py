@@ -72,7 +72,7 @@ def get_client() -> OpenSearch:
         hosts=[{"host": host, "port": 9200}],
         http_auth=(os.environ["OPENSEARCH_USER"], _get_password()),
         use_ssl=True,
-        verify_certs=False,  # demo installer uses a self-signed cert
+        verify_certs=False,  # node cert is from a private self-signed CA (#437)
         connection_class=RequestsHttpConnection,
         timeout=30,
     )
