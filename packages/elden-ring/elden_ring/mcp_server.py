@@ -114,6 +114,13 @@ def search_entities(
                            each is unlocked in acquisition_types / given_by /
                            starting_classes; found_in_world ones carry
                            placements / maps / regions (#337)
+            starting_class — the selectable classes (Vagabond … Wretch, plus Idus
+                           Knight and Heavy Knight from 1.17.0; #422), one per
+                           CharaInitParam class row: description (the class
+                           blurb), level, attributes (vigor … arcane), flasks,
+                           equipment (as on enemy docs) with weapon_slots
+                           (upgrade_level) / ammo_slots (quantity), items and
+                           gestures
             merchant     — NPC vendor inventories with item names and rune prices;
                            search by item name to find who sells it, or by merchant
                            name / location to get their full stock
@@ -338,7 +345,7 @@ def search_entities(
 
     Returns a list of entity documents when count_only is False, each with at minimum:
     entity_type, name, patch_version, source and is_dlc; description is present on items,
-    equipment, dialogue, game_text, talk_option and merchants but not on enemy, boss, location,
+    equipment, dialogue, game_text, talk_option, starting_class and merchants but not on enemy, boss, location,
     site_of_grace, warp, quest or cutscene docs. Use get_entity() for the
     full document of a specific named entity, or describe_fields() to see all
     queryable fields. Item documents may include cross-reference edge fields:
@@ -379,7 +386,8 @@ def search_entities(
       restoration        — a Great Rune's key_item <-> great_rune link (#312): {location
                            (its Divine Tower), map, twin_entity_type, twin_param_id,
                            dropped_by (great_rune copy only)}
-      starting_classes   — starting classes whose initial loadout includes it (#23)
+      starting_classes   — starting classes whose initial loadout includes it (#23);
+                           each is a starting_class doc (#422)
       acquisition_types  — how it's obtained: merchant / enemy_drop / found_in_world /
                            chest / corpse (looted from a body, #136) /
                            given_by_npc / starting_equipment / keepsake / crafted /

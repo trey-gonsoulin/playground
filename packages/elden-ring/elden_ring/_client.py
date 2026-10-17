@@ -1321,6 +1321,43 @@ INDEX_MAPPING = {
                 }
             },
             "starting_classes": {"type": "keyword"},
+            # Starting class docs (#422): CharaInitParam level, attributes, flask
+            # charges, weapon / ammo slots and starting gestures (plus equipment
+            # and items, shared with other docs).
+            "level": {"type": "integer"},
+            "attributes": {
+                "properties": _props(
+                    "integer",
+                    (
+                        "vigor",
+                        "mind",
+                        "endurance",
+                        "strength",
+                        "dexterity",
+                        "intelligence",
+                        "faith",
+                        "arcane",
+                    ),
+                )
+            },
+            "flasks": {
+                "properties": _props("integer", ("crimson_tears", "cerulean_tears"))
+            },
+            "weapon_slots": {
+                "properties": {
+                    "slot": {"type": "keyword"},
+                    "weapon": {"type": "keyword"},
+                    "upgrade_level": {"type": "integer"},
+                }
+            },
+            "ammo_slots": {
+                "properties": {
+                    "slot": {"type": "keyword"},
+                    "ammo": {"type": "keyword"},
+                    "quantity": {"type": "integer"},
+                }
+            },
+            "gestures": {"type": "keyword"},
             # Great Rune twins: key item <-> restored rune (#312).
             "restoration": {
                 "properties": {
@@ -3165,7 +3202,8 @@ _FIELD_NOTES: dict[str, str] = {
     "entity_type": "category filter, one of the entity_types listed above: equipment "
     "(weapon, armor, spell, item = talismans, ash_of_war, ammo), goods (consumable, "
     "key_item, info, crafting_material, upgrade_material, crystal_tear, spirit_ash, "
-    "remembrance, great_rune, tool), gesture (#306), merchant, enemy, boss (one doc per boss encounter, "
+    "remembrance, great_rune, tool), gesture (#306), starting_class (one doc per "
+    "selectable class, #422), merchant, enemy, boss (one doc per boss encounter, "
     "#79), site_of_grace, location, warp, quest, cutscene (one doc per realtime "
     "cutscene scene, #92), npc_dialogue, game_text (prompts, map banners, tutorials, "
     "loading tips, #98; item-use dialogs, #90), talk_option (talk-script menu options, "
@@ -3242,7 +3280,8 @@ _FIELD_NOTES: dict[str, str] = {
     "row id). A name on several rows is the row the doc's fields come from: a spirit "
     "ash's +0 row, else the lowest-id uncut row. Absent on cut items whose row is "
     "gone (text only). Gestures (#355): the GestureParam row (Bow 0; The Ring's "
-    "lowest of its two rows, 108). Not compared between variants",
+    "lowest of its two rows, 108). Starting classes (#422): the CharaInitParam "
+    "row (Vagabond 3000 ... Heavy Knight 3011). Not compared between variants",
     "icon_id": "the item's menu icon id (#327), the number in its MENU_Knowledge "
     "icon texture name: iconId of the param_id row (Uchigatana 10320; affinity "
     "docs share the base's icon), armor's body type 1 icon (iconIdM; see "
@@ -3583,7 +3622,27 @@ _FIELD_NOTES: dict[str, str] = {
     "unlock_flag, e.g. Remembrance of the Grafted: [Godrick the Grafted]",
     "starting_classes": "on an item doc: the starting classes whose initial loadout includes "
     "it (#23), e.g. Longsword: [Vagabond]; Memory of Grace: every class; the 12 starting "
-    "gestures (Bow, Beckon, Rest…): every class (#306)",
+    "gestures (Bow, Beckon, Rest…): every class (#306). Each name is a "
+    "starting_class doc (#422)",
+    "level": "on a starting_class doc (#422): the class's starting rune level "
+    "(CharaInitParam Level), e.g. Vagabond 9, Wretch 1",
+    "attributes": "on a starting_class doc (#422): the starting attributes (vigor, "
+    "mind, endurance, strength, dexterity, intelligence, faith, arcane), e.g. "
+    "Vagabond 15/10/11/14/13/9/9/7. CharaInitParam's Vitality / Attunement / Luck "
+    "are vigor / mind / arcane",
+    "flasks": "on a starting_class doc (#422): starting flask charges, "
+    "crimson_tears / cerulean_tears (CharaInitParam HpEstMax / MpEstMax; 3 / 1 for "
+    "every class)",
+    "weapon_slots": "on a starting_class doc (#422): each filled weapon slot "
+    "(right_hand_1-3, left_hand_1-3) with its weapon and upgrade_level, e.g. "
+    "Vagabond: right_hand_1 Longsword +0, right_hand_2 Halberd, left_hand_1 Heater "
+    "Shield. The same names are in equipment.weapons",
+    "ammo_slots": "on a starting_class doc (#422): each filled arrow / bolt slot "
+    "(arrow_1, arrow_2, bolt_1, bolt_2) with its ammo and quantity, e.g. Samurai: "
+    "Arrow 20, Fire Arrow 10",
+    "gestures": "on a starting_class doc (#422): the gestures the class starts "
+    "with, in gesture-menu order: its CharaInitParam gesture slots plus the ones "
+    "the new-game event gives every class (each a gesture doc)",
     "crafted_from": "on a craftable consumable/ammo doc: the crafting recipe's materials as "
     "[{item, quantity}] (ShopLineupParam_Recipe -> EquipMtrlSetParam, #87), e.g. Redmane "
     "Fire Pot: Mushroom x2, Smoldering Butterfly, Old Fang. Filter crafted_from.item to find "
@@ -3685,7 +3744,9 @@ _FIELD_NOTES: dict[str, str] = {
     "spells, talismans, ammo (item doc names; e.g. Recusant Henricus: Great Mace + Ash of "
     "War: Eruption). NPCs mostly use NPC-only copies of items; those are resolved to the real "
     "item they copy, and unnamed pieces (bare heads, placeholder armor) are left out. A name "
-    "with several encounters lists the union. Absent on bosses/creatures without a loadout",
+    "with several encounters lists the union. Absent on bosses/creatures without a loadout. "
+    "On a starting_class doc (#422): the class's starting gear in the same groups "
+    "(slot detail in weapon_slots / ammo_slots)",
     "equipped_by": "on an item doc: enemies whose loadout includes it (reverse of "
     "equipment). A weapon's Standard doc carries it, not its affinity variants",
     "weapon_attacks": "on a humanoid enemy/NPC/invader doc: its attacks from the weapons "
@@ -4302,7 +4363,9 @@ _FIELD_NOTES: dict[str, str] = {
     "merchant keep their JP text in text_content_ja",
     "description": "the item's in-game English description (flavor text); also the line "
     "itself on npc_dialogue / game_text / talk_option and a stock summary on merchant. Absent on enemy, "
-    "boss, location, site_of_grace, warp, quest and cutscene docs",
+    "boss, location, site_of_grace, warp, quest and cutscene docs. On a "
+    "starting_class doc (#422): the class blurb from the character-creation "
+    "menu (the CharMakeMenuListItemParam caption, a GR_LineHelp line)",
     "text_content": "searchable long text. Goods (consumable, key_item, …): the "
     "description; npc_dialogue / game_text / talk_option: the line; merchant: the full stock list, "
     "each price in its own currency and materials as in shop_listings (e.g. '1 Dragon "
@@ -4746,7 +4809,8 @@ _FIELD_NOTES: dict[str, str] = {
     "this doc (a dungeon, or a landmark whose MSB footprint holds the pickup), in doc "
     "order: Murkwater Cave -> Cloth Garb, Cloth Trousers, Glass Shard, Mushroom, Cave "
     "Moss. Pickups beside a landmark but outside its footprint (Fort Haight's Golden "
-    "Seed) and enemy drops aren't listed (see drop_locations)",
+    "Seed) and enemy drops aren't listed (see drop_locations). On a starting_class "
+    "doc (#422): the goods the class starts with (Memory of Grace for every class)",
     "boss_encounters": "on an enemy doc: the boss docs where it is fought (reverse of "
     "enemies)",
     "npc_summons": "on a boss doc: the NPCs whose summon sign the map script places for "
