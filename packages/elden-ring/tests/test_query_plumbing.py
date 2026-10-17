@@ -230,7 +230,11 @@ def test_tool_forwards_every_param_to_its_name(monkeypatch, tool):
 
 
 def test_wrappers_pass_optional_params_by_keyword(monkeypatch):
-    """Every optional client param is keyword-only, so a reorder can't mis-bind."""
+    """Every optional client param is keyword-only, so a reorder can't mis-bind.
+
+    search_literal keeps ``pattern`` positional (as on main): the live suite
+    calls ``search_literal(client, "...")``.
+    """
     for fn in (
         "search",
         "search_literal",
@@ -240,7 +244,7 @@ def test_wrappers_pass_optional_params_by_keyword(monkeypatch):
         "calculate_attack_rating",
     ):
         for name, p in inspect.signature(getattr(_client, fn)).parameters.items():
-            if p.default is not p.empty:
+            if p.default is not p.empty and (fn, name) != ("search_literal", "pattern"):
                 assert p.kind is p.KEYWORD_ONLY, (fn, name)
 
 
@@ -276,3 +280,29 @@ def test_attack_rating_tool_forwards_by_name(monkeypatch):
         "patch_version": "1.10.0",
         "spell": "Glintstone Pebble",
     }
+
+
+def test_live_suite_calls_bind_to_client_signatures():
+    """The opt-in live suite never runs offline; make sure its calls still bind."""
+    import ast
+    from pathlib import Path
+
+    src = Path(__file__).with_name("test_integration.py").read_text()
+    bad = []
+    for node in ast.walk(ast.parse(src)):
+        if not (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and isinstance(node.func.value, ast.Name)
+            and node.func.value.id in ("_os", "_client")
+        ):
+            continue
+        fn = getattr(_client, node.func.attr, None)
+        if not callable(fn) or any(isinstance(a, ast.Starred) for a in node.args):
+            continue
+        kws = {k.arg: None for k in node.keywords if k.arg is not None}
+        try:
+            inspect.signature(fn).bind(*([None] * len(node.args)), **kws)
+        except TypeError as exc:
+            bad.append((node.lineno, node.func.attr, str(exc)))
+    assert not bad, bad
