@@ -2034,7 +2034,9 @@ def _to_bulk_actions(docs: list[dict]) -> list[dict]:
             # Using name (not internal row ID) so the same weapon across patches
             # gets the same logical key when patch_version matches.
             "_id": f"{d['entity_type']}::{d['name']}::{d.get('patch_version', 'unknown')}",
-            "_source": {k: v for k, v in d.items() if v is not None},
+            # entity_key is the search collapse/dedupe/count key (#443).
+            "_source": {k: v for k, v in d.items() if v is not None}
+            | {"entity_key": f"{d['entity_type']}::{d['name']}"},
         }
         for d in docs
         if d.get("name")
