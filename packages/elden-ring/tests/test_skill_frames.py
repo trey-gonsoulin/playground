@@ -1,5 +1,5 @@
-"""Skill-level frames (#477) and Ash of War per-class hit lists (#432): mapped and
-documented. No OpenSearch needed."""
+"""Skill-level frames (#477; per class: frames_by_class) and Ash of War per-class hit
+lists (#432): mapped and documented. No OpenSearch needed."""
 
 from elden_ring._client import _FIELD_NOTES, INDEX_MAPPING
 
@@ -27,3 +27,12 @@ def test_attacks_by_class_mapped():
     assert by_class["attacks"] == _SKILL["attacks"]
     assert "skill.attacks_by_class" in _FIELD_NOTES
     assert "skill.attacks_by_class.weapon_classes" in _FIELD_NOTES
+
+
+def test_frames_by_class_mapped():
+    by_class = _SKILL["frames_by_class"]["properties"]
+    assert by_class["weapon_classes"] == {"type": "keyword"}
+    # each class's frames have the shared frames' fields
+    assert by_class["frames"] == _SKILL["frames"]
+    assert "skill.frames_by_class" in _FIELD_NOTES
+    assert "skill.frames_by_class.weapon_classes" in _FIELD_NOTES
