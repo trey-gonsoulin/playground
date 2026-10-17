@@ -1,45 +1,54 @@
 """Integration test against the live deployed stack.
 
-Requires real AWS credentials and a running (or stopped) EC2 instance.
-Set env vars before running:
+Opt-in only (#445). Every test here carries the ``live`` marker, which the package's
+pytest ``addopts`` (``-m 'not live'``) deselects by default, and the module also
+skips unless ``ER_LIVE_TESTS=1`` and the stack env vars are set. The suite never
+touches the production alias: the module fixture creates a throwaway
+``elden-ring-it-<uuid>`` index from ``INDEX_MAPPING``, points ``_client.INDEX`` and
+``load_data.INDEX`` at it, and deletes it at teardown (see ``_live_index.py``).
+
+Requires real AWS credentials and a running (or stopped) EC2 instance:
 
     export AWS_PROFILE=personal
     export AWS_REGION=us-east-1
     export EC2_INSTANCE_ID=i-xxxxxxxxxxxxxxxxxxxx   # from sam deploy output
     export OPENSEARCH_USER=admin
     export OPENSEARCH_PASSWORD_SSM_PATH=/elden-ring/opensearch-password
+    export ER_LIVE_TESTS=1
 
 Then run:
-    uv run --package elden-ring pytest packages/elden-ring/tests/test_integration.py -v -s
+    uv run --package elden-ring pytest packages/elden-ring/tests/test_integration.py -m live -v -s
 """
 
-import os
+import sys
+from pathlib import Path
 
 import pytest
+from _live_index import SKIP_REASON, live_enabled, throwaway_index
 
-REQUIRED_ENV = ["EC2_INSTANCE_ID", "OPENSEARCH_USER", "OPENSEARCH_PASSWORD_SSM_PATH"]
-missing = [v for v in REQUIRED_ENV if not os.environ.get(v)]
-if missing:
-    pytest.skip(
-        f"Integration env vars not set: {missing}",
-        allow_module_level=True,
-    )
+import elden_ring._client as _os
 
-# Import after env-var check so the skip fires before any import side-effects.
-import elden_ring._client as _os  # noqa: E402
+pytestmark = [
+    pytest.mark.live,
+    pytest.mark.skipif(not live_enabled(), reason=SKIP_REASON),
+]
 
 
 @pytest.fixture(scope="module")
 def client():
-    """Start the EC2 instance once for the whole test module, yield the client."""
+    """Start the EC2 instance once for the module and yield a client whose queries
+    and loads all target a throwaway index (deleted at teardown)."""
     print("\nStarting search service (may take ~2-3 min on cold start)…")
     endpoint = _os.start_instance(timeout_seconds=300)
     print(f"OpenSearch healthy at {endpoint}")
 
-    # Ensure the index exists so queries don't 404.
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+    import load_data  # noqa: PLC0415  # pyright: ignore[reportMissingImports]
+
     c = _os.get_client()
-    _os.ensure_index(c)
-    yield c
+    with throwaway_index(c, _os.INDEX_MAPPING, (_os, load_data)) as index:
+        print(f"Using throwaway index {index}")
+        yield c
 
 
 def test_cluster_health(client):
@@ -49,7 +58,8 @@ def test_cluster_health(client):
 
 
 def test_index_exists(client):
-    """The entities index should exist after ensure_index."""
+    """The throwaway index should exist, and be what every query targets."""
+    assert _os.INDEX.startswith("elden-ring-it-")
     assert client.indices.exists(index=_os.INDEX)
 
 

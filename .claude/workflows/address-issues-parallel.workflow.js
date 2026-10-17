@@ -40,7 +40,7 @@ const COMMON = `
 
 ## How to test and build
 - erdb-tools tests are plain scripts, not pytest: \`${ERDB}/ss-venv/bin/python er_native/test_<name>.py\` prints OK. Run them all (er_native/test_*.py) before reporting.
-- playground: \`uv run --package elden-ring pytest packages/elden-ring/tests/\`, \`uv run ruff check\` and \`uv run ruff format --check\`.
+- playground: \`uv run --package elden-ring pytest packages/elden-ring/tests/\`, \`uv run ruff check\` and \`uv run ruff format --check\`. The live OpenSearch suite (\`live\` marker) is deselected by default and also needs \`-m live\` plus ER_LIVE_TESTS=1: never opt in.
 - Spot builds: \`bash ${SPOT_BUILD} <your erdb-tools worktree> <version> <ABSOLUTE out.json>\`. Build 1.17.0 and 1.02.1 from your worktree BEFORE changing code (the baseline), then again after, and diff. Confirm only the intended docs and fields change, and check every new leaf is covered by INDEX_MAPPING. For historical-patch params see memory feedback-new-param-historical-spot-check.md.
 - Cross-check values against the Fextralife wiki (WebFetch) where it has numbers.
 
