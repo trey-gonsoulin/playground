@@ -76,9 +76,13 @@ Resources:
             # accidental stack updates. Delete manually when decommissioning.
             DeleteOnTermination: false
       UserData:
-        # Installs OpenSearch 2.13, runs the demo security configurator
-        # (generates self-signed TLS certs and hashes the admin password),
-        # then starts and enables the service.
+        # Installs OpenSearch 2.13 + analysis-kuromoji, runs the demo security
+        # configurator for its config files, then swaps its public demo certs and
+        # demo users for a private CA and an admin-only user before the first
+        # start (#437), and starts and enables the service.
+        #
+        # UserData only runs on first boot. The live node was hardened in place on
+        # 2026-10-17 by the same steps (backup in /root/opensearch-hardening-*).
         #
         # Prerequisite: create the SSM parameter before deploying:
         #   aws ssm put-parameter \
@@ -108,10 +112,47 @@ Resources:
               https://artifacts.opensearch.org/releases/bundle/opensearch/2.13.0/opensearch-2.13.0-linux-arm64.rpm
           dnf install -y /tmp/opensearch.rpm
 
-          # Demo configurator generates self-signed TLS certs and sets the
-          # admin password from OPENSEARCH_INITIAL_ADMIN_PASSWORD.
+          # The demo configurator lays down the security plugin's config files. What it adds
+          # that is NOT safe on a public port gets replaced below, before the first start (#437):
+          # its certs (published in the plugin source, incl. the CN=kirk admin cert) and its
+          # demo users (password = username).
           export OPENSEARCH_INITIAL_ADMIN_PASSWORD="$OS_PASS"
           /usr/share/opensearch/plugins/opensearch-security/tools/install_demo_configuration.sh -y -i -s
+
+          # Japanese analysis (kuromoji) — the index settings need it (#450).
+          /usr/share/opensearch/bin/opensearch-plugin install --batch analysis-kuromoji
+
+          # Private CA + node and admin certs. The CA key stays root-only in /root.
+          D=/etc/opensearch
+          W=$(mktemp -d)
+          (umask 077; openssl genrsa -out /root/er-ca-key.pem 3072)
+          openssl req -new -x509 -sha256 -key /root/er-ca-key.pem -subj "/CN=elden-ring-search-ca" -days 3650 -out $D/er-root-ca.pem
+          mkcert() {
+              openssl genrsa -out $W/$1-rsa.pem 2048
+              openssl pkcs8 -topk8 -nocrypt -in $W/$1-rsa.pem -out $D/$1-key.pem
+              openssl req -new -key $W/$1-rsa.pem -subj "/CN=$2" -out $W/$1.csr
+              printf "$3" > $W/$1.ext
+              openssl x509 -req -in $W/$1.csr -CA $D/er-root-ca.pem -CAkey /root/er-ca-key.pem -CAcreateserial -sha256 -days 3650 -extfile $W/$1.ext -out $D/$1.pem
+          }
+          mkcert er-node elden-ring-search-node 'subjectAltName=DNS:localhost,IP:127.0.0.1,DNS:elden-ring-search,RID:1.2.3.4.5.5\nextendedKeyUsage=serverAuth,clientAuth\nkeyUsage=digitalSignature,keyEncipherment\n'
+          mkcert er-admin elden-ring-admin 'extendedKeyUsage=clientAuth\nkeyUsage=digitalSignature\n'
+          chown opensearch:opensearch $D/er-root-ca.pem $D/er-node.pem $D/er-node-key.pem
+          chmod 640 $D/er-root-ca.pem $D/er-node.pem $D/er-node-key.pem
+          chmod 600 $D/er-admin.pem $D/er-admin-key.pem
+          rm -f $D/kirk.pem $D/kirk-key.pem $D/esnode.pem $D/esnode-key.pem $D/root-ca.pem $D/securityadmin_demo.sh
+          sed -i -e 's/: esnode\.pem$/: er-node.pem/' -e 's/: esnode-key\.pem$/: er-node-key.pem/' -e 's/: root-ca\.pem$/: er-root-ca.pem/' \
+              -e '/^plugins.security.allow_unsafe_democertificates:/d' \
+              -e "s/^plugins.security.authcz.admin_dn:.*/plugins.security.authcz.admin_dn: ['CN=elden-ring-admin']/" \
+              $D/opensearch.yml
+          echo "plugins.security.nodes_dn: ['CN=elden-ring-search-node']" >> $D/opensearch.yml
+
+          # Admin is the only internal user. The security index is seeded from this file on first start.
+          OS_HASH=$(OPENSEARCH_JAVA_HOME=/usr/share/opensearch/jdk JAVA_HOME=/usr/share/opensearch/jdk \
+              bash /usr/share/opensearch/plugins/opensearch-security/tools/hash.sh -p "$OS_PASS" | tail -1)
+          printf -- '---\n_meta:\n  type: "internalusers"\n  config_version: 2\nadmin:\n  hash: "%s"\n  reserved: true\n  backend_roles:\n  - "admin"\n  description: "admin"\n' "$OS_HASH" \
+              > $D/opensearch-security/internal_users.yml
+          chown opensearch:opensearch $D/opensearch-security/internal_users.yml
+          rm -rf $W
 
           # Bind to all interfaces so the Lambda can reach it over the public internet.
           # discovery.type: single-node is required when network.host != localhost —
