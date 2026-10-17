@@ -501,6 +501,21 @@ KUROMOJI_USER_DICTIONARY = [
     ]
 ]
 
+# One decoded SpEffect entry (#88): item ``effects`` and ``skill.effects`` (#326).
+_EFFECTS_MAPPING = {
+    "properties": {
+        "stat": {"type": "keyword"},
+        "value": {"type": "float"},
+        "unit": {"type": "keyword"},
+        "pvp_value": {"type": "float"},
+        "condition": {"type": "keyword"},
+        "interval": {"type": "float"},
+        "duration": {"type": "float"},
+        "target": {"type": "keyword"},
+        "scales_with": {"type": "keyword"},
+    }
+}
+
 INDEX_MAPPING = {
     "settings": {
         "number_of_shards": 1,
@@ -1306,19 +1321,7 @@ INDEX_MAPPING = {
             "effect": {"type": "text"},
             "effect_value": {"type": "float"},
             # Structured SpEffect decoding (#88).
-            "effects": {
-                "properties": {
-                    "stat": {"type": "keyword"},
-                    "value": {"type": "float"},
-                    "unit": {"type": "keyword"},
-                    "pvp_value": {"type": "float"},
-                    "condition": {"type": "keyword"},
-                    "interval": {"type": "float"},
-                    "duration": {"type": "float"},
-                    "target": {"type": "keyword"},
-                    "scales_with": {"type": "keyword"},
-                }
-            },
+            "effects": _EFFECTS_MAPPING,
             "effect_duration": {"type": "float"},
             "infusable": {"type": "boolean"},
             # Weapon flags / rates, trait multipliers, guard pierce and the staff /
@@ -1343,6 +1346,28 @@ INDEX_MAPPING = {
                         "properties": _props("integer", ("light", "heavy"))
                     },
                     "chargeable": {"type": "boolean"},
+                    # Per-hit motion values, stamina, frames; the buff (#326).
+                    "attacks": {
+                        "properties": {
+                            "hit_label": {"type": "keyword"},
+                            "motion_values": {
+                                "properties": _props("integer", _DAMAGE_TYPES)
+                            },
+                            "attack_power": {
+                                "properties": _props("integer", _DAMAGE_TYPES)
+                            },
+                            "stamina_cost": {"type": "integer"},
+                            "active_frames": {
+                                "properties": _props("integer", ("start", "end"))
+                            },
+                            "projectile": {"type": "boolean"},
+                            "hit_count": {"type": "integer"},
+                        }
+                    },
+                    "effects": _EFFECTS_MAPPING,
+                    "effect": {"type": "text"},
+                    "effect_value": {"type": "float"},
+                    "effect_duration": {"type": "float"},
                 }
             },
             # Ash of War affinities and the weapon classes it mounts on (#290).
@@ -3694,6 +3719,41 @@ _FIELD_NOTES: dict[str, str] = {
     "Charge Forth; from the skill animations' charge-release states and Godfrey Icon's "
     "charged-skill attack category, so hold-to-continue skills like Unending Dance "
     "count as not chargeable)",
+    "skill.attacks": "the skill's hits (#326), each distinct hit once in animation order "
+    "like skill_poise_damage.hits, labelled by hit_label ('FP light', 'no FP heavy', "
+    "'FP follow-up'; same labels as skill_poise_damage.hit_labels). Melee hits first, "
+    "then projectile hits (projectile: true, hit_count = hits on one target). Weapons: "
+    "at the weapon's own attack rows; Ashes of War: the rows most of the weapon "
+    "classes it mounts on share (a few ashes, e.g. Wall of Sparks, differ per class). "
+    "Uchigatana Unsheathe: FP light 190 / no FP light 115 / FP heavy 245 / no FP heavy "
+    "135 with stamina 24 / 40, matching the wikis",
+    "skill.attacks.motion_values": "% of the weapon's attack rating per damage type "
+    "the hit deals (AtkParam_Pc; Lion's Claw 240). Absent on hits that only deal flat "
+    "attack_power",
+    "skill.attacks.attack_power": "flat attack power per damage type the hit deals "
+    "instead of (or on top of) a motion value: spell-like projectiles (Transient "
+    "Moonlight's wave 140 magic). How the weapon's scaling applies to it isn't "
+    "derived",
+    "skill.attacks.stamina_cost": "stamina the hit's attack costs (BehaviorParam_PC "
+    "StaminaCost), the base value before the weapon's stamina_cost_multiplier; Lion's "
+    "Claw 45. Absent (not 0) when that row's StaminaCost is 0, which many melee hits "
+    "have: Sacred Blade's FP hit has none while its no-FP hit costs 30. Whether those "
+    "hits cost stamina some other way isn't derived. Never on projectile hits",
+    "skill.attacks.active_frames": "frames (30 per second) from the start of the "
+    "skill animation during which the hit's hitbox is active (the TAE attack event), "
+    "start / end: Unsheathe light 13-15, Lion's Claw 50-53. This is the hitbox's "
+    "active window, so start is also the hit's startup; recovery after the hit isn't "
+    "in the data. Melee hits only",
+    "skill.effects": "the buffs the skill itself applies (#326), decoded like item "
+    "effects from the SpEffects its animations add (AddSpEffect_WeaponArts, enough-FP "
+    "version): Barbaric Roar '+7.5% physical attack for 40s', Sacred Blade '+90 holy "
+    "attack power for 40s; +100% damage vs undead for 40s', Determination '+60% "
+    "attack' (pvp 30) for 10s. An entry that holds only sometimes says so in its "
+    "condition: Determination's '-25% attack (on critical hits)' (its +60% is +20% "
+    "on a critical), Shriek of Sorrow's +10/15/20/25% by HP tier, Stamp's '-50% "
+    "damage taken (during the skill)'. skill.effect / effect_value / effect_duration "
+    "summarise them like item effect. Buffs a skill spreads through a projectile or "
+    "area (Golden Vow, Holy Ground) aren't included",
     "default_affinity": "Ash of War: the affinity a weapon takes when it's applied "
     "(EquipParamGem defaultWepAttr; Golden Parry Sacred, Lion's Claw Heavy) (#290)",
     "affinities": "Ash of War: every affinity it allows (#290), named like weapon "
