@@ -1213,6 +1213,10 @@ INDEX_MAPPING = {
             },
             "warp_region": {"type": "long"},
             "is_ending": {"type": "boolean"},
+            "ending": {"type": "keyword"},  # its ending doc (#425)
+            # Ending docs (#425); cutscene, boss, npcs and trigger_* shared.
+            "ending_flags": {"type": "long"},
+            "choices": {"type": "keyword"},
             "unskippable": {"type": "boolean"},
             "subtitles": {"type": "text"},
             "subtitles_ja": _JA_TEXT,
@@ -3222,7 +3226,7 @@ _FIELD_NOTES: dict[str, str] = {
     "remembrance, great_rune, tool), gesture (#306), starting_class (one doc per "
     "selectable class, #422), merchant, enemy, boss (one doc per boss encounter, "
     "#79), site_of_grace, location, warp, quest, cutscene (one doc per realtime "
-    "cutscene scene, #92), npc_dialogue, game_text (prompts, map banners, tutorials, "
+    "cutscene scene, #92), ending (one doc per Erdtree ending, #425), npc_dialogue, game_text (prompts, map banners, tutorials, "
     "loading tips, #98; item-use dialogs, #90), talk_option (talk-script menu options, "
     "notices and confirmations, #307). An unknown value returns an error listing these",
     "patch_version": "real game patch the doc was extracted from (native is per-patch); use with diff_entities",
@@ -3233,7 +3237,7 @@ _FIELD_NOTES: dict[str, str] = {
     "was built from; the live values are listed under sources above (EquipParamWeapon, "
     "EquipParamGoods, Magic, NpcName, GameAreaParam, BonfireWarpParam, EMEVD, TalkMsg, …). "
     "Not 1:1 with entity_type (EquipParamGoods backs ten goods types; EMEVD backs warp, "
-    "cutscene, quest and the row-less boss encounters). All data is first-party native extraction; the retired 'erdb' "
+    "cutscene, ending, quest and the row-less boss encounters). All data is first-party native extraction; the retired 'erdb' "
     "/ 'fextralife' values and any other unknown value return an error",
     "is_dlc": "true for Shadow of the Erdtree content, false for the base game; on every "
     "doc (#297) and filterable (search_entities(is_dlc=...)). Items: every name row the "
@@ -4890,7 +4894,8 @@ _FIELD_NOTES: dict[str, str] = {
     "one doc; the others are in variant_ids. On a warp doc of kind cutscene (#94): the "
     "cutscene that plays before the warp (PlayCutsceneToPlayerAndWarp). On an "
     "npc_dialogue doc (#192): the scene the line is a subtitle of (see cutscene); "
-    "on a talk_option doc (#334): the scene the option triggers (see cutscene)",
+    "on a talk_option doc (#334): the scene the option triggers (see cutscene); "
+    "on an ending doc (#425): the ending's cutscene",
     "cutscene": "on an npc_dialogue doc (#192): the cutscene doc ('Cutscene <id>') the "
     "line is a subtitle of, the reverse of that doc's talk_ids. Absent on lines no "
     "cutscene speaks; a line several scenes share (the 3 opening narration lines "
@@ -4899,7 +4904,9 @@ _FIELD_NOTES: dict[str, str] = {
     "(#334): the scene its sets_flags trigger, when they trigger exactly one (Fractured "
     "Marika's 'Use Mending Rune of Perfect Order' sets 9401 -> 'Cutscene 19000060', the "
     "Age of Order ending; Castellan Jerren's 'Ready as I'll ever be' -> his festival "
-    "proclamation 60510000); the scene lists it back under trigger_options",
+    "proclamation 60510000); the scene lists it back under trigger_options. On an "
+    "ending doc (#425): the ending's cutscene doc, which names the ending back "
+    "(see ending)",
     "variant_ids": "on a cutscene doc: the other cutscene ids folded into this scene",
     "asset": "on a cutscene doc: the cutscenebnd asset name (s10_00_0010 for "
     "10000010); absent when the current game files hold no such asset (15000020)",
@@ -4920,7 +4927,8 @@ _FIELD_NOTES: dict[str, str] = {
     "see trigger_steps; #189), scripted (anything else: area arrivals, world-state "
     "flags)",
     "boss": "on a cutscene doc: the boss doc the scene introduces or follows (see "
-    "trigger_kind); the boss doc lists it back under cutscenes",
+    "trigger_kind); the boss doc lists it back under cutscenes. On an ending doc "
+    "(#425): the last boss before it (Elden Beast for all six)",
     "trigger_flags": "on a cutscene doc: the event flags its script waits to be on. "
     "Not listed (#271, #274): a flag the scene also plays with off (Jerren's "
     "festival-started flag 9411; a boss flag, see trigger_kind), a flag that only "
@@ -4933,7 +4941,9 @@ _FIELD_NOTES: dict[str, str] = {
     "trigger_steps": "on a cutscene doc (#189): the quest steps behind its "
     "trigger_flags, one per distinct step, each {quest, npc, phase_flag, order, "
     "life_state} as in npc_summons.requires_step (Patches' 60370000: phase 3688). "
-    "Any trigger kind can carry it; a scripted scene with one is trigger_kind quest",
+    "Any trigger kind can carry it; a scripted scene with one is trigger_kind quest. "
+    "On an ending doc (#425): its cutscene's trigger_steps (the Age of the Stars: "
+    "Ranni the Witch's phase 1034509406)",
     "trigger_set_when": "on a cutscene doc (#228): for each trigger_flag with no "
     "quest step (unlinked, or linked to a quest only), {flag, when}: what turns it on, as warp gate_set_when (Jerren's "
     "festival scene 60510000: flag 9410 = any_of(talk to Iji / Sellen, Roderika's "
@@ -4943,13 +4953,22 @@ _FIELD_NOTES: dict[str, str] = {
     "Body, Arms, Legs: the empty slots) and pressing 'Open door' on entity "
     "35001500, in their own world; flag 1051362702 = talk to Castellan Jerren, "
     "#232). A flag is left out when it links to a phase or life_state step, or when "
-    "its set_when would be absent for any of the reasons gate_set_when lists",
+    "its set_when would be absent for any of the reasons gate_set_when lists. On an "
+    "ending doc (#425): what each requirement needs, {flag, when}: each ending_flag "
+    "a script sets beyond the talk option itself (the Age of the Stars' 9404 / 9405: "
+    "Ranni's phase 1034509406, the Elden Beast defeated, 'Summon Ranni'), the flags "
+    "those need on (the Lord of Frenzied Flame's 108 and 109), and the flag gating "
+    "Fractured Marika's option (the Age of Order's 9500: the Mending Rune of Perfect "
+    "Order picked up). Empty for the Age of Fracture, the default choice",
     "trigger_options": "on a cutscene doc (#334): the talk_option docs ('Talk Option "
     "<id>') whose sets_flags trigger this scene and no other: the Age of Order ending "
     "['Talk Option 26071001'] ('Use Mending Rune of Perfect Order'); the reverse of "
-    "the option's cutscene",
+    "the option's cutscene. On an ending doc (#425): the talk_option docs that choose "
+    "it (Fractured Marika's four options, one ending flag each)",
     "trigger_items": "on a cutscene doc: the items the player must hold (Dectus "
-    "Medallion (Left) / (Right) for the Grand Lift of Dectus)",
+    "Medallion (Left) / (Right) for the Grand Lift of Dectus). On an ending doc "
+    "(#425): the items its choice needs picked up (the Age of Order: Mending Rune of "
+    "Perfect Order)",
     "trigger_speffects": "on a cutscene doc (#280): the SpEffects its script waits "
     "for a character to have, each {speffect_id, entity_id (the MSB character), "
     "character (its NPC name), bosses (the boss docs that character fights in)}. "
@@ -4974,6 +4993,17 @@ _FIELD_NOTES: dict[str, str] = {
     "after the scene (…AndWarp plays)",
     "is_ending": "on a cutscene doc: an ending cutscene (cutscene flag 64 or an "
     "ending-choice flag)",
+    "ending": "on a cutscene doc (#425): the ending doc of an Erdtree ending scene "
+    "('Age of Order' on 'Cutscene 19000060'), the reverse of that doc's cutscene",
+    "ending_flags": "on an ending doc (#425): the ending-choice flags its cutscene "
+    "waits on, any one of which plays it: 9400 Age of Fracture, 9401 Age of Order, "
+    "9402 Age of the Duskborn, 9403 Blessing of Despair (each set by one of "
+    "Fractured Marika's options), 9404 / 9405 Age of the Stars (Ranni's summon, "
+    "with or without the Miniature Ranni talk), 9406 / 9407 Lord of Frenzied Flame",
+    "choices": "on an ending doc (#425): what the player picks to get it, the "
+    "talk_option text ('Use Mending Rune of the Death-Prince') or the action-button "
+    "prompt its ending flags wait on ('Summon Ranni', 'Become the Lord of Frenzied "
+    "Flame')",
     "unskippable": "on a cutscene doc: the cutscene flags forbid skipping (flag 2)",
     "subtitles": "on a cutscene doc: the spoken lines in timeline order (EN), from the "
     "scene's timeline (current-patch MQB) joined through TalkParam to the patch's "
@@ -5071,7 +5101,8 @@ _FIELD_NOTES: dict[str, str] = {
     "miniature Ranni' -> ['Miniature Ranni'], 'Talk to Melina' -> ['Melina']). "
     "Absent on about 1 option in 15: counters with no literal bound (the grace "
     "menu's 'Use two Golden Seeds …') and options no script shows (FMG-only "
-    "text such as 'Purchase' / 'Sell', 'Atone', 'Enter the Deathbed Dream')",
+    "text such as 'Purchase' / 'Sell', 'Atone', 'Enter the Deathbed Dream'). On an "
+    "ending doc (#425): the NPCs of its trigger_options (Fractured Marika)",
     "cutscenes": "on a boss doc (#92): the cutscene docs linked to the encounter, each "
     "{id: cutscene_id, kind: boss_intro / boss_defeat / ending}",
     "region": "on a site_of_grace doc: the grace's map-menu region (Stormhill, Liurnia "
@@ -5257,7 +5288,10 @@ _FIELD_NOTES: dict[str, str] = {
     "step's locations (dungeons, open-world landmarks and regions), in step order, "
     "then (#314) where the NPC invades (its invasions' host placements: Hornsent -> "
     "Shadow Keep) or is fought as a boss (its GameAreaParam row's placement: Sir "
-    "Gideon Ofnir -> Leyndell, Ashen Capital)",
+    "Gideon Ofnir -> Leyndell, Ashen Capital), then (#424) where its own enemy "
+    "placements stand: a character it names with no talk script (Knight Bernahl -> "
+    "Crumbling Farum Azula, Redmane Freyja -> Rauh Base) or one a summon / invasion "
+    "sign places (Hornsent -> Ancient Ruins of Rauh)",
     "drop_regions": "on item docs (#141): the regions (+ tabs) of the enemies in "
     "dropped_by, counting only the placements that carry the item (their own death "
     "lot or scripted award) when known, else every placement of that enemy. "
