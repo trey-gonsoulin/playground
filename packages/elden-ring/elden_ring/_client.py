@@ -1943,18 +1943,35 @@ def _ascii_fold(s: str) -> str:
     return "".join(c for c in nfkd if not unicodedata.combining(c)).lower()
 
 
+# Types whose docs reuse another doc's exact name (a keepsake doc is named after the
+# item it grants, #475). An untyped name lookup ranks them last, so
+# get_entity("Golden Seed") stays the upgrade material.
+_NAME_LOOKUP_DEMOTED_TYPES = ("keepsake",)
+
+
 def _newest_doc(client: OpenSearch, term: dict, entity_type: str | None) -> dict | None:
     filters: list[dict] = [{"term": term}]
+    sort: list[dict] = []
     if entity_type:
         filters.append({"term": {"entity_type": entity_type}})
+    else:
+        sort.append(
+            {
+                "_script": {
+                    "type": "number",
+                    "order": "asc",
+                    "script": {
+                        "source": "params.demoted.contains(doc['entity_type'].value) ? 1 : 0",
+                        "params": {"demoted": list(_NAME_LOOKUP_DEMOTED_TYPES)},
+                    },
+                }
+            }
+        )
+    # entity_type breaks ties between same-name docs of two types (#443).
+    sort += [{"patch_version": "desc"}, {"entity_type": "asc"}]
     resp = client.search(
         index=INDEX,
-        body={
-            "size": 1,
-            "query": {"bool": {"filter": filters}},
-            # entity_type breaks ties between same-name docs of two types (#443).
-            "sort": [{"patch_version": "desc"}, {"entity_type": "asc"}],
-        },
+        body={"size": 1, "query": {"bool": {"filter": filters}}, "sort": sort},
     )
     hits = resp["hits"]["hits"]
     return hits[0]["_source"] if hits else None
