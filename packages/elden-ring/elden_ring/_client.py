@@ -1458,6 +1458,39 @@ def _mapping_paths(props: dict, prefix: str = "") -> dict[str, dict]:
     return out
 
 
+def unmapped_paths(docs: list[dict]) -> list[str]:
+    """Dotted paths in ``docs`` that the strict mapping would reject (#448).
+
+    Walks dicts and lists of dicts, skipping None values and ``_INTERNAL_FIELDS``;
+    a mapped object without ``properties`` (``enabled: false``) is not descended.
+    Lets a loader refuse a build before connecting instead of failing per doc
+    with ``strict_dynamic_mapping_exception`` part-way through a reindex.
+    """
+    props = INDEX_MAPPING["mappings"]["properties"]
+    out: set[str] = set()
+
+    def walk(value, props: dict, prefix: str) -> None:
+        if isinstance(value, list):
+            for v in value:
+                walk(v, props, prefix)
+            return
+        if not isinstance(value, dict):
+            return
+        for key, v in value.items():
+            if v is None or (not prefix and key in _INTERNAL_FIELDS):
+                continue
+            path = prefix + key
+            spec = props.get(key)
+            if spec is None:
+                out.add(path)
+            elif "properties" in spec:
+                walk(v, spec["properties"], path + ".")
+
+    for d in docs:
+        walk(d, props, "")
+    return sorted(out)
+
+
 def _queryable_paths() -> frozenset[str]:
     """Mapped paths plus their subfields (description_ja.lemma, name.keyword)."""
     paths = set()

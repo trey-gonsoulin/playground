@@ -42,7 +42,7 @@ import zipfile
 from collections import defaultdict
 
 import requests
-from opensearchpy import OpenSearch, RequestsHttpConnection
+from opensearchpy import OpenSearch, RequestError, RequestsHttpConnection
 from opensearchpy.helpers import bulk, scan
 
 from elden_ring._client import INDEX, INDEX_MAPPING  # reuse index name + mapping
@@ -72,6 +72,10 @@ def _get_client() -> OpenSearch:
         verify_certs=False,
         connection_class=RequestsHttpConnection,
         timeout=60,
+        # a transient read timeout or 429 retries instead of failing a whole
+        # version (#448); index and delete by _id are idempotent
+        retry_on_timeout=True,
+        max_retries=3,
         # gzip the bulk bodies (~11x smaller, #406); ER_LOAD_COMPRESS=0 turns it off
         http_compress=_env_on("ER_LOAD_COMPRESS"),
     )
@@ -1948,20 +1952,48 @@ def load_erdb(
 # ---------------------------------------------------------------------------
 
 
+# The alias the MCP server reads (#115). A load never creates a concrete index
+# under this name: if the alias is missing, that index would shadow it (#448).
+_DEFAULT_ALIAS = "elden-ring-entities"
+
+
+class IndexMissing(RuntimeError):
+    """``INDEX`` is the default alias name and doesn't exist (#448)."""
+
+
 def ensure_index(client: OpenSearch, recreate: bool = False) -> None:
+    """Create ``INDEX`` if it's missing, else update its field limit and mapping.
+
+    Two parallel loads (LOAD_JOBS=2) can both see a new index as missing; the
+    loser's ``resource_already_exists_exception`` counts as success and it goes
+    on to put the mapping like any existing index (#448). Raises
+    ``IndexMissing`` rather than auto-create under the default alias name: set
+    ELDEN_RING_INDEX to the new concrete index to create one, then alias it.
+    """
     if recreate and client.indices.exists(index=INDEX):
         print(f"  Deleting index '{INDEX}' for recreation …")
         client.indices.delete(index=INDEX)
     if not client.indices.exists(index=INDEX):
+        if INDEX == _DEFAULT_ALIAS:
+            raise IndexMissing(
+                f"'{INDEX}' doesn't exist: refusing to create a concrete index "
+                "under the alias name. Point the alias at an index, or set "
+                "ELDEN_RING_INDEX to the concrete index to create."
+            )
         print(f"  Creating index '{INDEX}' …")
-        client.indices.create(index=INDEX, body=INDEX_MAPPING)
-    else:
-        print(f"  Index '{INDEX}' already exists, updating mapping …")
-        limit = INDEX_MAPPING["settings"]["mapping.total_fields.limit"]
-        client.indices.put_settings(
-            index=INDEX, body={"index.mapping.total_fields.limit": limit}
-        )
-        client.indices.put_mapping(index=INDEX, body=INDEX_MAPPING["mappings"])
+        try:
+            client.indices.create(index=INDEX, body=INDEX_MAPPING)
+            return
+        except RequestError as e:
+            if e.error != "resource_already_exists_exception":
+                raise
+            print(f"  Index '{INDEX}' was created by a parallel load.")
+    print(f"  Index '{INDEX}' already exists, updating mapping …")
+    limit = INDEX_MAPPING["settings"]["mapping.total_fields.limit"]
+    client.indices.put_settings(
+        index=INDEX, body={"index.mapping.total_fields.limit": limit}
+    )
+    client.indices.put_mapping(index=INDEX, body=INDEX_MAPPING["mappings"])
 
 
 def _concrete_indices(client: OpenSearch) -> list[str]:
@@ -2046,6 +2078,10 @@ def _to_bulk_actions(docs: list[dict]) -> list[dict]:
 # Docs per bulk request; ER_BULK_CHUNK_SIZE lets a reindex try larger ones (#406).
 _BULK_CHUNK_SIZE = int(os.environ.get("ER_BULK_CHUNK_SIZE") or 500)
 
+# Retry a chunk's 429 (too many requests) items with 2s, 4s, 8s backoff instead
+# of failing the version (#448); writes by _id are idempotent.
+_BULK_RETRY = {"max_retries": 3, "initial_backoff": 2}
+
 
 def load_documents(
     client: OpenSearch | None, docs: list[dict], dry_run: bool
@@ -2059,7 +2095,11 @@ def load_documents(
         print(json.dumps(actions[:2], indent=2, ensure_ascii=False))
         return 0, []
     success, errors = bulk(
-        client, actions, raise_on_error=False, chunk_size=_BULK_CHUNK_SIZE
+        client,
+        actions,
+        raise_on_error=False,
+        chunk_size=_BULK_CHUNK_SIZE,
+        **_BULK_RETRY,
     )
     print(f"  Indexed {success} documents.")
     if errors:
@@ -2070,9 +2110,16 @@ def load_documents(
 
 
 # Refuse to prune when a reload would retract more than this share of an entity
-# type's live docs at one patch — that signals a truncated/broken build, not stale
-# leftovers (the worst real case, #67's 1.02 enemies, is ~21%).
+# type's docs at one patch — that signals a truncated/broken build, not stale
+# leftovers (the worst real case, #67's 1.02 enemies, is ~21%). The share is
+# stale / (stale + built), which doesn't depend on whether the docs just written
+# are refreshed yet (#448); for a truncated build it equals stale / old live.
 _PRUNE_MAX_FRACTION = 0.5
+
+
+class PruneRefused(RuntimeError):
+    """A prune would delete more than the allowed share of a type's docs; nothing
+    was deleted (#448)."""
 
 
 def _stale_ids(live_ids, docs: list[dict]) -> list[str]:
@@ -2082,7 +2129,10 @@ def _stale_ids(live_ids, docs: list[dict]) -> list[str]:
 
 
 def prune_stale(
-    client: OpenSearch | None, docs: list[dict], dry_run: bool
+    client: OpenSearch | None,
+    docs: list[dict],
+    dry_run: bool,
+    max_fraction: float = _PRUNE_MAX_FRACTION,
 ) -> tuple[int, list]:
     """Delete docs a reload no longer produces, scoped per patch_version to the
     entity_types present in ``docs`` (#67).
@@ -2090,8 +2140,9 @@ def prune_stale(
     The loader is additive (overwrite-by-_id), so a doc written by an earlier,
     wrong build — e.g. DLC enemies stamped onto 1.02 from 1.17 NpcName — survives
     every correct rebuild. Other patches and entity_types absent from ``docs``
-    (e.g. npc_dialogue on an --items-only load) are never touched. Aborts without
-    deleting if any type would lose more than ``_PRUNE_MAX_FRACTION`` of its docs.
+    (e.g. npc_dialogue on an --items-only load) are never touched. Raises
+    ``PruneRefused`` without deleting if any type's stale docs are more than
+    ``max_fraction`` of its stale + built docs at a version (``1`` never refuses).
 
     Returns ``(deleted, errors)`` like ``load_documents``, so callers can fail the
     run on delete errors instead of mistaking a partial prune for success (#415).
@@ -2122,22 +2173,29 @@ def prune_stale(
             )
         ]
         version_stale = _stale_ids(live, docs)
-        live_by_type: dict[str, int] = defaultdict(int)
+        # The built side counts the dataset's own docs, not the live ones: the
+        # docs this load just wrote are only live after a refresh, so a live
+        # count would make the guard depend on the refresh setting (#448).
+        built_by_type: dict[str, set[str]] = defaultdict(set)
         stale_by_type: dict[str, list[str]] = defaultdict(list)
-        for i in live:
-            live_by_type[i.split("::", 1)[0]] += 1
+        for a in _to_bulk_actions(docs):
+            if a["_source"].get("patch_version", "unknown") == version:
+                built_by_type[a["_source"]["entity_type"]].add(a["_id"])
         for i in version_stale:
             stale_by_type[i.split("::", 1)[0]].append(i.split("::")[1])
         for t, names in sorted(stale_by_type.items()):
+            built = len(built_by_type[t])
+            total = len(names) + built
             print(
-                f"  [{version}] stale {t}: {len(names)}/{live_by_type[t]} "
-                f"(e.g. {names[:3]})"
+                f"  [{version}] stale {t}: {len(names)} (built {built}; "
+                f"e.g. {names[:3]})"
             )
-            if len(names) > _PRUNE_MAX_FRACTION * live_by_type[t]:
-                sys.exit(
-                    f"  !! refusing to prune: {len(names)}/{live_by_type[t]} "
-                    f"{t} docs at {version} would be deleted — build looks "
-                    "truncated; nothing was deleted"
+            if len(names) > max_fraction * total:
+                raise PruneRefused(
+                    f"refusing to prune: {len(names)} of {total} {t} docs at "
+                    f"{version} (stale + built) would be deleted, over "
+                    f"{max_fraction:.0%}; the build looks truncated. Nothing was "
+                    "deleted; rerun with --force-prune if it is intended."
                 )
         stale += version_stale
 
@@ -2152,6 +2210,7 @@ def prune_stale(
         [{"_op_type": "delete", "_index": INDEX, "_id": i} for i in stale],
         raise_on_error=False,
         chunk_size=500,
+        **_BULK_RETRY,
     )
     print(f"  Pruned {deleted} stale documents.")
     if errors:
