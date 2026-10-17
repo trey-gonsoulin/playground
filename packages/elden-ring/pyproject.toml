@@ -27,15 +27,36 @@ packages = ["elden_ring"]
 url = "https://artifacts.apple.com/api/pypi/pypi-private/simple"
 default = true
 
+# The lint tools (#457) come straight from PyPI: the private index above is unreachable
+# from this machine (#454), and nothing in the runtime image depends on them.
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple"
+explicit = true
+
+[tool.uv.sources]
+coverage = { index = "pypi" }
+nodeenv = { index = "pypi" }
+pyright = { index = "pypi" }
+pytest-cov = { index = "pypi" }
+ruff = { index = "pypi" }
+
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",
-    # Quality gates (#457): scripts/check.sh runs all three.
+    # Local `main.py` only; Lambda runs through Mangum (mcp pulls in plain uvicorn).
+    "uvicorn[standard]>=0.30",
+]
+# Quality gates (#457), only installed by scripts/check.sh (`--group lint`). Kept out of
+# the default `dev` group so the plain offline pytest run never needs these wheels.
+lint = [
+    "pytest>=9.1.1",
     "pytest-cov>=7.0",
     "pyright>=1.1.400",
     "ruff>=0.15",
-    # Local `main.py` only; Lambda runs through Mangum (mcp pulls in plain uvicorn).
-    "uvicorn[standard]>=0.30",
+    # Their own dependencies, listed so the PyPI sources below apply to them too.
+    "coverage>=7.10.6",
+    "nodeenv>=1.6",
 ]
 
 [tool.pytest.ini_options]
