@@ -5170,8 +5170,10 @@ _FIELD_NOTES: dict[str, str] = {
     "so a when can be incomplete but not wrong. An either-or test of parsed checks "
     "is an any_of. A flag the event itself sets before the transition is not a "
     "condition (its earlier state is stale by then). Steps don't restate the "
-    "NPC's own normal life state (+0) or 'not yet at phase X'. A phase that other "
-    "scripts check but no parsed event "
+    "NPC's own normal life state (+0) or 'not yet at phase X' of a flag_block "
+    "phase; a map-local step (#398/#420) is an independent flag, so its 'not set' "
+    "guard stays (negated quest_phase, or talk for one only talk sets). A phase "
+    "that other scripts check but no parsed event "
     "sets (usually the first) is listed bare. Phases have no names: "
     "meaning is positional (order + locations + when)",
     "steps.phase_flag": "the phase's event flag: in flag_block, or (#398) a map-local "
