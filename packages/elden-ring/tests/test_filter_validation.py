@@ -158,8 +158,9 @@ def test_carried_field_gives_no_warning():
 
 def test_get_entity_unknown_entity_type_errors():
     c = _Client()
-    assert "unknown entity_type" in _client.get_entity(c, "X", "bosses")["error"]
-    assert _client.get_entity(c, "Nobody", "weapon") is None
+    out = _client.get_entity(c, "X", entity_type="bosses")
+    assert "unknown entity_type" in out["error"]
+    assert _client.get_entity(c, "Nobody", entity_type="weapon") is None
 
 
 _RIVERS = [_doc("Rivers of Blood", v, attack=i) for i, v in enumerate(_VERSIONS)]
@@ -213,17 +214,18 @@ def test_trailing_zero_spellings_share_a_key():
 
 
 def test_version_aliases_map_to_the_loaded_label():
+    loaded = ["1.02", "1.10.0"]
+    assert _client._canonical_version("1.02.0", loaded) == "1.02"
+    assert _client._canonical_version("1.10", loaded) == "1.10.0"
+    assert _client._canonical_version("1.10.0", loaded) == "1.10.0"
+    assert _client._canonical_version("1.11", loaded) == "1.11"
     c = _Client([_doc("Dagger", "1.02"), _doc("Dagger", "1.10.0")])
-    assert _client._canonical_version(c, "1.02.0") == "1.02"
-    assert _client._canonical_version(c, "1.10") == "1.10.0"
-    assert _client._canonical_version(c, "1.10.0") == "1.10.0"
-    assert _client._canonical_version(c, "1.11") == "1.11"
-    assert _client._canonical_version(c, None) is None
+    assert _client._request_version(c, "1.02.0") == "1.02"
+    assert _client._request_version(c, None) is None
 
 
 def test_ambiguous_alias_passes_through():
-    c = _Client([_doc("Dagger", "1.10"), _doc("Dagger", "1.10.0")])
-    assert _client._canonical_version(c, "1.10.0.0") == "1.10.0.0"
+    assert _client._canonical_version("1.10.0.0", ["1.10", "1.10.0"]) == "1.10.0.0"
 
 
 def test_tools_accept_version_aliases():

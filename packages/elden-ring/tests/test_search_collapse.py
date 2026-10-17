@@ -82,7 +82,7 @@ class _SearchClient:
 
 
 def _unscoped(monkeypatch):
-    monkeypatch.setattr(_client, "_canonical_version", lambda c, v: v)
+    monkeypatch.setattr(_client, "_request_version", lambda c, v: v)
 
 
 def test_entity_key_mapped_and_noted():
@@ -281,7 +281,7 @@ def test_union_dedupes_patterns():
 
 
 def test_search_literal_caps_distinct_patterns(monkeypatch):
-    monkeypatch.setattr(_client, "_canonical_version", lambda c, v: v)
+    monkeypatch.setattr(_client, "_request_version", lambda c, v: v)
     many = [f"p{i}" for i in range(_client._MAX_PATTERNS + 1)]
     out = _client.search_literal(None, patterns=many)
     assert "error" in out and str(_client._MAX_PATTERNS) in out["error"]

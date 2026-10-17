@@ -53,7 +53,7 @@ def test_search_literal_rejects_disabled_field(monkeypatch):
 
 
 def test_disabled_field_valid_for_include_fields(monkeypatch):
-    monkeypatch.setattr(_client, "_canonical_version", lambda c, v: v)
+    monkeypatch.setattr(_client, "_request_version", lambda c, v: v)
     seen = {}
 
     def fake(client, **kw):
