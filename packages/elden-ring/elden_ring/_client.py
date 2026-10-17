@@ -12,6 +12,7 @@ import boto3
 import requests
 from opensearchpy import OpenSearch, RequestsHttpConnection
 
+from elden_ring._calc import DAMAGE_TYPES as _DAMAGE_TYPES
 from elden_ring._calc import STATS, attack_rating, spell_damage
 
 # ---------------------------------------------------------------------------
@@ -130,9 +131,7 @@ def start_instance(timeout_seconds: int = 240) -> str:
 # Overridable so a full reindex can target a new versioned index before cutover.
 INDEX = os.environ.get("ELDEN_RING_INDEX", "elden-ring-entities")
 
-_DAMAGE_TYPES = ("physical", "magic", "fire", "lightning", "holy")
 _NEGATION_TYPES = (*_DAMAGE_TYPES, "strike", "slash", "pierce")
-_STATS = ("str", "dex", "int", "fai", "arc")
 _STATUSES = (
     "poison",
     "scarlet_rot",
@@ -147,6 +146,22 @@ _STATUSES = (
 def _props(type_: str, keys) -> dict:
     return {k: {"type": type_} for k in keys}
 
+
+# Shared mapping fragments (#459): one definition per repeated block, so an
+# analyzer or damage-type change is made in one place.
+# Japanese text with the three kuromoji sub-fields (#53).
+_JA_TEXT = {
+    "type": "text",
+    "fields": {
+        "ja": {"type": "text", "analyzer": "kuromoji_analyzer"},
+        "morph": {"type": "text", "analyzer": "kuromoji_segmenter"},
+        "lemma": {"type": "text", "analyzer": "kuromoji_lemmatizer"},
+    },
+}
+# Integer per damage type: attack power, and motion values.
+_AP_INT = {"properties": _props("integer", _DAMAGE_TYPES)}
+# Float negation / damage multiplier per damage and physical subtype.
+_NEGATION = {"properties": _props("float", _NEGATION_TYPES)}
 
 # A raw event flag's quest step (#189): summon-sign requires_step, cutscene
 # trigger_steps.
@@ -188,7 +203,7 @@ _WEAPON_STATS = {
                     "value": {"type": "float"},
                 }
             }
-            for s in _STATS
+            for s in STATS
         }
     },
     # On-hit status buildup (#118).
@@ -304,7 +319,7 @@ _NPC_COMBAT = {
     "scripted_damage_taken": {
         "properties": {
             "speffect_id": {"type": "integer"},
-            "multiplier": {"properties": _props("float", _NEGATION_TYPES)},
+            "multiplier": _NEGATION,
             "status_buildup_taken_multiplier": {
                 "properties": _props("float", _STATUSES)
             },
@@ -328,7 +343,7 @@ _NPC_ATTACKS = {
     "count": {"type": "integer"},
     "damage_types": {"type": "keyword"},
     "elements": {"type": "keyword"},
-    "attack_power": {"properties": _props("integer", _DAMAGE_TYPES)},
+    "attack_power": _AP_INT,
     # Max per-hit AtkParam_Npc poise damage (#253); spirits' x0.05 is folded in.
     "poise_damage": {"type": "float"},
     "status_buildup": {"properties": _props("integer", _STATUSES)},
@@ -349,7 +364,7 @@ _SUMMON_STATS = {
     "damage_vs_enemies_multiplier": {"type": "float"},
     # Resident NpcParam slot SpEffects' damage cut rates (#181) x the vs-enemy damage
     # correction (#248); poise damage / status buildup received rates (#249)
-    "damage_taken_multiplier": {"properties": _props("float", _NEGATION_TYPES)},
+    "damage_taken_multiplier": _NEGATION,
     "poise_damage_taken_multiplier": {"type": "float"},
     "status_buildup_taken_multiplier": {"properties": _props("float", _STATUSES)},
     "attacks": {"properties": _NPC_ATTACKS},
@@ -644,9 +659,7 @@ INDEX_MAPPING = {
                     # Thrown goods: the main hit's stance damage (#308).
                     "poise_damage": {"type": "float"},
                     "follow_up_hits": {"type": "integer"},
-                    "follow_up_attack_power": {
-                        "properties": _props("integer", _DAMAGE_TYPES)
-                    },
+                    "follow_up_attack_power": _AP_INT,
                     # Motion-value % per element per distinct follow-up hit (#152).
                     "follow_up_motion_values": {
                         "properties": _props("integer", ("count", *_DAMAGE_TYPES))
@@ -665,7 +678,7 @@ INDEX_MAPPING = {
                     "hit_count": {"type": "integer"},
                     "hit_count_max": {"type": "integer"},  # #176
                     "poise_damage": {"type": "float"},
-                    "motion_values": {"properties": _props("integer", _DAMAGE_TYPES)},
+                    "motion_values": _AP_INT,
                     "projectile": {
                         "properties": _props(
                             "float",
@@ -719,7 +732,7 @@ INDEX_MAPPING = {
             },
             "upgrade_curve": {"type": "object", "enabled": False},
             "ar_inputs": {"type": "object", "enabled": False},  # #120
-            "requirements": {"properties": _props("integer", _STATS)},
+            "requirements": {"properties": _props("integer", STATS)},
             "fp_cost": {"type": "integer"},
             "hp_cost": {"type": "integer"},  # #292
             # Item rarity + sell/hold/store/trade limits (#296).
@@ -814,7 +827,7 @@ INDEX_MAPPING = {
                     "count": {"type": "integer"},
                     "damage_types": {"type": "keyword"},
                     "elements": {"type": "keyword"},
-                    "attack_power": {"properties": _props("integer", _DAMAGE_TYPES)},
+                    "attack_power": _AP_INT,
                     "poise_damage": {"type": "float"},
                     "status_buildup": {"properties": _props("integer", _STATUSES)},
                     "status_effects": {"type": "keyword"},
@@ -867,7 +880,7 @@ INDEX_MAPPING = {
                     "npc_param_ids": {"type": "integer"},
                     **_NPC_STATS,
                     **_NPC_COMBAT,
-                    "negation": {"properties": _props("float", _NEGATION_TYPES)},
+                    "negation": _NEGATION,
                     **_NPC_SCALED_RANGES,
                     "maps": {"type": "keyword"},
                 }
@@ -881,9 +894,7 @@ INDEX_MAPPING = {
                     "npc_param_id": {"type": "integer"},
                     **_NPC_STATS,
                     **_NPC_COMBAT,
-                    "negation": {
-                        "properties": _props("float", _NEGATION_TYPES)
-                    },  # #298
+                    "negation": _NEGATION,  # #298
                     **_NPC_SCALED,
                     "ends_at_hp_ratio": {"type": "float"},
                     "hp_pool_shared_with": {"type": "keyword"},
@@ -1018,7 +1029,7 @@ INDEX_MAPPING = {
                         ("weapon", "ash_of_war", "hands", "damage_types", "elements"),
                     ),
                     "reinforce_level": {"type": "integer"},
-                    "attack_power": {"properties": _props("integer", _DAMAGE_TYPES)},
+                    "attack_power": _AP_INT,
                     "status_buildup": {"properties": _props("integer", _STATUSES)},
                     "poise_damage": {"type": "float"},
                     "poise_damage_by_attack": {"type": "object", "enabled": False},
@@ -1036,15 +1047,13 @@ INDEX_MAPPING = {
                         ("spell", "damage_types", "elements", "status_effects"),
                     ),
                     "magic_id": {"type": "integer"},
-                    "attack_power": {"properties": _props("integer", _DAMAGE_TYPES)},
+                    "attack_power": _AP_INT,
                     "poise_damage": {"type": "float"},
                     "status_buildup": {"type": "object", "enabled": False},
                     # hits per cast and their summed power (#270), channelled
                     # spells, and the uncharged / charged casts (#269)
                     "hit_count": {"type": "integer"},
-                    "attack_power_per_cast": {
-                        "properties": _props("integer", _DAMAGE_TYPES)
-                    },
+                    "attack_power_per_cast": _AP_INT,
                     "channeled": {"type": "boolean"},
                     "guard_pierce": {"type": "integer"},  # #293
                     "flat": {"type": "boolean"},  # #331 unscaled contact hit
@@ -1052,17 +1061,13 @@ INDEX_MAPPING = {
                     **{
                         cast: {
                             "properties": {
-                                "attack_power": {
-                                    "properties": _props("integer", _DAMAGE_TYPES)
-                                },
+                                "attack_power": _AP_INT,
                                 "poise_damage": {"type": "float"},
                                 # per-cast buildup + guard pierce (#293)
                                 "status_buildup": {"type": "object", "enabled": False},
                                 "guard_pierce": {"type": "integer"},
                                 "hit_count": {"type": "integer"},
-                                "attack_power_per_cast": {
-                                    "properties": _props("integer", _DAMAGE_TYPES)
-                                },
+                                "attack_power_per_cast": _AP_INT,
                                 "lingering_duration": {"type": "float"},  # #375
                             }
                         }
@@ -1118,14 +1123,7 @@ INDEX_MAPPING = {
             "is_ending": {"type": "boolean"},
             "unskippable": {"type": "boolean"},
             "subtitles": {"type": "text"},
-            "subtitles_ja": {
-                "type": "text",
-                "fields": {
-                    "ja": {"type": "text", "analyzer": "kuromoji_analyzer"},
-                    "morph": {"type": "text", "analyzer": "kuromoji_segmenter"},
-                    "lemma": {"type": "text", "analyzer": "kuromoji_lemmatizer"},
-                },
-            },
+            "subtitles_ja": _JA_TEXT,
             "talk_ids": {"type": "long"},
             "speakers": {"type": "keyword"},  # #191; npc_dialogue too (#307)
             "talk_contexts": {"type": "keyword"},  # npc_dialogue (#307)
@@ -1168,46 +1166,11 @@ INDEX_MAPPING = {
                     "waited_for": {"properties": _QUEST_WAITED_FOR},
                 }
             },
-            "name_ja": {
-                "type": "text",
-                "fields": {
-                    "ja": {"type": "text", "analyzer": "kuromoji_analyzer"},
-                    "morph": {"type": "text", "analyzer": "kuromoji_segmenter"},
-                    "lemma": {"type": "text", "analyzer": "kuromoji_lemmatizer"},
-                },
-            },
-            "description_ja": {
-                "type": "text",
-                "fields": {
-                    "ja": {"type": "text", "analyzer": "kuromoji_analyzer"},
-                    "morph": {"type": "text", "analyzer": "kuromoji_segmenter"},
-                    "lemma": {"type": "text", "analyzer": "kuromoji_lemmatizer"},
-                },
-            },
-            "text_content_ja": {
-                "type": "text",
-                "fields": {
-                    "ja": {"type": "text", "analyzer": "kuromoji_analyzer"},
-                    "morph": {"type": "text", "analyzer": "kuromoji_segmenter"},
-                    "lemma": {"type": "text", "analyzer": "kuromoji_lemmatizer"},
-                },
-            },
-            "effect_text_ja": {
-                "type": "text",
-                "fields": {
-                    "ja": {"type": "text", "analyzer": "kuromoji_analyzer"},
-                    "morph": {"type": "text", "analyzer": "kuromoji_segmenter"},
-                    "lemma": {"type": "text", "analyzer": "kuromoji_lemmatizer"},
-                },
-            },
-            "info_text_ja": {
-                "type": "text",
-                "fields": {
-                    "ja": {"type": "text", "analyzer": "kuromoji_analyzer"},
-                    "morph": {"type": "text", "analyzer": "kuromoji_segmenter"},
-                    "lemma": {"type": "text", "analyzer": "kuromoji_lemmatizer"},
-                },
-            },
+            "name_ja": _JA_TEXT,
+            "description_ja": _JA_TEXT,
+            "text_content_ja": _JA_TEXT,
+            "effect_text_ja": _JA_TEXT,
+            "info_text_ja": _JA_TEXT,
             "acquisition_types": {"type": "keyword"},
             "acquisition_sources": {"type": "keyword"},
             "dropped_by": {"type": "keyword"},
@@ -1352,12 +1315,8 @@ INDEX_MAPPING = {
                     "attacks": {
                         "properties": {
                             "hit_label": {"type": "keyword"},
-                            "motion_values": {
-                                "properties": _props("integer", _DAMAGE_TYPES)
-                            },
-                            "attack_power": {
-                                "properties": _props("integer", _DAMAGE_TYPES)
-                            },
+                            "motion_values": _AP_INT,
+                            "attack_power": _AP_INT,
                             "stamina_cost": {"type": "integer"},
                             "active_frames": {
                                 "properties": _props("integer", ("start", "end"))
@@ -1389,8 +1348,8 @@ INDEX_MAPPING = {
             # Armor damage negation (percent): raw, and net of the piece's resident
             # damage-taken effects (#284). Enemies: NpcParam cut rates x a humanoid's
             # armor loadout (#298).
-            "negation": {"properties": _props("float", _NEGATION_TYPES)},
-            "net_negation": {"properties": _props("float", _NEGATION_TYPES)},
+            "negation": _NEGATION,
+            "net_negation": _NEGATION,
             # Armor poise and the equipment menu's four resistances (#288).
             "poise": {"type": "float"},
             "status_resistance": {
@@ -1417,11 +1376,6 @@ _SUMMON_STATS.update(
         for k in ("equipment", "weapon_attacks", "spell_attacks")
     }
 )
-
-
-def ensure_index(client: OpenSearch) -> None:
-    if not client.indices.exists(index=INDEX):
-        client.indices.create(index=INDEX, body=INDEX_MAPPING)
 
 
 # ---------------------------------------------------------------------------
