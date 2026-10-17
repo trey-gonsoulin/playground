@@ -1712,16 +1712,16 @@ def search(
                 }
             }
     else:
-        # Without a specific patch filter, collapse by entity (entity_type::name, #443)
-        # to deduplicate across the indexed patch versions. Sort by _score first so groups
-        # stay in relevance order (the primary contract of this tool). The top-level sort
-        # also picks each group's top hit, which can be an older patch whose rewritten
-        # text scores higher, so the returned doc is the group's "latest" inner hit: its
-        # newest matching patch, keeping the group's score (#442).
+        # Without a specific patch filter, collapse by entity (entity_type::name,
+        # #443) to deduplicate across the indexed patch versions. Sort by _score
+        # first so groups stay in relevance order (the primary contract of this
+        # tool). A group's top hit can be an older patch whose rewritten text scores
+        # higher, or the only patch whose text matches at all, so _swap_newest
+        # replaces it with the entity's newest patch under the same filters, keeping
+        # the group's score (#442).
         if not patch_version:
             body["sort"] = [{"_score": "desc"}, {"patch_version": "desc"}]
-            body["collapse"] = _collapse_latest(include_fields)
-            body["_source"] = False  # the inner hit carries the doc
+            body["collapse"] = {"field": "entity_key"}
 
     resp = client.search(index=INDEX, body=body)
 
@@ -1733,28 +1733,54 @@ def search(
         else:
             out = {"total": resp["hits"]["total"]["value"]}
     else:
-        out = [
-            {"score": hit["_score"], **_latest_source(hit)}
-            for hit in resp["hits"]["hits"]
-        ]
+        hits = resp["hits"]["hits"]
+        if not patch_version:
+            hits = _swap_newest(client, hits, filters, include_fields)
+        out = [{"score": hit["_score"], **hit.get("_source", {})} for hit in hits]
     if not out or out == {"total": 0}:
         return _check_filter_values(client, entity_type, source, patch_version) or out
     return out
 
 
-def _collapse_latest(include_fields: list[str] | None) -> dict:
-    """Collapse on entity_key (one group per entity_type + name, #443), with an
-    inner hit "latest" holding the group's newest matching patch (#442)."""
-    inner: dict = {"name": "latest", "size": 1, "sort": [{"patch_version": "desc"}]}
+def _swap_newest(
+    client: OpenSearch,
+    hits: list[dict],
+    filters: list[dict],
+    include_fields: list[str] | None,
+) -> list[dict]:
+    """Replace each collapsed hit's doc with its entity's newest patch (#442).
+
+    One query, no text clause: the same filters plus the hits' entity_keys, sorted
+    newest first and collapsed on entity_key. The newest patch is returned even when
+    only an older patch's text matched. A key it doesn't return keeps its matched doc.
+    """
+    keys = [k for h in hits if (k := _hit_entity_key(h))]
+    if not keys:
+        return hits
+    body: dict = {
+        "size": len(keys),
+        "query": {"bool": {"filter": [*filters, {"terms": {"entity_key": keys}}]}},
+        "sort": [{"patch_version": "desc"}],
+        "collapse": {"field": "entity_key"},
+    }
     if include_fields is not None:
-        inner["_source"] = include_fields
-    return {"field": "entity_key", "inner_hits": inner}
+        body["_source"] = include_fields
+    resp = client.search(index=INDEX, body=body)
+    newest = {
+        k: h.get("_source", {})
+        for h in resp["hits"]["hits"]
+        if (k := _hit_entity_key(h))
+    }
+    return [
+        {**h, "_source": newest.get(_hit_entity_key(h), h.get("_source", {}))}
+        for h in hits
+    ]
 
 
-def _latest_source(hit: dict) -> dict:
-    """The "latest" inner hit's _source of a collapsed hit, else the hit's own."""
-    latest = hit.get("inner_hits", {}).get("latest", {}).get("hits", {}).get("hits")
-    return latest[0]["_source"] if latest else hit.get("_source", {})
+def _hit_entity_key(hit: dict) -> str | None:
+    """A collapsed hit's entity_key (the collapse puts it in hit["fields"])."""
+    vals = hit.get("fields", {}).get("entity_key")
+    return vals[0] if vals else hit.get("_source", {}).get("entity_key")
 
 
 def _ascii_fold(s: str) -> str:
@@ -2521,8 +2547,8 @@ def _search_literal(
 
     if not patch_version:
         # Cardinality agg gives exact distinct-entity count (per entity_type::name,
-        # #443); collapse + the "latest" inner hit return each entity's newest
-        # matching patch (#442).
+        # #443). The patch_version-first sort makes each collapse group's top hit its
+        # newest matching patch, so no inner_hits (they cost one search per group).
         body["aggs"] = {
             "distinct_entities": {
                 "cardinality": {"field": "entity_key", "precision_threshold": 40000}
@@ -2530,8 +2556,7 @@ def _search_literal(
         }
         if not count_only:
             body["sort"] = [{"patch_version": "desc"}, "_score"]
-            body["collapse"] = _collapse_latest(include_fields)
-            body["_source"] = False  # the inner hit carries the doc
+            body["collapse"] = {"field": "entity_key"}
 
     resp = client.search(index=INDEX, body=body)
 
@@ -2544,7 +2569,7 @@ def _search_literal(
         return {"total": total}
     return {
         "total": total,
-        "results": [_latest_source(h) for h in resp["hits"]["hits"]],
+        "results": [h.get("_source", {}) for h in resp["hits"]["hits"]],
     }
 
 
