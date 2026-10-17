@@ -68,12 +68,20 @@ The reference SAM config is in `~/code/hoshi/` (`template.yaml`, `samconfig.toml
 - `samconfig.toml` — pins `stack_name`, `region = "us-east-1"`, `capabilities = "CAPABILITY_IAM"`, `image_repositories` after first `sam deploy --guided`.
 - Docker build context is the repo root so the Dockerfile can `COPY` workspace files.
 
-Build and deploy:
+Build and deploy with a reviewed change set. All functions share the `mcp-playground` stack, which also holds the Elden Ring OpenSearch instance:
 
 ```bash
+export DOCKER_HOST=unix://$HOME/.docker/run/docker.sock   # exported, so sam build AND sam deploy use Docker Desktop's engine
 sam build
-sam deploy          # first run: sam deploy --guided to populate samconfig.toml
+sam deploy --no-execute-changeset                         # creates and prints the change set, executes nothing
+# review it: expect Modify rows with Replacement False; any EldenRingSearchInstance Replace/Delete is a stop sign
+aws cloudformation execute-change-set --change-set-name <arn> --profile personal
+aws cloudformation wait stack-update-complete --stack-name mcp-playground --profile personal
 ```
+
+- Afterwards, check that the deployed image tags match the local images (`packages/elden-ring/README.md`, Deploy).
+- Don't use an inline `DOCKER_HOST=… sam build && sam deploy`. The prefix reaches only `sam build`, and on 2026-09-28 the deploy pushed a stale image from another Docker engine, which rolled the live code back.
+- Never run `sam delete`. It would delete the whole stack.
 
 ## Commands
 
@@ -82,7 +90,7 @@ uv sync                                        # install / update all workspace 
 uv run --package <name> <entry-script>         # run a package locally
 uv run --package <name> pytest packages/<name>/tests/   # test a package
 uv run ruff check --fix . && uv run ruff format .       # lint + format
-sam build && sam deploy                        # build and deploy to AWS
+sam build && sam deploy --no-execute-changeset # build + change set; export DOCKER_HOST first (see SAM / deployment)
 ```
 
 ## Packages
@@ -133,6 +141,28 @@ A personal family tree built up through MCP tools and exported as GEDCOM. It is 
   - Saves are conditional, so overlapping invocations raise `ConcurrentModification` instead of losing writes.
   - Resources are content-addressed (`resources/<sha256[:16]>-<name>`). The bucket is versioned and retained.
 - **Auth:** none when deployed, like elden-ring and therapist-finder, because claude.ai connectors can't send a static bearer header. The app still requires `Authorization: Bearer <secret>` if `GENEALOGY_MCP_SECRET` is set (same pattern as ynab-mcp), but `template.yaml` leaves it unset.
+
+### elden-ring (`packages/elden-ring/`)
+
+Searches Elden Ring game data at every patch: items, enemies, NPCs, quests, locations and dialogue. The data is in an OpenSearch index on an EC2 instance, which `start_search_service` starts on demand. There are twelve MCP tools: `start_search_service`, `search_entities`, `search_entities_literal`, `get_entity`, `calculate_attack_rating`, `diff_entities`, `text_changed_between`, `list_entity_types`, `list_menu_categories`, `list_patch_versions`, `describe_fields` and `analyze_text`. The runbook (reindex, index cutover, tests, deploy, instance rebuild) is in `packages/elden-ring/README.md`.
+
+- **Data flow:**
+  - `~/code/erdb-tools` extracts the game files. `er_native/build_dataset.py` writes one `dataset.json` per patch, and `er_native/reindex_all.sh` builds and loads every patch.
+  - `scripts/load_dataset.py` in this package bulk-loads a dataset.
+  - Docs are keyed `entity_type::name::patch_version`, so loads are additive. `--prune` deletes the docs at that patch which the dataset no longer produces.
+- **`_client.py`**, in order:
+  - the EC2/SSM connection (`get_client`, `start_instance`);
+  - `INDEX_MAPPING` and `KUROMOJI_USER_DICTIONARY`;
+  - the query layer behind the tools (`search`, `get_entity`, the diff and literal-search helpers).
+  - `mcp_server.py` holds the tool docstrings and `_FIELD_NOTES`, which `describe_fields` serves.
+- **Index:**
+  - `elden-ring-entities` is an alias to a concrete index (currently `-v4`).
+  - The mapping is `dynamic: strict`. A new field needs an `INDEX_MAPPING` entry and a field note before any load, or the load fails.
+  - A type or analyzer change needs a new concrete index, loaded with `ELDEN_RING_INDEX=<new>`, then an alias swap.
+- **Tests:** `uv run --package elden-ring pytest packages/elden-ring/tests/` runs offline. The live tests are opt-in (marker `live` plus `ER_LIVE_TESTS=1`), and they must point `ELDEN_RING_INDEX` at a throwaway index, never the alias.
+- **Instance:**
+  - `EldenRingSearchInstance` is a t4g.small running OpenSearch 2.13. On first boot, its `template.yaml` UserData installs the kuromoji plugin and a private CA.
+  - The AMI is pinned, and a stack policy denies replacing the instance, because a new instance starts empty.
 
 ## Conventions
 
