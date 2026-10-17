@@ -11,8 +11,13 @@ doc written by an earlier wrong build survives every correct reload.
 
 Exits non-zero when any document fails to index, whatever the flags (#411).
 
+``--manifest-dir DIR`` indexes only the docs whose content changed since the last
+load into the same concrete index (an ``_id -> hash`` manifest per patch in DIR,
+written after a clean load; see load_manifest.py, #409). ``--full`` indexes every
+doc anyway and rewrites the manifest.
+
     OPENSEARCH_ENDPOINT=... OPENSEARCH_PASSWORD=... \
-        python load_dataset.py path/to/dataset.json [--prune]
+        python load_dataset.py path/to/dataset.json [--manifest-dir DIR [--full]] [--prune]
 """
 
 from __future__ import annotations
@@ -22,6 +27,7 @@ import json
 import sys
 
 from load_data import _get_client, ensure_index, load_documents, prune_stale
+from load_manifest import record, select_changed, target_index
 
 
 def main() -> None:
@@ -40,6 +46,17 @@ def main() -> None:
         help="After a clean load, delete docs at these patch versions (and "
         "entity types) that the dataset no longer produces.",
     )
+    ap.add_argument(
+        "--manifest-dir",
+        help="Index only docs whose content changed since the last load into the "
+        "same concrete index, per the hash manifests kept here (#409).",
+    )
+    ap.add_argument(
+        "--full",
+        action="store_true",
+        help="With --manifest-dir: index every doc anyway (after a mapping change "
+        "or an outside load) and rewrite the manifest.",
+    )
     args = ap.parse_args()
 
     with open(args.dataset, encoding="utf-8") as f:
@@ -55,7 +72,12 @@ def main() -> None:
     # No recreate — additive load, preserves existing patch versions.
     if not args.dry_run:
         ensure_index(client, recreate=False)
-    _, errors = load_documents(client, docs, dry_run=args.dry_run)
+    index = None
+    to_load = docs
+    if args.manifest_dir and client is not None:
+        index = target_index(client)
+        to_load = select_changed(client, docs, args.manifest_dir, index, args.full)
+    _, errors = load_documents(client, to_load, dry_run=args.dry_run)
     if args.prune:
         if errors:
             sys.exit("load had errors — skipping prune so no live doc is lost")
@@ -66,6 +88,9 @@ def main() -> None:
     # that check the exit status can't mistake a partial load for success.
     if errors:
         sys.exit(f"load had {len(errors)} errors")
+    # Only a clean load (+ prune) is recorded, so a failure never hides a doc (#409).
+    if index and not args.dry_run:
+        record(docs, args.manifest_dir, index)
 
 
 if __name__ == "__main__":
