@@ -1,30 +1,27 @@
-"""#164: enemy / summon attacks narrowed by the AI battle scripts (no new fields)."""
+"""#164: enemy / summon attacks narrowed by the AI battle scripts (no new fields).
 
-from elden_ring._client import _FIELD_NOTES
+Wording is not pinned (#460): these check that the affected notes exist and name
+the field they cross-reference.
+"""
 
-
-def test_attacks_note_describes_ai_narrowing():
-    note = _FIELD_NOTES["attacks"]
-    assert "#164" in note and "Frenzied" in note
-    assert "never-weighted" in note and "phases count as one enemy" in note
-    assert "Moves the AI alone chooses between stay" not in note
+from elden_ring._client import _FIELD_NOTES, _queryable_paths
 
 
-def test_state_variants_cover_ai_script_variants():
-    assert "AI script" in _FIELD_NOTES["attacks.state_variants"]
-    assert "AI script" in _FIELD_NOTES["attacks.state_variants.special_states"]
+def test_ai_narrowed_attack_fields_are_documented():
+    for key in (
+        "attacks",
+        "attacks.state_variants",
+        "attacks.state_variants.special_states",
+        "summon_stats.attacks",
+        "attacks.parryable",
+        "attacks.parryable_animations",
+        "grabs",
+        "summon_stats.weapons",
+    ):
+        assert key in _FIELD_NOTES, key
 
 
-def test_summon_attacks_note():
-    note = _FIELD_NOTES["summon_stats.attacks"]
-    assert "AI script requests (#164" in note
-    assert "AI-only sibling moves can remain" not in note
-
-
-def test_parry_grabs_and_weapon_labels_survive_narrowing():
-    parry = _FIELD_NOTES["attacks.parryable"]
-    assert "attacks.state_variants" in parry and "Marionette Soldier" in parry
-    assert "Margit 40 of 73" in _FIELD_NOTES["attacks.parryable_animations"]
-    assert "attacks.state_variants included, #164" in _FIELD_NOTES["grabs"]
-    weapons = _FIELD_NOTES["summon_stats.weapons"]
-    assert "attacks aside" in weapons and "Radahn Soldier Ashes" in weapons
+def test_parry_and_grabs_notes_point_at_state_variants():
+    assert "attacks.state_variants" in _queryable_paths()
+    assert "attacks.state_variants" in _FIELD_NOTES["attacks.parryable"]
+    assert "attacks.state_variants" in _FIELD_NOTES["grabs"]
