@@ -1,16 +1,20 @@
-"""OpenSearch client for self-hosted EC2 OpenSearch with basic auth + self-signed TLS."""
+"""OpenSearch client for self-hosted EC2 OpenSearch with basic auth + private-CA TLS."""
 
 from __future__ import annotations
 
 import fnmatch
+import functools
+import logging
 import os
+import ssl
 import time
 import unicodedata
 from typing import overload
 
 import boto3
-import requests
-from opensearchpy import OpenSearch, RequestsHttpConnection
+from opensearchpy import OpenSearch, Urllib3HttpConnection
+from opensearchpy.exceptions import AuthenticationException, TransportError
+from opensearchpy.exceptions import ConnectionError as SearchConnectionError
 
 from elden_ring._calc import STATS, attack_rating, spell_damage
 
@@ -61,6 +65,46 @@ def _get_current_endpoint() -> str:
     return hostname
 
 
+# The node's private root CA (#437), pinned so the basic-auth hop over the
+# internet is verified (#467). Public material, copied from
+# /etc/opensearch/er-root-ca.pem; a rebuilt instance mints a new CA, so refresh
+# this file then. The node cert's SANs (localhost, 127.0.0.1, elden-ring-search)
+# don't include the changing EC2 DNS name, so the chain is checked but not the
+# hostname.
+CA_CERTS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "er-root-ca.pem")
+
+
+def pinned_ssl_context() -> ssl.SSLContext:
+    """Verify the chain against CA_CERTS only, without the hostname check.
+
+    Python 3.13's strict X.509 mode (which urllib3 also turns on) rejects the
+    #437 CA because it has no keyUsage extension, so strict mode is off.
+    """
+    ctx = ssl.create_default_context(cafile=CA_CERTS)
+    ctx.verify_flags &= ~ssl.VERIFY_X509_STRICT
+    ctx.check_hostname = False
+    return ctx
+
+
+class PinnedCAConnection(Urllib3HttpConnection):
+    """Urllib3HttpConnection that verifies the node cert against CA_CERTS (#467)."""
+
+    def __init__(self, *args, **kwargs):
+        kwargs["ssl_context"] = pinned_ssl_context()
+        super().__init__(*args, **kwargs)
+
+    def _create_urllib3_pool(self) -> None:
+        super()._create_urllib3_pool()
+        # opensearch-py drops ssl_assert_hostname when given an ssl_context, and
+        # urllib3 then matches the hostname itself. The chain check still runs.
+        self.pool.assert_hostname = False
+
+
+def tls_options() -> dict:
+    """OpenSearch() kwargs for a TLS connection pinned to CA_CERTS (#467)."""
+    return {"use_ssl": True, "connection_class": PinnedCAConnection}
+
+
 def get_client() -> OpenSearch:
     """Return a cached OpenSearch client, creating one if needed."""
     global _cached_client
@@ -71,21 +115,55 @@ def get_client() -> OpenSearch:
     _cached_client = OpenSearch(
         hosts=[{"host": host, "port": 9200}],
         http_auth=(os.environ["OPENSEARCH_USER"], _get_password()),
-        use_ssl=True,
-        verify_certs=False,  # node cert is from a private self-signed CA (#437)
-        connection_class=RequestsHttpConnection,
-        timeout=30,
+        **tls_options(),
+        # Fail inside the HTTP API's 30 s cap so callers get UNREACHABLE (#456).
+        # No retry: a dead host's connect timeout counts as a ConnectionError,
+        # which opensearch-py retries, so one retry made it 2 x 20 s.
+        timeout=20,
+        max_retries=0,
     )
     return _cached_client
 
 
+def reset_cache() -> None:
+    """Forget the cached endpoint, password and client (#456)."""
+    global _cached_endpoint, _cached_password, _cached_client
+    _cached_endpoint = _cached_password = _cached_client = None
+
+
+UNREACHABLE = (
+    "search service unreachable (stopped or restarted); "
+    "call start_search_service() and retry"
+)
+
+
+def unreachable_as_error(fn):
+    """Turn a dead or rotated search connection into {"error": UNREACHABLE} (#456).
+
+    The instance has no Elastic IP, so a stop/start changes its hostname and a
+    warm Lambda would keep calling the old one; a rotated SSM password would
+    keep failing with 401. Either way the caches are dropped, so the next call
+    (after start_search_service) re-reads the endpoint and password.
+    """
+
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        try:
+            return fn(*args, **kwargs)
+        except (SearchConnectionError, AuthenticationException) as e:
+            # ConnectionTimeout and SSLError subclass SearchConnectionError.
+            logging.getLogger(__name__).warning("search unreachable: %r", e)
+            reset_cache()
+            return {"error": UNREACHABLE}
+
+    return wrapper
+
+
 def start_instance(timeout_seconds: int = 240) -> str:
     """Start the EC2 instance, wait for OpenSearch to be healthy, return the hostname."""
-    global _cached_endpoint, _cached_client
+    global _cached_endpoint
 
     instance_id = os.environ["EC2_INSTANCE_ID"]
-    user = os.environ["OPENSEARCH_USER"]
-    password = _get_password()
 
     ec2 = _ec2()
     ec2.start_instances(InstanceIds=[instance_id])
@@ -106,17 +184,16 @@ def start_instance(timeout_seconds: int = 240) -> str:
         raise TimeoutError("Instance did not reach running state in time.")
 
     # Invalidate stale cache now that we have a fresh hostname.
+    reset_cache()
     _cached_endpoint = hostname
-    _cached_client = None
 
-    # Poll OpenSearch health endpoint until green/yellow or timeout.
-    url = f"https://{hostname}:9200/_cluster/health"
+    # Poll OpenSearch health (verified TLS, #467) until green/yellow or timeout.
     while time.monotonic() < deadline:
         try:
-            r = requests.get(url, auth=(user, password), verify=False, timeout=5)
-            if r.status_code == 200 and r.json().get("status") in ("green", "yellow"):
+            health = get_client().cluster.health(request_timeout=5)
+            if health.get("status") in ("green", "yellow"):
                 return hostname
-        except requests.exceptions.ConnectionError:
+        except TransportError:  # unreachable, or 503 while the security index loads
             pass
         time.sleep(10)
 
