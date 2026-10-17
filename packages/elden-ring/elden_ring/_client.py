@@ -3091,6 +3091,9 @@ _FIELD_NOTES: dict[str, str] = {
     "enemy-only gear / reused assets like the Ragged set (#71); absent for normal obtainable "
     "content. Both flagged states are excluded from search by default — pass "
     "include_unavailable=True to include them.",
+    "name": "canonical English name, the same on every patch: a renamed item keeps its "
+    "latest in-game name (display_name is the per-patch name). name.keyword matches "
+    "exactly; name.folded matches ignoring case and accents",
     "display_name": "per-patch in-game FMG name; differs from name when an item was renamed across patches",
     "menu_category": "in-game equipment menu grouping (e.g. 'Straight Sword', 'Reaper', 'Head')",
     "sub_category": "on consumable, key_item, crafting_material, upgrade_material and "
@@ -3791,6 +3794,10 @@ _FIELD_NOTES: dict[str, str] = {
     "Blade, Poison Armament, Unseen Blade...)",
     "is_shield_buff": "on a spell doc: the spell buffs the shield (Magic "
     "isShieldEnchant, #293; Scholar's Shield)",
+    "spell_role": "on a spell doc: 'Offensive' or 'Support', from the goods row's "
+    "goodsType (also in tags)",
+    "slots": "on a spell doc: memory slots it takes (Magic slotLength): 1, 2 or 3 "
+    "(Comet Azur 3, Ranni's Dark Moon 2)",
     "spell_schools": "on a spell doc: its school / boost family (#294), the spell "
     "sub-categories on its Magic row plus those on the attack rows it hits with, "
     "labelled exactly like an effect's condition so the two join: 'gravity "
