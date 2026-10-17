@@ -19,5 +19,10 @@ def test_new_fields_documented():
     assert "Huw" in _FIELD_NOTES["placements"]
     assert "location doc (#315)" in _FIELD_NOTES["items"]
     assert "location doc (#315)" in _FIELD_NOTES["enemies"]
+    # boss characters are listed in enemies too; talk objects are not
+    assert "also in bosses" in _FIELD_NOTES["enemies"]
+    assert "Smithing Table" in _FIELD_NOTES["enemies"]
+    # trap-chest warps are named by the chest's location
+    assert "named by from.location" in _FIELD_NOTES["from"]
     assert "same-named grace" in _FIELD_NOTES["graces"]
     assert "Pureblood Knight's Medal" in _FIELD_NOTES["item"]

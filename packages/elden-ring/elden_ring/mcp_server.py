@@ -260,7 +260,9 @@ def search_entities(
                            cutscene (the cutscene doc a kind-cutscene warp plays).
                            Named "from → to" by nearest grace, e.g. "The Four
                            Belfries → Dragon Temple"; evergaols "Stormhill Evergaol
-                           (enter)"; a warp with no placed trigger "<to> (<kind>)".
+                           (enter)"; a trap chest's warp by the chest's
+                           location ("Dragon-Burnt Ruins → Sellia Crystal
+                           Tunnel"); a warp with no placed trigger "<to> (<kind>)".
             quest        — one doc per NPC questline (#95): the NPC's 20-flag event
                            block (flag_block; slots +0..+4 life state, +5..+19
                            phases; an NPC's second block with no death or
