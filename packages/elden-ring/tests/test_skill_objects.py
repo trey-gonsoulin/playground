@@ -77,7 +77,7 @@ def test_skill_attacks_and_effects_mapped():  # #326
     }
     assert hit["recovery_frames"]["properties"]["dodge"] == {"type": "integer"}
     assert hit["total_frames"] == {"type": "integer"}
-    assert "Quickstep" in _FIELD_NOTES["skill.attacks.recovery_frames"]
+    assert "left out" in _FIELD_NOTES["skill.attacks.recovery_frames"]
     assert "122" in _FIELD_NOTES["skill.attacks.total_frames"]
     assert "isn't in the data" not in _FIELD_NOTES["skill.attacks.active_frames"]
     for key, note in _FIELD_NOTES.items():
