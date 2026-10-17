@@ -9,7 +9,7 @@ import elden_ring._client as _client
 # sha256 of json.dumps(INDEX_MAPPING, sort_keys=True) before the #459 dedupe
 # (main @ a3cd4e8). The refactor must not change a byte of the mapping. If you
 # change the mapping on purpose, update this hash in the same commit.
-_MAPPING_SHA256 = "81319ea14e5f4d453043f33212033ce4f5c044502938f1e7908b5fb0724134df"
+_MAPPING_SHA256 = "6e35e0102a413dbc0882d2d6b8b7a2296d7f24ad50879adecaadc09a41d03514"
 
 _PROPS = _client.INDEX_MAPPING["mappings"]["properties"]
 

@@ -112,7 +112,12 @@ def test_load_documents_bulk_retries_429(monkeypatch):
         {
             "_index": load_data.INDEX,
             "_id": "weapon::A::1.02",
-            "_source": {"entity_type": "weapon", "name": "A", "patch_version": "1.02"},
+            "_source": {
+                "entity_type": "weapon",
+                "name": "A",
+                "patch_version": "1.02",
+                "entity_key": "weapon::A",
+            },
         }
     ]
     assert kw["max_retries"] == 3 and kw["initial_backoff"] == 2

@@ -7,6 +7,7 @@ renames those attributes fails here instead of on the second live invocation.
 No OpenSearch access: ``initialize`` and ``tools/list`` never touch the client.
 """
 
+import asyncio
 import base64
 import json
 
@@ -100,6 +101,9 @@ def _invoke(path: str, payload: dict) -> tuple[int, dict]:
 
 def test_lambda_handler_warm_invocations():
     # Each Mangum call runs the full lifespan; four calls = one cold + three warm.
+    # Mangum uses the thread's current loop, which an earlier asyncio.run() in the
+    # same pytest process may have cleared (a Lambda process starts with one).
+    asyncio.set_event_loop(asyncio.new_event_loop())
     for path in ("/mcp", "/mcp/"):
         _check_initialize(*_invoke(path, _INITIALIZE))
         _check_tools(*_invoke(path, _TOOLS_LIST))
