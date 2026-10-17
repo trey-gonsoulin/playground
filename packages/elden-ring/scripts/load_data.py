@@ -42,10 +42,11 @@ import zipfile
 from collections import defaultdict
 
 import requests
-from opensearchpy import OpenSearch, RequestError, RequestsHttpConnection
+from opensearchpy import OpenSearch, RequestError
 from opensearchpy.helpers import bulk, scan
 
 from elden_ring._client import INDEX, INDEX_MAPPING  # reuse index name + mapping
+from elden_ring._client import tls_options  # pinned node CA (#467)
 
 # ---------------------------------------------------------------------------
 # OpenSearch client
@@ -68,9 +69,7 @@ def _get_client() -> OpenSearch:
     return OpenSearch(
         hosts=[{"host": endpoint, "port": 9200}],
         http_auth=(user, password),
-        use_ssl=True,
-        verify_certs=False,
-        connection_class=RequestsHttpConnection,
+        **tls_options(),  # verify against the pinned node CA (#467)
         timeout=60,
         # a transient read timeout or 429 retries instead of failing a whole
         # version (#448); index and delete by _id are idempotent
