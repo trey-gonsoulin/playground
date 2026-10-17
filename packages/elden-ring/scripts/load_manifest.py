@@ -11,7 +11,9 @@ manifest or that are no longer live.
   #115), so an alias swap to a new index has no manifest and loads in full.
 - It is written only after a clean load (and prune), replacing just the entity
   types of the loaded dataset at each of its versions; other types (e.g. dialogue
-  next to an --items-only load) keep their entries.
+  next to an --items-only load) keep their entries. Those types are dropped from
+  the manifest before the load starts, so a failed or killed load is reloaded in
+  full next time.
 - A live ``_id`` scan of each (version, types) scope (as ``prune_stale`` does)
   reloads any manifest doc that was deleted since, so only an in-place rewrite of
   a doc by some other loader can leave a stale entry. ``--full`` loads every doc
@@ -105,19 +107,40 @@ def select_changed(
     return out
 
 
+def _update(manifest_dir, index: str, version: str, change) -> None:
+    path = _path(manifest_dir, index, version)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    # A lock per file: a dialogue reload may update the same version's manifest.
+    with open(path.with_name(f"{version}.lock"), "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        data = change(_read(path))
+        tmp = path.with_name(f"{version}.json.tmp")
+        tmp.write_text(json.dumps(data, sort_keys=True), encoding="utf-8")
+        os.replace(tmp, path)
+
+
+def forget(docs: list[dict], manifest_dir, index: str) -> None:
+    """Drop the entity types of ``docs`` at each of their versions from the
+    manifest before a load writes anything, so a load that fails or is killed
+    part-way leaves no hash claiming a doc is current: the next load indexes those
+    types in full."""
+    for version, by_type in _hashes(docs).items():
+        if _path(manifest_dir, index, version).exists():
+            _update(
+                manifest_dir,
+                index,
+                version,
+                lambda old, types=by_type: {
+                    t: ids for t, ids in old.items() if t not in types
+                },
+            )
+
+
 def record(docs: list[dict], manifest_dir, index: str) -> None:
     """Write the hashes of ``docs`` (now live) into the manifest: their entity types
     at each of their versions are replaced, everything else is kept."""
     n = 0
     for version, by_type in _hashes(docs).items():
         n += sum(len(ids) for ids in by_type.values())
-        path = _path(manifest_dir, index, version)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        # A lock per file: a dialogue reload may update the same version's manifest.
-        with open(path.with_name(f"{version}.lock"), "w") as lock:
-            fcntl.flock(lock, fcntl.LOCK_EX)
-            data = {**_read(path), **by_type}
-            tmp = path.with_name(f"{version}.json.tmp")
-            tmp.write_text(json.dumps(data, sort_keys=True), encoding="utf-8")
-            os.replace(tmp, path)
+        _update(manifest_dir, index, version, lambda old, new=by_type: {**old, **new})
     print(f"  Recorded {n} doc hashes in {Path(manifest_dir) / index}.")
