@@ -8,7 +8,7 @@ dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.30",
     "mangum>=0.21.0",
-    "mcp>=1.0",
+    "mcp>=1.28,<2",
 ]
 
 [project.scripts]
@@ -20,3 +20,11 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["ynab_mcp"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
