@@ -24,3 +24,22 @@ def test_banner_area_kind_is_noted():
     assert "#428" in _FIELD_NOTES["kind"]
     assert "MapNameOverride" in _FIELD_NOTES["kind"]
     assert "#428" in _FIELD_NOTES["footprint"]
+
+
+def test_near_items_and_banner_contents_are_noted():
+    # #476: a location's near pickups, and what a banner area holds
+    props = _client.INDEX_MAPPING["mappings"]["properties"]
+    assert props["near_items"] == {"type": "keyword"}
+    assert "#476" in _FIELD_NOTES["near_items"]
+    assert "near_location" in _FIELD_NOTES["near_items"]
+    assert "near_items" in _FIELD_NOTES["items"]
+    assert "MapNameOverride" in _FIELD_NOTES["items"]
+    assert "#476" in _FIELD_NOTES["enemies"]
+    assert "near_items" not in _with_drop_fields(["items"])
+
+
+def test_map_event_and_action_button_sites_are_noted():
+    # #429: those game_text docs reuse the placement summary fields
+    for f in ("placements", "maps", "regions", "areas", "locations"):
+        assert "#429" in _FIELD_NOTES[f], f
+        assert "action_button" in _FIELD_NOTES[f], f

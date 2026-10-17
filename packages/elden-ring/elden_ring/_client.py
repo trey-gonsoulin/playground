@@ -1049,6 +1049,7 @@ INDEX_MAPPING = {
             "kind": {"type": "keyword"},
             "graces": {"type": "keyword"},
             "items": {"type": "keyword"},  # items placed there (#315); enemies shared
+            "near_items": {"type": "keyword"},  # items just outside it (#476)
             "area_scaling": {
                 "properties": {
                     "speffect_id": {"type": "long"},
@@ -4834,14 +4835,18 @@ _FIELD_NOTES: dict[str, str] = {
     "in parentheses: 'Night's Cavalry (Gate Town Bridge)', 'Erdtree Burial Watchdog "
     "(Stormfoot Catacombs)'. On a location doc (#315): the enemy docs with a placement "
     "located there (see items), NPCs included (Renna the Witch and Merchant Kalé at "
-    "Church of Elleh). A boss's own character doc is listed here too (Margit, the "
+    "Church of Elleh; a banner area's by area or subarea, #476). A boss's own "
+    "character doc is listed here too (Margit, the "
     "Fell Omen at Stormveil Castle), and its boss doc is also in bosses. Talk objects "
     "with enemy docs (Smithing Table, the Dragon Communion altars) are left out",
     "items": "on a location doc (#315): the item docs with a placement whose location is "
     "this doc (a dungeon, or a landmark whose MSB footprint holds the pickup), in doc "
     "order: Murkwater Cave -> Cloth Garb, Cloth Trousers, Glass Shard, Mushroom, Cave "
     "Moss. Pickups beside a landmark but outside its footprint (Fort Haight's Golden "
-    "Seed) and enemy drops aren't listed (see drop_locations). On a starting_class "
+    "Seed) are in near_items, and enemy drops aren't listed (see drop_locations). A "
+    "banner area (kind area, source MapNameOverride, #476) lists the docs with a "
+    "placement whose area or subarea is its name (Theatre of the Divine Beast -> "
+    "Messmerfire Grease). On a starting_class "
     "doc (#422): the goods the class starts with (Memory of Grace for every class)",
     "boss_encounters": "on an enemy doc: the boss docs where it is fought (reverse of "
     "enemies)",
@@ -5162,8 +5167,8 @@ _FIELD_NOTES: dict[str, str] = {
     "distances compare across tiles. The base map (m60) and the DLC map (m61) are "
     "separate frames. placements entries on open-world tiles use the same frame, so "
     "they compare with grace and boss positions",
-    "placements": "on enemy, item and merchant docs (#76), and placed_message game_text "
-    "(#393): where it is in the world, "
+    "placements": "on enemy, item and merchant docs (#76), and placed_message, "
+    "map_event and action_button game_text (#393, #429): where it is in the world, "
     "from the map MSBs. Merchant (#313): every placement of the characters whose talk "
     "script opens the vendor's own lineup, as on their enemy doc, so a vendor who moves "
     "lists each spot (Blackguard by Boilprawn Shack and in the Capital Outskirts, "
@@ -5203,7 +5208,13 @@ _FIELD_NOTES: dict[str, str] = {
     "message region showing that BloodMsg message, {map, world_position | position, "
     "requires_flag}; requires_flag is on an NPC's message (Rogier's 'Surely what you "
     "seek is somewhere close by...'), shown only while that event flag is on, which "
-    "the NPC's quest events set and clear; hint messages have none. "
+    "the NPC's quest events set and clear; hint messages have none. Map event and "
+    "action button text (#429): one entry per EMEVD site showing it, at the MSB "
+    "position of its entity (the prompt's own entity, a dialog's entity, else the "
+    "event's action-button entity): Action Button 9700 'Hoist medallion' -> Grand "
+    "Lift of Dectus / Rold. A site with no placed entity adds only its script's map "
+    "to maps, and that map's dungeon to locations when the map holds one ("
+    "Map Event 20600 'The Beast Eye quivers'). "
     "Open-world tiles (m60 base, m61 DLC, any tile size) give "
     "world_position; dungeons and legacy maps give map-local position. A part copied "
     "on an open-world variant tile (mAA_XX_ZZ_1S, a world-state copy of the _0S tile) "
@@ -5229,21 +5240,25 @@ _FIELD_NOTES: dict[str, str] = {
     "Returned, not searchable; filter on maps, "
     "regions, areas or locations. get_entity returns the list only when it has at most "
     "50 entries, else placements_total (include_placements=True for all)",
-    "maps": "on enemy and item docs (#76) and placed_message game_text (#393): the distinct MSB map ids of its placements, "
+    "maps": "on enemy and item docs (#76) and placed_message, map_event and "
+    "action_button game_text (#393, #429): the distinct MSB map ids of its placements, "
     "e.g. maps='m10_00_00_00' finds everything placed in Stormveil Castle. DLC maps "
     "(m20-m28, m40-m45, m61) are resolved too",
-    "regions": "on enemy, item and placed_message docs (#140, #393): the distinct map-menu regions of its "
+    "regions": "on enemy, item, placed_message, map_event and action_button docs (#140, #393, #429): "
+    "the distinct map-menu regions of its "
     "placements (each placement's nearest grace) plus their tabs, so "
     "regions='Limgrave' also finds things in Stormhill and regions='Caelid' finds what "
     "is placed anywhere in Caelid. Every value is a location doc. Item regions hold "
     "pickups only and enemy drops are in drop_regions, but a search over "
     "fields=['regions'] matches both unless include_drop_fields=False (#344)",
-    "areas": "on enemy, item and placed_message docs (#194, #393): the distinct area values of its "
+    "areas": "on enemy, item, placed_message, map_event and action_button docs (#194, #393, #429): "
+    "the distinct area values of its "
     "open-world placements (the game's own region map at each spot, #80), so "
     "areas='Stormhill' finds what is placed inside Stormhill's border even where the "
     "nearest grace is in Limgrave. No tabs are added (areas='Limgrave' doesn't match "
     "Stormhill) and dungeon placements have none. Item areas cover pickups only",
-    "locations": "on enemy, item and placed_message docs (#140, #393): the dungeon location docs its "
+    "locations": "on enemy, item, placed_message, map_event and action_button docs (#140, #393, #429): "
+    "the dungeon location docs its "
     "placements are in (catacombs, caves, tunnels, gaols, legacy dungeons: "
     "locations='Murkwater Catacombs') and the open-world landmarks whose MSB footprint "
     "holds them (#80: locations='Castle Morne'); a boss's enemy placement just outside "
@@ -5290,6 +5305,10 @@ _FIELD_NOTES: dict[str, str] = {
     "Redmane Castle. Each such placement carries near_location. Names already in "
     "locations are left out. Searched on its own: fields=['locations'] doesn't "
     "include it",
+    "near_items": "on a location doc (#476): the item docs with a pickup placement "
+    "whose near_location is this doc (just outside it, see near_locations), minus "
+    "items: Stormhill Shack -> Stonesword Key, Erdleaf Flower, Rowa Fruit, Mushroom; "
+    "Fort Haight -> Golden Seed, Trina's Lily, ...",
     "from": "on a warp doc (#94): where the warp starts. {map, world_position | "
     "position, grace, region, parent_region, location, entity_id}: entity_id is the "
     "MSB entity that triggers it (the waygate or stone asset the prompt is on, or a "
