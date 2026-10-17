@@ -620,6 +620,18 @@ _EFFECTS_MAPPING = {
     }
 }
 
+# Skill-level frame data (#477): ``skill.frames`` and
+# ``skill.frames_by_class.frames``.
+_SKILL_FRAMES_MAPPING = {
+    "properties": {
+        "startup": {"type": "integer"},
+        "invulnerable": {"properties": _props("integer", ("start", "end"))},
+        "parry": {"properties": _props("integer", ("start", "end"))},
+        "recovery": {"properties": _props("integer", _SKILL_RECOVERY_ACTIONS)},
+        "total": {"type": "integer"},
+    }
+}
+
 # One skill hit (#326): ``skill.attacks`` and ``skill.attacks_by_class.attacks``.
 _SKILL_ATTACKS_MAPPING = {
     "properties": {
@@ -1467,19 +1479,12 @@ INDEX_MAPPING = {
                         }
                     },
                     # Skill-level i-frames / parry window / recovery (#477).
-                    "frames": {
+                    "frames": _SKILL_FRAMES_MAPPING,
+                    # Ash of War frames of the classes that differ (#477).
+                    "frames_by_class": {
                         "properties": {
-                            "startup": {"type": "integer"},
-                            "invulnerable": {
-                                "properties": _props("integer", ("start", "end"))
-                            },
-                            "parry": {
-                                "properties": _props("integer", ("start", "end"))
-                            },
-                            "recovery": {
-                                "properties": _props("integer", _SKILL_RECOVERY_ACTIONS)
-                            },
-                            "total": {"type": "integer"},
+                            "weapon_classes": {"type": "keyword"},
+                            "frames": _SKILL_FRAMES_MAPPING,
                         }
                     },
                     "effects": _EFFECTS_MAPPING,
@@ -4133,10 +4138,21 @@ _FIELD_NOTES: dict[str, str] = {
     "two weapon bases (Great Hammer, Claw, Colossal Weapon) can be in two lists",
     "skill.attacks_by_class.weapon_classes": "the weapon classes (weapon_type names) "
     "whose skill hits are this entry's attacks (#432)",
+    "skill.frames_by_class": "Ashes of War only (#477): skill.frames of the weapon "
+    "classes whose own animation gives different frames, each with weapon_classes and "
+    "frames (same fields as skill.frames). Absent when every class shares them. At "
+    "1.17 only Parry: Dagger (parry 3-8, roll recovery 13), Curved Sword (3-7, 15) and "
+    "Small Shield (4-10, 11), vs skill.frames (4-10, 17)",
+    "skill.frames_by_class.weapon_classes": "the weapon classes (weapon_type names) "
+    "whose skill frames are this entry's frames (#477)",
     "skill.frames": "frame data of the skill as a whole (#477), 30 frames per second "
     "from the start of its animation, for skills with i-frames or a parry window, "
     "including those with no damaging hit (Quickstep, Bloodhound's Step, the parries). "
-    "Read from the first such animation (the FP version; Quickstep's forward step). "
+    "Read from the first such animation (the FP version; Quickstep's forward step) "
+    "of the weapon's class: a skill some classes play differently uses that class's "
+    "own animation (Parry: Daggers parry 3-8, Small Shields guard longer; Medium "
+    "Shields and most classes 4-10); on Ashes of War the one most classes share, the "
+    "others in skill.frames_by_class. "
     "invulnerable.start / .end: the i-frames (Quickstep 0-15, wiki 15; Bloodhound's "
     "Step 0-16, wiki 16; Vow of the Indomitable 4-34); frames 9-15 of Quickstep's "
     "only protect against non-player attacks. parry.start / .end: when an attack "
