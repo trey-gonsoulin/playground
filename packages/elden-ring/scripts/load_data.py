@@ -42,10 +42,11 @@ import zipfile
 from collections import defaultdict
 
 import requests
-from opensearchpy import OpenSearch, RequestsHttpConnection
+from opensearchpy import OpenSearch
 from opensearchpy.helpers import bulk, scan
 
 from elden_ring._client import INDEX, INDEX_MAPPING  # reuse index name + mapping
+from elden_ring._client import tls_options  # pinned node CA (#467)
 
 # ---------------------------------------------------------------------------
 # OpenSearch client
@@ -68,9 +69,7 @@ def _get_client() -> OpenSearch:
     return OpenSearch(
         hosts=[{"host": endpoint, "port": 9200}],
         http_auth=(user, password),
-        use_ssl=True,
-        verify_certs=False,
-        connection_class=RequestsHttpConnection,
+        **tls_options(),  # verify against the pinned node CA (#467)
         timeout=60,
         # gzip the bulk bodies (~11x smaller, #406); ER_LOAD_COMPRESS=0 turns it off
         http_compress=_env_on("ER_LOAD_COMPRESS"),

@@ -7,7 +7,15 @@ import elden_ring._client as _os
 
 _READ_ONLY = ToolAnnotations(readOnlyHint=True)
 
-mcp = FastMCP(
+
+class _SearchMCP(FastMCP):
+    """FastMCP whose tools answer {"error": ...} for a dead search node (#456)."""
+
+    def add_tool(self, fn, *args, **kwargs) -> None:
+        super().add_tool(_os.unreachable_as_error(fn), *args, **kwargs)
+
+
+mcp = _SearchMCP(
     "elden-ring",
     stateless_http=True,
     json_response=True,
