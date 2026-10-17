@@ -40,13 +40,17 @@ import unicodedata
 import xml.etree.ElementTree as ET
 import zipfile
 from collections import defaultdict
+from typing import Any
 
 import requests
 from opensearchpy import OpenSearch, RequestError
 from opensearchpy.helpers import bulk, scan
 
-from elden_ring._client import INDEX, INDEX_MAPPING  # reuse index name + mapping
-from elden_ring._client import tls_options  # pinned node CA (#467)
+from elden_ring._client import (  # reuse index name + mapping
+    INDEX,
+    INDEX_MAPPING,
+    tls_options,  # pinned node CA (#467)
+)
 
 # ---------------------------------------------------------------------------
 # OpenSearch client
@@ -250,9 +254,9 @@ def _load_fmg(z: zipfile.ZipFile, filename: str) -> dict[str, str]:
     if filename not in z.namelist():
         return {}
     with z.open(filename) as f:
-        tree = ET.parse(f)
+        tree = ET.parse(f)  # noqa: S314 -- trusted FMG XML from the game-data zip
     return {
-        e.get("id"): e.text
+        e.get("id", ""): e.text
         for e in tree.iter("text")
         if e.text and "%null%" not in e.text
     }
@@ -413,7 +417,7 @@ def _parse_jp_name_section(sec_html: str) -> dict[str, dict[str, str]]:
     """Parse h3+p HTML → {id: {"name": str, "description": str}}."""
     result: dict[str, dict[str, str]] = {}
     current_id: str | None = None
-    current_name: str | None = None
+    current_name = ""
     desc_parts: list[str] = []
 
     for m in re.finditer(r"<h3>([^<]+)</h3>|<p>(.*?)</p>", sec_html, re.DOTALL):
@@ -681,9 +685,10 @@ def _parse_weapons(
         if not doc.get("infusable") and doc.get("sort_id") is not None:
             _groups.setdefault(doc["sort_id"] // 1000, []).append(doc["name"])
     for _g, _names in _groups.items():
-        assert len(_names) == 1, (
-            f"Non-infusable weapon sort_id group {_g} has {len(_names)} entries: {_names}"
-        )
+        if len(_names) != 1:
+            raise ValueError(
+                f"Non-infusable weapon sort_id group {_g} has {len(_names)} entries: {_names}"
+            )
 
     return docs
 
@@ -761,7 +766,7 @@ def _parse_armor(
 
 
 # ---------------------------------------------------------------------------
-# Spells (sorceries and incantations)
+# Spells — sorceries and incantations
 # ---------------------------------------------------------------------------
 
 
@@ -1117,8 +1122,8 @@ def _build_drop_map() -> dict[str, dict[str, list[str]]]:
         if not isinstance(locs_drops, dict):
             continue
         for items_list in locs_drops.values():
-            for item in items_list:
-                item = item.strip() if isinstance(item, str) else str(item)
+            for raw in items_list:
+                item = raw.strip() if isinstance(raw, str) else str(raw)
                 # Skip rune amounts (digits + commas) and empty strings
                 if not item or item.replace(",", "").replace(" ", "").isdigit():
                     continue
@@ -1134,8 +1139,8 @@ def _build_drop_map() -> dict[str, dict[str, list[str]]]:
         if not creature_name:
             continue
         drops = _parse_python_literal(row.get("drops", "")) or []
-        for item in drops:
-            item = item.strip() if isinstance(item, str) else str(item)
+        for raw in drops:
+            item = raw.strip() if isinstance(raw, str) else str(raw)
             if not item or item == "???":
                 continue
             entry = drop_map.setdefault(item, {})
@@ -1262,8 +1267,8 @@ def load_discord_bot_enemies(jp_fmgs: dict | None = None) -> list[dict]:
                 if not isinstance(loc_key, str):
                     continue
                 locations.append(loc_key.rstrip(":").strip())
-                for item in items_list:
-                    item = item.strip() if isinstance(item, str) else str(item)
+                for raw in items_list:
+                    item = raw.strip() if isinstance(raw, str) else str(raw)
                     # Skip pure rune amounts (digits + commas only)
                     if item and not item.replace(",", "").replace(" ", "").isdigit():
                         drops.append(item)
@@ -1830,7 +1835,7 @@ def load_discord_bot_npcs() -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
-# Merchants (ShopLineupParam)
+# Merchants — ShopLineupParam
 # ---------------------------------------------------------------------------
 
 # These Row Name prefixes are armor-alteration service menus, not NPC shops.
@@ -2079,7 +2084,7 @@ _BULK_CHUNK_SIZE = int(os.environ.get("ER_BULK_CHUNK_SIZE") or 500)
 
 # Retry a chunk's 429 (too many requests) items with 2s, 4s, 8s backoff instead
 # of failing the version (#448); writes by _id are idempotent.
-_BULK_RETRY = {"max_retries": 3, "initial_backoff": 2}
+_BULK_RETRY: dict[str, Any] = {"max_retries": 3, "initial_backoff": 2}
 
 
 def load_documents(

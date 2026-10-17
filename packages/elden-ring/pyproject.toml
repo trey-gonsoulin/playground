@@ -9,6 +9,8 @@ dependencies = [
     "mcp>=1.28,<2",
     "opensearch-py>=3.0",
     "boto3>=1.35",
+    # Imported directly by scripts/load_data.py (#462); opensearch-py also pulls it in.
+    "requests>=2.32",
 ]
 
 [project.scripts]
@@ -28,14 +30,52 @@ default = true
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",
+    # Quality gates (#457): scripts/check.sh runs all three.
+    "pytest-cov>=7.0",
+    "pyright>=1.1.400",
+    "ruff>=0.15",
     # Local `main.py` only; Lambda runs through Mangum (mcp pulls in plain uvicorn).
     "uvicorn[standard]>=0.30",
 ]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# The loader scripts import each other and tests import them directly (#462).
+pythonpath = ["scripts"]
 # Live OpenSearch tests are opt-in (#445): pass `-m live` and set ER_LIVE_TESTS=1.
 addopts = "-m 'not live'"
 markers = [
     "live: needs the deployed stack (EC2 + OpenSearch); deselected by default",
 ]
+
+[tool.ruff]
+target-version = "py313"
+# Script modules import each other (pytest pythonpath, #462), so isort treats them as first-party.
+src = [".", "scripts"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4", "PTH", "PLW", "S", "RUF", "ERA", "EXE"]
+# `ruff format` owns line length; the remaining long lines are strings and comments.
+ignore = ["E501"]
+# En dashes in version ranges and the multiplication sign in formulas are intended.
+allowed-confusables = ["–", "×"]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests assert, and use dummy hosts and passwords.
+"tests/**" = ["S101", "S104", "S105"]
+# Backlog in the two query-layer modules, left for a follow-up so the concurrent
+# batch branches that edit them don't conflict (#457). Remove codes as they're fixed.
+"elden_ring/_client.py" = ["B905", "C416", "C420", "PLW0603", "PTH100", "PTH118", "PTH120", "UP037"]
+# The FastMCP host="0.0.0.0" is intentional (DNS-rebinding guard; see CLAUDE.md).
+"elden_ring/mcp_server.py" = ["S104"]
+
+[tool.pyright]
+# Tests are mock-heavy and left out; type-check the package and the loader scripts.
+include = ["elden_ring", "scripts"]
+# The two query-layer modules carry 7 basic-mode errors, left for a follow-up so the
+# concurrent batch branches that edit them don't conflict (#457). Their diagnostics
+# are hidden here; they are still analyzed as imports. Drop this once they're fixed.
+exclude = ["elden_ring/_client.py", "elden_ring/mcp_server.py"]
+extraPaths = ["scripts"]
+pythonVersion = "3.13"
+typeCheckingMode = "basic"

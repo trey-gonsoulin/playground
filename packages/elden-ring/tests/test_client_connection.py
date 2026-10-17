@@ -2,7 +2,6 @@
 OpenSearch needed."""
 
 import ssl
-import sys
 from pathlib import Path
 
 import pytest
@@ -15,11 +14,8 @@ from opensearchpy.exceptions import (
 )
 
 import elden_ring._client as _client
+import load_data
 from elden_ring.mcp_server import mcp
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-
-import load_data  # noqa: E402
 
 
 def _assert_pinned(client):

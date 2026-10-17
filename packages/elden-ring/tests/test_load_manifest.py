@@ -2,14 +2,11 @@
 
 import json
 import sys
-from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-
-import load_dataset  # noqa: E402
-import load_manifest  # noqa: E402
+import load_dataset
+import load_manifest
 
 
 def _doc(name, etype="weapon", version="1.05", **kw):
@@ -56,7 +53,7 @@ def _load(monkeypatch, tmp_path, live, docs, *flags, indices=("er-v2",), errors=
             live.ids |= {_id(d) for d in docs}
         return len(docs), list(errors)
 
-    monkeypatch.setattr(load_dataset, "_get_client", lambda: object())
+    monkeypatch.setattr(load_dataset, "_get_client", object)
     monkeypatch.setattr(load_dataset, "ensure_index", lambda c, recreate: None)
     monkeypatch.setattr(load_dataset, "load_documents", fake_load)
     monkeypatch.setattr(

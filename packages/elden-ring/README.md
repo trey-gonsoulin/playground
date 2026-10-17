@@ -58,8 +58,19 @@ uv run --package elden-ring python packages/elden-ring/scripts/load_dataset.py d
 
 ```bash
 uv run --package elden-ring pytest packages/elden-ring/tests/   # offline; no AWS or OpenSearch
-uv run ruff check && uv run ruff format --check
+packages/elden-ring/scripts/check.sh                            # the quality gate (below)
 ```
+
+There is no CI, so run `scripts/check.sh` before pushing. It runs the locked dev tools from `[dependency-groups].dev`: `ruff check`, `ruff format --check`, `pyright` (basic mode), then the offline tests with `--cov-fail-under=45`. The ruff rule set, pyright settings and per-file waivers are in this package's `pyproject.toml`. Arguments go to `uv run`; on a machine that can't reach the default index (#454), pass `--offline`. The loader scripts are on the test path (`pythonpath = ["scripts"]`), so tests import `load_data` and friends directly.
+
+Audit the locked runtime dependencies now and then, and after any lock change:
+
+```bash
+uv export --package elden-ring --no-dev --frozen --no-emit-workspace -o /tmp/er-reqs.txt
+uvx pip-audit -r /tmp/er-reqs.txt --disable-pip
+```
+
+Upgrade flagged packages with `uv lock --upgrade-package <name>`, then rebuild and redeploy.
 
 The live integration suite is opt-in. Its tests carry the pytest marker `live` (deselected by default) and only run with `ER_LIVE_TESTS=1`. The module fixture creates its own throwaway `elden-ring-it-<uuid>` index from `INDEX_MAPPING`, points the client and loader at it, deletes it at teardown, and refuses to run against an alias or an existing index:
 
