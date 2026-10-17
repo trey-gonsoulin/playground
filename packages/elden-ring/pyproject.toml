@@ -5,9 +5,8 @@ description = "MCP server for Elden Ring build optimization and lore queries"
 requires-python = ">=3.13"
 dependencies = [
     "fastapi>=0.115",
-    "uvicorn[standard]>=0.30",
     "mangum>=0.21.0",
-    "mcp>=1.0",
+    "mcp>=1.28,<2",
     "opensearch-py>=3.0",
     "boto3>=1.35",
 ]
@@ -29,6 +28,8 @@ default = true
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",
+    # Local `main.py` only; Lambda runs through Mangum (mcp pulls in plain uvicorn).
+    "uvicorn[standard]>=0.30",
 ]
 
 [tool.pytest.ini_options]
