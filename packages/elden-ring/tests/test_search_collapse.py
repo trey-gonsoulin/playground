@@ -183,7 +183,23 @@ def test_search_literal_collapse_has_no_inner_hits(monkeypatch):
 def test_newest_doc_breaks_type_ties_on_entity_type():
     client = _Recorder({"hits": {"hits": []}})
     _client._newest_doc(client, {"name.keyword": "Golden Vow"}, None)
-    assert client.bodies[0]["sort"] == [
+    assert client.bodies[0]["sort"][1:] == [
+        {"patch_version": "desc"},
+        {"entity_type": "asc"},
+    ]
+
+
+def test_untyped_name_lookup_ranks_keepsake_docs_last():
+    # A keepsake doc shares its granted item's name (#475); "keepsake" sorts before
+    # key_item / tool / spirit_ash / upgrade_material, so it must be demoted first.
+    client = _Recorder({"hits": {"hits": []}})
+    _client._newest_doc(client, {"name.keyword": "Golden Seed"}, None)
+    demote = client.bodies[0]["sort"][0]["_script"]
+    assert demote["order"] == "asc"
+    assert "keepsake" in demote["script"]["params"]["demoted"]
+    # An explicit entity_type needs no demotion.
+    _client._newest_doc(client, {"name.keyword": "Golden Seed"}, "keepsake")
+    assert client.bodies[1]["sort"] == [
         {"patch_version": "desc"},
         {"entity_type": "asc"},
     ]

@@ -349,7 +349,7 @@ def search_entities(
 
     Returns a list of entity documents when count_only is False, each with at minimum:
     entity_type, name, patch_version, source and is_dlc; description is present on items,
-    equipment, dialogue, game_text, talk_option, starting_class and merchants but not on enemy, boss, location,
+    equipment, dialogue, game_text, talk_option, starting_class, keepsake and merchants but not on enemy, boss, location,
     site_of_grace, warp, quest or cutscene docs. Use get_entity() for the
     full document of a specific named entity, or describe_fields() to see all
     queryable fields. Item documents may include cross-reference edge fields:
