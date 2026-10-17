@@ -31,3 +31,39 @@ def test_documented():
     assert "Flame Art" in _FIELD_NOTES["affinities"]
     assert "whetblade" in _FIELD_NOTES["affinities"].lower()
     assert "Thrusting Shield" in _FIELD_NOTES["weapon_classes"]
+
+
+def test_skill_attacks_and_effects_mapped():  # #326
+    skill = _PROPS["skill"]["properties"]
+    hit = skill["attacks"]["properties"]
+    for key in ("motion_values", "attack_power"):
+        assert set(hit[key]["properties"]) == {
+            "physical",
+            "magic",
+            "fire",
+            "lightning",
+            "holy",
+        }
+    assert hit["stamina_cost"] == {"type": "integer"}
+    assert hit["active_frames"]["properties"]["start"] == {"type": "integer"}
+    assert hit["hit_label"] == {"type": "keyword"}
+    assert hit["projectile"] == {"type": "boolean"}
+    assert hit["hit_count"] == {"type": "integer"}
+    # skill buffs share the item effects mapping
+    assert skill["effects"] == _PROPS["effects"]
+    assert skill["effect"] == {"type": "text"}
+    assert skill["effect_duration"] == {"type": "float"}
+    for key in (
+        "attacks",
+        "attacks.motion_values",
+        "attacks.attack_power",
+        "attacks.stamina_cost",
+        "attacks.active_frames",
+        "effects",
+    ):
+        assert f"skill.{key}" in _FIELD_NOTES, key
+    assert "Barbaric Roar" in _FIELD_NOTES["skill.effects"]
+    assert "190" in _FIELD_NOTES["skill.attacks"]
+    for key, note in _FIELD_NOTES.items():
+        if key.startswith("skill."):
+            assert not any(b in note for b in ("R1", "R2", "L1", "L2")), key
