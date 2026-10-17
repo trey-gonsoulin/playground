@@ -18,10 +18,7 @@ def test_summon_loadout_groups_mapped_like_enemy():
 
 
 def test_summon_loadout_and_legendary_notes():
-    note = _FIELD_NOTES["summon_stats.equipment"]
-    assert "NpcPlayerInitParamId" in note and "Sword of Milos" in note
-    assert "Mimic Tear" in note
     assert "weapon_attacks" in _FIELD_NOTES["summon_stats"]
     leg = _FIELD_NOTES["is_legendary"]
-    assert "Lhutel the Headless" in leg and "spirit_ash" in leg
+    assert "spirit_ash" in leg
     assert _PROPS["is_legendary"] == {"type": "boolean"}

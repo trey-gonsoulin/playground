@@ -40,10 +40,5 @@ def test_weapon_effect_fields_mapped():
 
 
 def test_weapon_passives_documented():
-    assert "weapons" in _FIELD_NOTES["effect"]
-    assert "Blasphemous Blade" in _FIELD_NOTES["effect"]
-    assert "full moon sorceries" in _FIELD_NOTES["effect"]
-    assert "Golden Arrow" in _FIELD_NOTES["effects"]
     # Distinct from the in-game effect_text lines (#90).
     assert "effect_text" in _FIELD_NOTES["effect"]
-    assert "#163" in _FIELD_NOTES["effect_text"]

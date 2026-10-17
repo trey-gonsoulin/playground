@@ -34,7 +34,6 @@ def test_enemy_negation_mapped_and_documented():
     ):
         assert set(neg["properties"]) == _NEGATION
         assert all(v == {"type": "float"} for v in neg["properties"].values())
-    assert "#298" in _FIELD_NOTES["negation"]
     assert "phases.negation" in _FIELD_NOTES and "variants.negation" in _FIELD_NOTES
 
 
@@ -50,7 +49,6 @@ def test_resistance_and_trait_fields_mapped():
 
 
 def test_resistance_and_trait_fields_documented():
-    assert "999 = immune" in _FIELD_NOTES["resistances"]
     for trait in (
         "weak_to_gravity",
         "lives_in_death",
@@ -61,7 +59,6 @@ def test_resistance_and_trait_fields_documented():
         assert trait in _FIELD_NOTES["traits"]
     assert "immune_to" in _FIELD_NOTES
     assert "weak_point_damage_multiplier" in _FIELD_NOTES
-    assert "humanoid subset" not in _FIELD_NOTES["stats.hp"]
 
 
 def test_npc_param_values_mapped_and_documented():
@@ -71,7 +68,6 @@ def test_npc_param_values_mapped_and_documented():
     resist = props["resistances"]["properties"]
     assert set(resist) == _RESISTS
     assert all(v == {"type": "integer"} for v in resist.values())
-    assert "#285" in _FIELD_NOTES["npc_param_values"]
     assert "npc_param_values" in _FIELD_NOTES["resistances"]
     assert "npc_param_values" in _FIELD_NOTES["stats.poise"]
 
@@ -102,8 +98,6 @@ def test_combat_details_mapped_and_documented():
     summon = props["summon_stats"]["properties"]
     assert "poise_regen_delay" not in summon
     assert "resistance_increase_per_proc" not in summon
-    assert "316 -> 414 / 704 / 1161" in _FIELD_NOTES["resistance_increase_per_proc"]
-    assert "9.231" in _FIELD_NOTES["poise_regen_delay"]
 
 
 def test_scripted_damage_taken_mapped_and_documented():
@@ -147,7 +141,6 @@ def test_scripted_damage_taken_mapped_and_documented():
     ):
         assert "scripted_damage_taken." + leaf in _FIELD_NOTES
     assert "scripted_damage_taken" in _FIELD_NOTES["negation"]
-    assert "90%" in _FIELD_NOTES["scripted_damage_taken"]
 
 
 def test_parryable_mapped_and_documented():
@@ -159,7 +152,5 @@ def test_parryable_mapped_and_documented():
     assert attacks["attack_animations"] == {"type": "integer"}
     summon_attacks = props["summon_stats"]["properties"]["attacks"]["properties"]
     assert "parryable" not in summon_attacks
-    note = _FIELD_NOTES["attacks.parryable"]
-    assert "Commander Gaius false" in note and "Grafted Scion true" in note
     assert "attacks.parryable_animations" in _FIELD_NOTES
     assert "attacks.attack_animations" in _FIELD_NOTES

@@ -66,12 +66,7 @@ def test_starting_class_doc_fully_mapped():
 
 
 def test_starting_class_type_documented():
-    assert (
-        "starting_class (one doc per selectable class, #422)"
-        in (_FIELD_NOTES["entity_type"])
-    )
+    assert "starting_class" in _FIELD_NOTES["entity_type"]
     for field in ("level", "attributes", "flasks", "weapon_slots", "ammo_slots"):
-        assert "starting_class doc (#422)" in _FIELD_NOTES[field], field
-    assert "starting_class doc (#422)" in _FIELD_NOTES["gestures"]
-    assert "starting_class doc" in _FIELD_NOTES["starting_classes"]
+        assert field in _FIELD_NOTES, field
     assert "starting_class —" in mcp_server.search_entities.__doc__

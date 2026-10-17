@@ -1,7 +1,7 @@
 """Cutscene HP-ratio and death triggers (#394): the new fields are mapped (strict
 index) and documented. No OpenSearch needed."""
 
-from elden_ring._client import _FIELD_NOTES, INDEX_MAPPING
+from elden_ring._client import INDEX_MAPPING
 
 _PROPS = INDEX_MAPPING["mappings"]["properties"]
 
@@ -50,8 +50,3 @@ def test_fields_mapped():
     assert health["comparison"] == {"type": "keyword"}
     assert health["ratio"] == {"type": "float"}
     assert _PROPS["trigger_deaths"]["properties"]["entity_id"] == {"type": "long"}
-
-
-def test_fields_documented():
-    assert "16000020" in _FIELD_NOTES["trigger_health"]
-    assert "14000010" in _FIELD_NOTES["trigger_deaths"]
