@@ -48,7 +48,7 @@ def search_entities(
     collapse_affinity: bool = False,
     collapse_variants: bool = False,
     is_dlc: bool | None = None,
-) -> list[dict] | dict:
+) -> dict:
     """Search Elden Ring entities by name, description, location, or tags.
 
     Results are ranked by relevance; name matches score 3× higher than body text.
@@ -439,11 +439,13 @@ def search_entities(
     上昇 → 大きく上昇 are ignored). text_added_lines lists the new lines, e.g.
     「伝説のタリスマン」のひとつ. False means only the magnitude wording changed.
 
-    Returns {"total": N} when count_only is True, and {"error": ...} listing the
-    valid values for an unknown or retired entity_type / source / patch_version
-    or an unmapped include_fields name (not an empty list).
+    Returns {"results": [doc, ...]}: the matching docs in relevance order, each with
+    its score ("results": [] when nothing matches). Returns {"total": N} when
+    count_only is True, and {"error": ...} listing the valid values for an unknown
+    or retired entity_type / source / patch_version or an unmapped include_fields
+    name (not an empty result).
     """
-    return _os.search(
+    out = _os.search(
         _os.get_client(),
         query,
         entity_type,
@@ -457,6 +459,9 @@ def search_entities(
         collapse_variants,
         is_dlc,
     )
+    # A dict, never a bare list: FastMCP sends a list as one block per element, and
+    # an empty one as no content at all (#441).
+    return {"results": out} if isinstance(out, list) else out
 
 
 @mcp.tool(annotations=_READ_ONLY)
@@ -466,7 +471,7 @@ def get_entity(
     include_variants: bool = False,
     include_placements: bool = False,
     patch_version: str | None = None,
-) -> dict | None:
+) -> dict:
     """Retrieve the full data document for a named Elden Ring entity.
 
     If this tool returns a connection error, call start_search_service() first.
@@ -514,12 +519,14 @@ def get_entity(
     types hundreds) is replaced by placements_total, and maps / regions / areas /
     locations still say where. Pass include_placements=True for the full list.
 
-    Returns the full document dict, or null if the entity is not in the index
-    ({"error": ...} for an entity_type that isn't loaded).
+    Returns the full document dict, or {"error": ...} if the entity is not in the
+    index or the entity_type isn't loaded.
     """
     doc = _os.get_entity(
         _os.get_client(), name, entity_type, include_variants, patch_version
     )
+    if doc is None:  # a null result reaches the client as no content at all (#441)
+        return {"error": f"'{name}' not found in any loaded version"}
     return doc if include_placements else _os.trim_placements(doc)
 
 
@@ -573,8 +580,10 @@ def calculate_attack_rating(
             aren't wielded (the result then carries a note saying so).
         affinity: Optional affinity prefix for infusable weapons, e.g. "Heavy",
             "Blood", "Occult"; same as passing "Heavy Halberd" as weapon.
-        patch_version: Compute with that patch's data (e.g. "1.07.0", resolved to
-            the latest loaded patch at or before it); default newest.
+        patch_version: Compute with that patch's data (e.g. "1.07.0"); default
+            newest. It must be a loaded patch (list_patch_versions(), else
+            {"error": ...}); it resolves as-of the weapon data's own patches, and
+            requested_patch_version is added when that lands on another label.
         spell: Optional sorcery or incantation to cast with the weapon (a staff or
             seal), e.g. "Glintstone Pebble"; read at the weapon's patch.
 
@@ -960,7 +969,7 @@ def text_changed_between(
     v1: str,
     v2: str,
     count_only: bool = False,
-) -> list[dict] | dict:
+) -> dict:
     """Find all entities of a type where a specific field changed between two patch versions.
 
     Runs two bulk queries (one per version) and compares at the application layer.
@@ -987,22 +996,36 @@ def text_changed_between(
             weapon, armor, spell, item, ash_of_war, merchant, npc_dialogue, game_text).
         field: Field to compare, e.g. "description", "description_ja", "text_content",
             "location", "effect", "display_name" (per-patch FMG name — use this to find
-            weapons renamed across patches). Any indexed field works, including a grouped
-            stat by dotted path ("attack_power.physical", "stats.hp"); missing values
-            compare as null. Call describe_fields() for the full list.
+            weapons renamed across patches). Any indexed field works, including a
+            grouped stat by dotted path ("attack_power.physical", "stats.hp"); a
+            whole group ("stats") or list ("phases") compares as one value, and
+            missing values compare as null. A search subfield ("name.keyword",
+            "description_ja.lemma") or a path into a list of objects
+            ("phases.stats.hp", "spell_attacks.attack_power.magic") returns
+            {"error": ...} naming the parent field to compare instead. Call
+            describe_fields() for the full list.
         v1: Older patch version, e.g. "1.02.1".
         v2: Newer patch version, e.g. "1.10.0".
-        count_only: If True, return {"total": N} instead of the full diff list. Useful
+        count_only: If True, return {"total": N} without the results list. Useful
             for census queries without paying the cost of returning all before/after values.
 
-    Returns a list of dicts, one per changed entity, each with:
-        name: entity name
-        text_before: field value at v1 (null if absent)
-        text_after: field value at v2 (null if absent)
-    Sorted alphabetically by name.
+    Returns a dict with:
+        total: number of changed entities
+        results: one dict per changed entity, sorted alphabetically by name:
+            name: entity name
+            text_before: field value at v1 (null if absent)
+            text_after: field value at v2 (null if absent)
+        requested_patch_versions: {input: loaded label}, only when a version was
+            spelled differently ("1.10" -> "1.10.0")
+        resolved_patch_versions: {v: snapshot}, only when a version resolved
+            as-of to an earlier snapshot of this type (npc_dialogue at 1.10.1 ->
+            1.09.0); the values then come from that snapshot
+        note: present when both versions resolve to one snapshot, so nothing can
+            differ (an empty results list then says nothing about the patches)
 
-    Returns {"total": N} when count_only is True.
-    Returns {"error": "..."} if either version is not loaded.
+    Returns {"total": N} (plus the version keys above) when count_only is True.
+    Returns {"error": "..."} if either version is not loaded or the field has no
+    stored value per entity.
     """
     return _os.text_changed_between(
         _os.get_client(), entity_type, field, v1, v2, count_only
@@ -1033,15 +1056,26 @@ def diff_entities(
             item's current name, so the diff spans the rename.
         v1: Older patch version, e.g. "1.06.0".
         v2: Newer patch version, e.g. "1.07.0".
-        entity_type: Optional type hint to disambiguate if two entities share a name.
+        entity_type: Optional type hint to disambiguate if two entities share a name
+            (a boss and its enemy, "Lightning Spear" the spell and the weapon).
+            Without it, both versions come from the type the name resolves to (its
+            newest doc), as get_entity does, and resolve as-of that type's loaded
+            versions, so npc_dialogue works at any patch.
 
     Returns a dict with:
         name: the entity's current (canonical) name
+        entity_type: the type both versions were read from
         queried_name: your input, only when it differed from name
         changed: bool — whether any fields differ
         changed_fields: {field: {v1: old_value, v2: new_value}} for each changed field;
             grouped stats are compared per leaf by dotted path (attack_power.physical)
         unchanged_fields: [field, ...] for fields present in both with identical values
+        requested_patch_versions: {input: loaded label}, only when a version was
+            spelled differently ("1.10" -> "1.10.0"); changed_fields uses the labels
+        resolved_patch_versions: {v: snapshot}, only when a version resolved as-of
+            to an earlier snapshot of this type; its values come from that snapshot
+        note: present when both versions resolve to one snapshot (changed is then
+            false by construction, not because nothing changed between the patches)
 
     Returns {"error": "..."} if either version is not loaded or the entity is not
     present in the requested versions.

@@ -1775,13 +1775,9 @@ def get_entity(
 ) -> dict | None:
     requested_version = patch_version
     if patch_version:
-        loaded = _entity_versions(client, None)
-        patch_version = _canonical_version(client, patch_version)
-        if patch_version not in loaded:
-            return {
-                "error": f"patch version '{patch_version}' is not loaded; "
-                f"loaded versions: {loaded}"
-            }
+        patch_version, err = _loaded_version(client, patch_version)
+        if err:
+            return err
     resolved = _resolve_entity_doc(client, name, entity_type)
     if resolved is None:
         return _check_filter_values(client, entity_type)
@@ -1789,33 +1785,13 @@ def get_entity(
     if patch_version:
         # As-of the entity_type's own version set (#206): dialogue is loaded once
         # per Data0 group, so a patch between representatives maps to the earlier one.
-        etype = doc["entity_type"]
-        ev = _entity_versions(client, etype)
-        resolved_version = _resolve_asof(patch_version, ev)
+        resolved_version, err = _asof_version(client, patch_version, doc["entity_type"])
         if resolved_version is None:
-            return {
-                "error": f"no {etype} data at or before '{patch_version}' "
-                f"(earliest loaded: {ev[0] if ev else 'none'})"
-            }
-        resp = client.search(
-            index=INDEX,
-            body={
-                "size": 1,
-                "query": {
-                    "bool": {
-                        "filter": [
-                            {"term": {"name.keyword": doc["name"]}},
-                            {"term": {"entity_type": etype}},
-                            {"term": {"patch_version": resolved_version}},
-                        ]
-                    }
-                },
-            },
-        )
-        hits = resp["hits"]["hits"]
-        if not hits:
+            return err
+        found = _version_doc(client, doc["name"], doc["entity_type"], resolved_version)
+        if not found:
             return {"error": f"'{doc['name']}' not present in {resolved_version}"}
-        out = _public(hits[0]["_source"])
+        out = _public(found)
         if historical:
             out |= {"name_is_historical": True, "queried_name": name}
         if resolved_version != requested_version:
@@ -1964,6 +1940,83 @@ def _resolve_asof(version: str, versions: list[str]) -> str | None:
     return max(candidates, key=_ver_key) if candidates else None
 
 
+def _loaded_version(client: OpenSearch, version: str) -> tuple[str, dict | None]:
+    """The loaded label for a requested version, plus an error if no type has it.
+
+    Shared by get_entity, diff_entities, text_changed_between and
+    calculate_attack_rating (#439): a request must be a real patch somewhere in the
+    index before it's resolved as-of one type's (possibly sparser) set.
+    """
+    canonical = _canonical_version(client, version)
+    loaded = _entity_versions(client, None)
+    if canonical not in loaded:
+        return canonical, {
+            "error": f"patch version '{canonical}' is not loaded; "
+            f"loaded versions: {loaded}"
+        }
+    return canonical, None
+
+
+def _asof_version(
+    client: OpenSearch, version: str, entity_type: str
+) -> tuple[str | None, dict | None]:
+    """A loaded version resolved as-of one entity_type's own versions (#206, #439)."""
+    ev = _entity_versions(client, entity_type)
+    if not ev:
+        return None, {"error": f"no '{entity_type}' documents are loaded"}
+    resolved = _resolve_asof(version, ev)
+    if resolved is None:
+        return None, {
+            "error": f"no {entity_type} data at or before '{version}' "
+            f"(earliest loaded: {ev[0]})"
+        }
+    return resolved, None
+
+
+def _version_doc(
+    client: OpenSearch, name: str, entity_type: str, version: str
+) -> dict | None:
+    """The one doc for a canonical name, type and loaded version."""
+    resp = client.search(
+        index=INDEX,
+        body={
+            "size": 1,
+            "query": {
+                "bool": {
+                    "filter": [
+                        {"term": {"name.keyword": name}},
+                        {"term": {"entity_type": entity_type}},
+                        {"term": {"patch_version": version}},
+                    ]
+                }
+            },
+        },
+    )
+    hits = resp["hits"]["hits"]
+    return hits[0]["_source"] if hits else None
+
+
+def _resolution_info(
+    entity_type: str, requested: dict[str, str], resolved: dict[str, str]
+) -> dict:
+    """requested_patch_versions / resolved_patch_versions / note for a two-version
+    tool (#439). ``requested`` maps each input to its loaded label, ``resolved``
+    each loaded label to the snapshot that answered it."""
+    out: dict = {}
+    if remapped := {k: v for k, v in requested.items() if k != v}:
+        out["requested_patch_versions"] = remapped
+    if moved := {k: v for k, v in resolved.items() if k != v}:
+        out["resolved_patch_versions"] = moved
+    snaps = set(resolved.values())
+    if len(resolved) > 1 and len(snaps) == 1:
+        (snap,) = snaps
+        out["note"] = (
+            f"{' and '.join(resolved)} both resolve to the one {entity_type} "
+            f"snapshot {snap}, so nothing can differ"
+        )
+    return out
+
+
 def _flatten(doc: dict, prefix: str = "") -> dict:
     """Grouped stat objects as dotted leaves ({"stats": {"hp": 1}} -> {"stats.hp": 1}),
     so a diff names the stat that changed rather than the whole group (#115)."""
@@ -1988,71 +2041,36 @@ def diff_entities(
     v2: str,
     entity_type: str | None = None,
 ) -> dict:
-    requested = {v1: _canonical_version(client, v1), v2: _canonical_version(client, v2)}
-    v1, v2 = requested[v1], requested[v2]
-    global_versions = set(_entity_versions(client, None))
+    requested = {}
     for v in (v1, v2):
-        if v not in global_versions:
-            return {
-                "error": f"patch version '{v}' is not loaded; "
-                f"loaded versions: {sorted(global_versions, key=_ver_key)}"
-            }
+        requested[v], err = _loaded_version(client, v)
+        if err:
+            return err
+    v1, v2 = requested[v1], requested[v2]
 
-    # Resolve as-of the (possibly sparser) version set for this entity_type.
-    ev = (
-        _entity_versions(client, entity_type)
-        if entity_type
-        else sorted(global_versions, key=_ver_key)
-    )
-    r1 = _resolve_asof(v1, ev)
-    r2 = _resolve_asof(v2, ev)
-    for orig, res in ((v1, r1), (v2, r2)):
+    # Accept historical/diacritic-folded names; diff the canonical entity (#59), of
+    # the type the name resolved to so both sides come from one type and its own
+    # (possibly sparser) version set (#439).
+    found = _resolve_entity_doc(client, name, entity_type)
+    if found is None:
+        return {"error": f"'{name}' not found in any loaded version"}
+    queried_name, name = name, found[0]["name"]
+    etype = entity_type or found[0]["entity_type"]
+
+    resolved: dict[str, str] = {}
+    for v in (v1, v2):
+        res, err = _asof_version(client, v, etype)
         if res is None:
-            return {
-                "error": f"no data at or before '{orig}' for this entity type "
-                f"(earliest loaded: {ev[0] if ev else 'none'})"
-            }
+            return err or {}
+        resolved[v] = res
+    r1, r2 = resolved[v1], resolved[v2]
 
-    # Accept historical/diacritic-folded names; diff the canonical entity (#59).
-    queried_name = name
-    name = _resolve_entity_name(client, name, entity_type) or name
-
-    def _fetch(version: str) -> dict | None:
-        filters: list[dict] = [
-            {"term": {"name.keyword": name}},
-            {"term": {"patch_version": version}},
-        ]
-        if entity_type:
-            filters.append({"term": {"entity_type": entity_type}})
-        resp = client.search(
-            index=INDEX,
-            body={"size": 1, "query": {"bool": {"filter": filters}}},
-        )
-        hits = resp["hits"]["hits"]
-        return hits[0]["_source"] if hits else None
-
-    doc1 = _fetch(r1)
-    doc2 = _fetch(r2)
-
+    doc1 = _version_doc(client, name, etype, r1)
+    doc2 = _version_doc(client, name, etype, r2)
     if not doc1 or not doc2:
-        # Distinguish "not in these patches" from "not in the index at all".
         # Report the resolved version so the message names where we actually looked.
         missing = [v for v, d in ((r1, doc1), (r2, doc2)) if not d]
-        any_filters: list[dict] = [{"term": {"name.keyword": name}}]
-        if entity_type:
-            any_filters.append({"term": {"entity_type": entity_type}})
-        exists_resp = client.search(
-            index=INDEX,
-            body={
-                "size": 0,
-                "query": {"bool": {"filter": any_filters}},
-                "track_total_hits": True,
-            },
-        )
-        if exists_resp["hits"]["total"]["value"] == 0:
-            return {"error": f"'{queried_name}' not found in any loaded version"}
-        missing_str = " and ".join(missing)
-        return {"error": f"'{name}' not present in {missing_str}"}
+        return {"error": f"'{name}' not present in {' and '.join(missing)}"}
 
     doc1, doc2 = _flatten(_public(doc1)), _flatten(_public(doc2))
     all_fields = (set(doc1) | set(doc2)) - _DIFF_SKIP_FIELDS
@@ -2068,16 +2086,14 @@ def diff_entities(
 
     result = {
         "name": name,
-        "entity_type": (doc1 or doc2).get("entity_type"),
+        "entity_type": etype,
         "changed": bool(changed),
         "changed_fields": changed,
         "unchanged_fields": unchanged,
     }
     if queried_name != name:
         result["queried_name"] = queried_name
-    if remapped := {k: v for k, v in requested.items() if k != v}:
-        result["requested_patch_versions"] = remapped
-    return result
+    return result | _resolution_info(etype, requested, resolved)
 
 
 # Per-pattern page size for the patterns-OR union path. Large enough that the
@@ -2525,30 +2541,20 @@ def calculate_attack_rating(
         canonical = _affinity_variant(client, *reversed(weapon.split(" ", 1)))
     if canonical is None:
         return {"error": f"weapon '{name}' not found"}
-    versions = _entity_versions(client, entity_type)
-    patch_version = _canonical_version(client, patch_version)
-    version = _resolve_asof(patch_version, versions) if patch_version else versions[-1]
-    if version is None:
-        return {"error": f"no {entity_type} data at or before '{patch_version}'"}
-    resp = client.search(
-        index=INDEX,
-        body={
-            "size": 1,
-            "query": {
-                "bool": {
-                    "filter": [
-                        {"term": {"name.keyword": canonical}},
-                        {"term": {"entity_type": entity_type}},
-                        {"term": {"patch_version": version}},
-                    ]
-                }
-            },
-        },
-    )
-    hits = resp["hits"]["hits"]
-    if not hits:
+    requested_version = patch_version
+    if patch_version:
+        # An unloaded version ("1.99") is an error, not the newest patch (#439).
+        patch_version, err = _loaded_version(client, patch_version)
+        if err:
+            return err
+        version, err = _asof_version(client, patch_version, entity_type)
+        if version is None:
+            return err or {}
+    else:
+        version = _entity_versions(client, entity_type)[-1]
+    doc = _version_doc(client, canonical, entity_type, version)
+    if not doc:
         return {"error": f"'{canonical}' not present in {version}"}
-    doc = hits[0]["_source"]
     inputs = doc.get("ar_inputs") or {}
     per_level = [
         arr
@@ -2582,6 +2588,8 @@ def calculate_attack_rating(
         "requirements": doc.get("requirements"),
         **attack_rating(inputs, doc.get("requirements") or {}, full, level, two_handed),
     }
+    if requested_version and requested_version != version:
+        result["requested_patch_version"] = requested_version
     if spell:
         cast = _spell_cast(client, spell, doc, result["spell_scaling"], version)
         if "error" in cast:
@@ -2687,6 +2695,47 @@ def _spell_cast(
     return out
 
 
+def _leaf_field_error(field: str) -> dict | None:
+    """Error for a text_changed_between field with no stored value (#438).
+
+    A search subfield (name.keyword, description_ja.lemma) or a wildcard would read
+    as null at both versions and report "nothing changed". A group (stats) or list
+    (phases) compares as one whole value; paths through a list of objects are caught
+    per document in _source.
+    """
+    if "*" in field:
+        return {"error": f"'{field}': name one field, wildcards aren't supported here"}
+    if field not in _mapping_paths(INDEX_MAPPING["mappings"]["properties"]):
+        parent = field.rsplit(".", 1)[0]
+        return {
+            "error": f"'{field}' is a search subfield of '{parent}' with no stored "
+            f"value of its own; compare '{parent}' instead"
+        }
+    return None
+
+
+def _source_value(source: dict, field: str) -> tuple[object, str | None]:
+    """A dotted path's value in _source, plus the list prefix it ran through (if any)."""
+    value: object = source
+    parts = field.split(".")
+    for i, part in enumerate(parts):
+        if isinstance(value, list):
+            return None, ".".join(parts[:i])
+        if not isinstance(value, dict):
+            return None, None
+        value = value.get(part)
+    return value, None
+
+
+class _ListPathError(Exception):
+    """A text_changed_between path ran through a list of objects (#438)."""
+
+
+# text_changed_between pages through each version's docs this many at a time
+# (search_after on name.keyword), so no type is silently cut at the 10k window (#438).
+_CHANGED_PAGE_SIZE = 5000
+
+
 def text_changed_between(
     client: OpenSearch,
     entity_type: str,
@@ -2694,44 +2743,39 @@ def text_changed_between(
     v1: str,
     v2: str,
     count_only: bool = False,
-) -> list[dict] | dict:
+) -> dict:
     """Return all entities of entity_type where field differs between v1 and v2.
 
-    Fetches all entities for each version (up to 10 000 per call); comparison happens in Python.
+    Pages through every entity for each version; comparison happens in Python.
     Only entities present in both versions are included (added/removed entities
     are excluded — use diff_entities for per-entity existence checks).
     """
-    if err := _precheck(None, [field]):
+    if err := _precheck(None, [field]) or _leaf_field_error(field):
         return err
-    v1, v2 = _canonical_version(client, v1), _canonical_version(client, v2)
-    # A requested version must be a real loaded patch somewhere in the index …
-    global_versions = set(_entity_versions(client, None))
+    requested = {}
     for v in (v1, v2):
-        if v not in global_versions:
-            return {
-                "error": f"patch version '{v}' is not loaded; "
-                f"loaded versions: {sorted(global_versions, key=_ver_key)}"
-            }
+        # A requested version must be a real loaded patch somewhere in the index …
+        requested[v], err = _loaded_version(client, v)
+        if err:
+            return err
+    v1, v2 = requested[v1], requested[v2]
 
     # … but this entity_type may be indexed at a sparser set of versions (dialogue
     # is stored once per Data0 group), so resolve each request as-of that set.
-    ev = _entity_versions(client, entity_type)
-    if not ev:
-        return {"error": f"no '{entity_type}' documents are loaded"}
-    r1 = _resolve_asof(v1, ev)
-    r2 = _resolve_asof(v2, ev)
-    for orig, res in ((v1, r1), (v2, r2)):
+    resolved: dict[str, str] = {}
+    for v in (v1, v2):
+        res, err = _asof_version(client, v, entity_type)
         if res is None:
-            return {
-                "error": f"'{entity_type}' has no data at or before '{orig}' "
-                f"(earliest loaded: {ev[0]})"
-            }
+            return err or {}
+        resolved[v] = res
+    r1, r2 = resolved[v1], resolved[v2]
 
     def _fetch_all(version: str) -> dict[str, object]:
-        resp = client.search(
-            index=INDEX,
-            body={
-                "size": 10000,
+        values: dict[str, object] = {}
+        after = None
+        while True:
+            body: dict = {
+                "size": _CHANGED_PAGE_SIZE,
                 "_source": ["name", field],
                 "query": {
                     "bool": {
@@ -2741,15 +2785,29 @@ def text_changed_between(
                         ]
                     }
                 },
-            },
-        )
-        return {
-            hit["_source"]["name"]: _flatten(hit["_source"]).get(field)
-            for hit in resp["hits"]["hits"]
-        }
+                "sort": [{"name.keyword": "asc"}],
+            }
+            if after is not None:
+                body["search_after"] = after
+            hits = client.search(index=INDEX, body=body)["hits"]["hits"]
+            for hit in hits:
+                value, through = _source_value(hit["_source"], field)
+                if through:
+                    raise _ListPathError(through)
+                values[hit["_source"]["name"]] = value
+            if len(hits) < _CHANGED_PAGE_SIZE:
+                return values
+            after = hits[-1]["sort"]
 
-    docs_v1 = _fetch_all(r1)
-    docs_v2 = _fetch_all(r2)
+    try:
+        docs_v1 = _fetch_all(r1)
+        docs_v2 = _fetch_all(r2)
+    except _ListPathError as e:
+        return {
+            "error": f"'{field}' runs through '{e}', a list of objects, so an entity "
+            f"has no single value for it; compare the whole list (field='{e}'), or "
+            "use diff_entities(name, v1, v2) for one entity"
+        }
 
     results = []
     for name in sorted(set(docs_v1) & set(docs_v2)):
@@ -2758,9 +2816,10 @@ def text_changed_between(
         if val1 != val2:
             results.append({"name": name, "text_before": val1, "text_after": val2})
 
+    info = _resolution_info(entity_type, requested, resolved)
     if count_only:
-        return {"total": len(results)}
-    return results
+        return {"total": len(results)} | info
+    return {"total": len(results), "results": results} | info
 
 
 _ENTITY_COUNT_AGG = {
