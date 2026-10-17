@@ -19,20 +19,26 @@ def _bulk_id(d):
     return f"{d['entity_type']}::{d['name']}::{d['patch_version']}"
 
 
-def _collapsed(groups):
-    """A collapsed search response: each group is (top hit, newest hit, score)."""
+def _key(d):
+    return f"{d.get('entity_type')}::{d.get('name')}"
+
+
+def _hits(docs, score=1.0):
+    """Collapsed hits: the collapse puts each group's entity_key in hit["fields"]."""
+    return [
+        {"_score": score, "_source": d, "fields": {"entity_key": [_key(d)]}}
+        for d in docs
+    ]
+
+
+def _collapsed(docs, scores=None):
+    """A collapsed search response, one hit per doc."""
+    hits = _hits(docs)
+    for h, sc in zip(hits, scores or []):
+        h["_score"] = sc
     return {
-        "hits": {
-            "hits": [
-                {
-                    "_score": score,
-                    "_source": top,
-                    "inner_hits": {"latest": {"hits": {"hits": [{"_source": newest}]}}},
-                }
-                for top, newest, score in groups
-            ]
-        },
-        "aggregations": {"distinct_entities": {"value": len(groups)}},
+        "hits": {"hits": hits},
+        "aggregations": {"distinct_entities": {"value": len(docs)}},
     }
 
 
@@ -44,6 +50,35 @@ class _Recorder:
     def search(self, index, body):
         self.bodies.append(body)
         return self.resp
+
+
+class _SearchClient:
+    """search(): the text query returns `matched`; the follow-up newest-patch query
+    (no text clause, a terms filter on entity_key) returns the newest doc per key
+    among `corpus`."""
+
+    def __init__(self, matched, corpus, scores=None):
+        self.matched, self.corpus, self.scores = matched, corpus, scores
+        self.bodies = []
+
+    def search(self, index, body):
+        self.bodies.append(body)
+        terms = [f["terms"] for f in body["query"]["bool"]["filter"] if "terms" in f]
+        if not terms:
+            return _collapsed(self.matched, self.scores)
+        newest = {}
+        for d in sorted(self.corpus, key=lambda d: d["patch_version"], reverse=True):
+            if _key(d) in terms[0]["entity_key"]:
+                newest.setdefault(_key(d), d)
+        src = body.get("_source")
+        docs = [
+            {k: v for k, v in d.items() if src is None or k in src}
+            for d in newest.values()
+        ]
+        hits = _hits(docs)
+        for h, d in zip(hits, newest.values()):
+            h["fields"] = {"entity_key": [_key(d)]}
+        return {"hits": {"hits": hits}}
 
 
 def _unscoped(monkeypatch):
@@ -61,44 +96,62 @@ def test_bulk_actions_stamp_entity_key():
     assert a["_id"] == "spell::Lightning Spear::1.17.0"
 
 
-def test_search_returns_newest_doc_with_group_score(monkeypatch):
-    # Only the 1.02 text matched the extra term, so the 1.02 doc tops the group;
-    # the result is still the newest matching patch, with the group's score.
+def test_search_returns_newest_doc_when_only_old_text_matches(monkeypatch):
+    # #442 acceptance: only the 1.02 text matches the query, so the text query
+    # returns only the 1.02 doc; the result is still the newest doc, with the
+    # group's score.
     _unscoped(monkeypatch)
     old = _doc("Talisman", "1.02", "item", description="old text")
     new = _doc("Talisman", "1.10.0", "item", description="new text", effect="x")
-    client = _Recorder(_collapsed([(old, new, 7.5)]))
-    (hit,) = _client.search(client, "old text")
+    client = _SearchClient([old], [old, new], scores=[7.5])
+    (hit,) = _client.search(client, "old text", is_dlc=False)
     assert hit == {"score": 7.5, **new}
-    body = client.bodies[0]
-    assert body["sort"][0] == {"_score": "desc"}
-    assert body["collapse"]["field"] == "entity_key"
-    inner = body["collapse"]["inner_hits"]
-    assert inner["name"] == "latest" and inner["size"] == 1
-    assert inner["sort"] == [{"patch_version": "desc"}]
-    assert body["_source"] is False
+    first, follow = client.bodies
+    assert first["sort"][0] == {"_score": "desc"}
+    assert first["collapse"] == {"field": "entity_key"}  # no inner_hits
+    assert follow["size"] == 1
+    assert follow["sort"] == [{"patch_version": "desc"}]
+    assert follow["collapse"] == {"field": "entity_key"}
+    assert "must" not in follow["query"]["bool"]
+    # Same filters as the text query, plus the returned keys.
+    assert follow["query"]["bool"]["filter"] == [
+        *first["query"]["bool"]["filter"],
+        {"terms": {"entity_key": ["item::Talisman"]}},
+    ]
 
 
-def test_search_inner_hits_take_include_fields(monkeypatch):
+def test_search_newest_takes_include_fields(monkeypatch):
     _unscoped(monkeypatch)
-    client = _Recorder(_collapsed([({}, {"name": "x"}, 1.0)]))
-    _client.search(client, "x", include_fields=["name"])
-    assert client.bodies[0]["collapse"]["inner_hits"]["_source"] == ["name"]
+    old = _doc("x", "1.02", "item", description="a")
+    new = _doc("x", "1.17.0", "item", description="b")
+    client = _SearchClient([old], [old, new])
+    out = _client.search(client, "x", include_fields=["name", "patch_version"])
+    assert out == [{"score": 1.0, "name": "x", "patch_version": "1.17.0"}]
+    assert client.bodies[1]["_source"] == ["name", "patch_version"]
+
+
+def test_search_keeps_matched_doc_when_newest_missing(monkeypatch):
+    _unscoped(monkeypatch)
+    old = _doc("x", "1.02", "item")
+    client = _SearchClient([old], [])
+    assert _client.search(client, "x") == [{"score": 1.0, **old}]
 
 
 def test_search_same_name_two_types_are_two_results(monkeypatch):
     _unscoped(monkeypatch)
     spell = _doc("Lightning Spear", "1.17.0", "spell")
     weapon = _doc("Lightning Spear", "1.17.0", "weapon")
-    client = _Recorder(_collapsed([(spell, spell, 3.0), (weapon, weapon, 2.0)]))
+    client = _SearchClient([spell, weapon], [spell, weapon], scores=[3.0, 2.0])
     out = _client.search(client, "Lightning Spear")
     assert [d["entity_type"] for d in out] == ["spell", "weapon"]
+    assert [d["score"] for d in out] == [3.0, 2.0]
 
 
 def test_search_count_counts_entity_keys(monkeypatch):
     _unscoped(monkeypatch)
-    client = _Recorder(_collapsed([({}, {}, 1.0), ({}, {}, 1.0)]))
+    client = _Recorder(_collapsed([{}, {}]))
     assert _client.search(client, "x", count_only=True) == {"total": 2}
+    assert len(client.bodies) == 1
     agg = client.bodies[0]["aggs"]["distinct_entities"]["cardinality"]
     assert agg["field"] == "entity_key"
 
@@ -112,15 +165,18 @@ def test_search_scoped_has_no_collapse(monkeypatch):
     assert "collapse" not in client.bodies[0]
 
 
-def test_search_literal_collapse_uses_latest_inner_hit(monkeypatch):
+def test_search_literal_collapse_has_no_inner_hits(monkeypatch):
+    # The patch_version-first sort already makes each group's top hit its newest
+    # matching patch; inner_hits would cost one extra search per group.
     _unscoped(monkeypatch)
-    old, new = _doc("A", "1.02"), _doc("A", "1.17.0")
-    client = _Recorder(_collapsed([(old, new, 1.0)]))
-    out = _client._search_literal(client, pattern="A")
+    new = _doc("A", "1.17.0")
+    client = _Recorder(_collapsed([new]))
+    out = _client._search_literal(client, pattern="A", include_fields=["name"])
     assert out == {"total": 1, "results": [new]}
-    body = client.bodies[0]
-    assert body["collapse"]["field"] == "entity_key"
-    assert body["collapse"]["inner_hits"]["name"] == "latest"
+    (body,) = client.bodies
+    assert body["sort"][0] == {"patch_version": "desc"}
+    assert body["collapse"] == {"field": "entity_key"}
+    assert body["_source"] == ["name"]
     assert body["aggs"]["distinct_entities"]["cardinality"]["field"] == "entity_key"
 
 
@@ -157,15 +213,10 @@ class _UnionClient:
             return {"hits": {"hits": hits}}
         pattern = q["bool"]["must"][0]["multi_match"]["query"]
         docs = self.by_pattern.get(pattern, [])
-        src = body["collapse"]["inner_hits"]["_source"]
+        src = body["_source"]
         keyed = [{k: v for k, v in d.items() if k in src} for d in docs]
         return {
-            "hits": {
-                "hits": [
-                    {"inner_hits": {"latest": {"hits": {"hits": [{"_source": k}]}}}}
-                    for k in keyed
-                ]
-            },
+            "hits": {"hits": [{"_source": k} for k in keyed]},
             "aggregations": {
                 "distinct_entities": {"value": self.totals.get(pattern, len(docs))}
             },
@@ -186,10 +237,8 @@ def test_union_dedupes_on_type_and_name_and_fetches_full_docs():
     out = _client._search_literal(client, patterns=["a", "b"])
     assert out == {"total": 3, "results": [spell, other, weapon]}
     subs = [b for b in client.bodies if "ids" not in b["query"]]
-    assert all(
-        b["collapse"]["inner_hits"]["_source"] == _client._UNION_KEY_FIELDS
-        for b in subs
-    )
+    assert all(b["_source"] == _client._UNION_KEY_FIELDS for b in subs)
+    assert all(b["collapse"] == {"field": "entity_key"} for b in subs)
     assert all(b["size"] == _client._UNION_FETCH_SIZE for b in subs)
     (fetch,) = [b for b in client.bodies if "ids" in b["query"]]
     assert fetch["query"]["ids"]["values"] == [

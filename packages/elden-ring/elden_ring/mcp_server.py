@@ -285,9 +285,10 @@ def search_entities(
             is extracted per-patch from that patch's regulation.bin, so this is the
             real in-game version, not a scrape snapshot — trustworthy for tracking
             when stats/text changed. Use list_patch_versions() to see what's loaded.
-            Omit to return one result per (entity_type, name), its newest matching
-            patch, so Lightning Spear the spell and the weapon are two results; pass
-            a specific version to scope results to that snapshot only.
+            Omit to return one result per (entity_type, name), always its newest
+            patch even when only older text matched, so Lightning Spear the spell
+            and the weapon are two results; pass a specific version to scope results
+            to that snapshot only.
         limit: Maximum results to return (default 20, max 100). The list is capped here
             and carries no total — use count_only for a count.
         include_fields: If provided, only these fields are returned per document (e.g.
@@ -296,10 +297,10 @@ def search_entities(
             N is never capped by limit. Without patch_version it is the number of
             distinct (entity_type, name) pairs (a name shared by two entity_types
             counts twice); with patch_version it is the number of matching docs in
-            that snapshot, which is also one per (entity_type, name). Each weapon affinity (Heavy Dagger, Keen
-            Dagger, …) is its own name — see collapse_variants. Fuzzy matching makes
-            this a relevance count, not an exact-phrase count; for corpus counts use
-            search_entities_literal.
+            that snapshot, which is also one per (entity_type, name). Each weapon
+            affinity (Heavy Dagger, Keen Dagger, …) is its own name — see
+            collapse_variants. Fuzzy matching makes this a relevance count, not an
+            exact-phrase count; for corpus counts use search_entities_literal.
         source: If provided, restrict to documents from one internal game-data
             origin — the param table, FMG or script the docs were extracted from
             (e.g. EquipParamWeapon, EquipParamGoods, Magic, NpcName, GameAreaParam,
