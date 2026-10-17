@@ -61,14 +61,13 @@ uv run --package elden-ring pytest packages/elden-ring/tests/   # offline; no AW
 uv run ruff check && uv run ruff format --check
 ```
 
-The live integration suite is opt-in. Its tests carry the pytest marker `live` and only run with `ER_LIVE_TESTS=1`. They write synthetic docs, so point them at a throwaway index and never at the alias or a concrete index in use:
+The live integration suite is opt-in. Its tests carry the pytest marker `live` (deselected by default) and only run with `ER_LIVE_TESTS=1`. The module fixture creates its own throwaway `elden-ring-it-<uuid>` index from `INDEX_MAPPING`, points the client and loader at it, deletes it at teardown, and refuses to run against an alias or an existing index:
 
 ```bash
-ER_LIVE_TESTS=1 ELDEN_RING_INDEX=elden-ring-test-<you> \
-  uv run --package elden-ring pytest packages/elden-ring/tests/ -m live
+ER_LIVE_TESTS=1 uv run --package elden-ring pytest packages/elden-ring/tests/ -m live
 ```
 
-They also need the Lambda's environment: `EC2_INSTANCE_ID`, `OPENSEARCH_USER` and `OPENSEARCH_PASSWORD_SSM_PATH`. Delete the throwaway index afterwards.
+They also need the Lambda's environment: `EC2_INSTANCE_ID`, `OPENSEARCH_USER` and `OPENSEARCH_PASSWORD_SSM_PATH`. A killed run can leave an `elden-ring-it-*` index behind; delete it by hand.
 
 ## Deploy
 
