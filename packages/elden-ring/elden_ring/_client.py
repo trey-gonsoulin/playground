@@ -1510,6 +1510,31 @@ def _queryable_paths() -> frozenset[str]:
     return frozenset(paths)
 
 
+def _disabled_paths() -> frozenset[str]:
+    """Mapped objects with enabled: false: kept in _source, never indexed (#446)."""
+    return frozenset(
+        path
+        for path, spec in _mapping_paths(
+            INDEX_MAPPING["mappings"]["properties"]
+        ).items()
+        if spec.get("enabled") is False
+    )
+
+
+def _unsearchable_fields(names: list[str] | None) -> list[str]:
+    """Names that are, or sit inside, an enabled: false object (#446).
+
+    Such a path is returned by get_entity / include_fields and diffed by
+    text_changed_between, but a query on it matches nothing.
+    """
+    disabled = _disabled_paths()
+    return [
+        n
+        for n in names or []
+        if n in disabled or any(n.startswith(d + ".") for d in disabled)
+    ]
+
+
 def _unknown_fields(names: list[str] | None) -> list[str]:
     """Field names not in the mapping; a name with * passes if it matches any path."""
     if not names:
@@ -1599,6 +1624,9 @@ def _field_coverage_warnings(
                 base = base[: -len(suf)]
                 break
         bases.append(base)
+    # An enabled: false object has no exists entry, so it would always look
+    # uncarried; search_literal rejects it up front (#446).
+    unsearchable = set(_unsearchable_fields(bases))
     check = list(dict.fromkeys([*bases, *_LITERAL_FIELDS]))
     query = {"term": {"entity_type": entity_type}} if entity_type else {"match_all": {}}
     resp = client.search(
@@ -1622,7 +1650,7 @@ def _field_coverage_warnings(
         f"{f}: no {scope} carry this field; "
         f"text fields they carry: {', '.join(carried) or 'none'}"
         for f, base in zip(fields, bases)
-        if not counts.get(base)
+        if not counts.get(base) and base not in unsearchable
     ]
 
 
@@ -2178,14 +2206,15 @@ _LITERAL_FIELDS_LEMMA = [
     "effect_text_ja.lemma",
     "info_text_ja.lemma",
 ]
-# Japanese text fields whose analyzer lives on a subfield, not the base field.
-_JP_BASE_FIELDS = {
-    "name_ja",
-    "description_ja",
-    "text_content_ja",
-    "effect_text_ja",
-    "info_text_ja",
-}
+# Japanese text fields whose analyzer lives on a subfield, not the base field:
+# every mapped path with a .morph subfield, so a new *_ja field routes without a
+# hand-kept list (subtitles_ja was missing, #446). subtitles / subtitles_ja stay
+# out of the default _LITERAL_FIELDS*: cutscene text is opt-in via fields=.
+_JP_BASE_FIELDS = frozenset(
+    path
+    for path, spec in _mapping_paths(INDEX_MAPPING["mappings"]["properties"]).items()
+    if "morph" in spec.get("fields", {})
+)
 _JP_SUBFIELD_SUFFIXES = (".lemma", ".morph", ".ja")
 
 
@@ -2283,7 +2312,8 @@ def search_literal(
     expected baseform before querying. use_lemmatize takes precedence over use_kuromoji.
 
     An explicit fields list composes with both modes: Japanese fields named there
-    (name_ja, description_ja, text_content_ja, effect_text_ja, info_text_ja) are routed
+    (name_ja, description_ja, text_content_ja, effect_text_ja, info_text_ja,
+    subtitles_ja) are routed
     to the matching .lemma/.morph
     subfield automatically, so fields=["description_ja"] with use_lemmatize=True searches
     description_ja.lemma. Without this, an explicit field would search the surface form and
@@ -2298,7 +2328,16 @@ def search_literal(
     (and drop_near_locations, #347) unless include_drop_fields=False (#344), so an
     item dropped where its enemy dies is found by the place as well as a pickup
     there.
+
+    A fields= entry that is an enabled: false object (placements, shop_listings,
+    upgrade_curve, set_when, ...; describe_index marks it searchable: false) is
+    an error: it is stored, not indexed, so a query on it matches nothing (#446).
     """
+    if unsearchable := _unsearchable_fields(fields):
+        return {
+            "error": f"field(s) {unsearchable} are stored, not indexed; read it "
+            "with get_entity"
+        }
     if err := _precheck(source, fields, include_fields):
         return err
     search_fields = (
@@ -5373,20 +5412,16 @@ def describe_index(client: OpenSearch) -> dict:
     }
 
     fields: dict[str, dict] = {}
-
-    def _walk(props: dict, prefix: str) -> None:
-        for fname, spec in props.items():
-            path = prefix + fname
-            entry: dict = {"type": spec.get("type", "object")}
-            subs = [s for s in spec.get("fields", {})]
-            if subs:
-                entry["subfields"] = subs
-            if path in _FIELD_NOTES:
-                entry["note"] = _FIELD_NOTES[path]
-            fields[path] = entry
-            if "properties" in spec:
-                _walk(spec["properties"], path + ".")
-
-    _walk(INDEX_MAPPING["mappings"]["properties"], "")
+    for path, spec in _mapping_paths(INDEX_MAPPING["mappings"]["properties"]).items():
+        entry: dict = {"type": spec.get("type", "object")}
+        subs = [s for s in spec.get("fields", {})]
+        if subs:
+            entry["subfields"] = subs
+        # Stored in _source, not indexed: get_entity / include_fields only (#446).
+        if spec.get("enabled") is False:
+            entry["searchable"] = False
+        if path in _FIELD_NOTES:
+            entry["note"] = _FIELD_NOTES[path]
+        fields[path] = entry
 
     return {"entity_types": entity_types, "sources": sources, "fields": fields}

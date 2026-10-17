@@ -666,7 +666,9 @@ def describe_fields() -> dict:
     diffed (text_changed_between field=) is listed with its type and a note where
     the meaning isn't obvious — including the native-rich fields like effect,
     infusable, default_ash_of_war, damage_types, is_legendary, depicts_weapon, and the
-    .ja/.morph/.lemma Japanese subfields. Stats are grouped objects listed by dotted
+    .ja/.morph/.lemma Japanese subfields. An object with "searchable": false is
+    stored but not indexed: get_entity / include_fields return it and
+    text_changed_between diffs it, but search fields= rejects it. Stats are grouped objects listed by dotted
     path (attack_power.fire, attack_power.critical, scaling.str.grade,
     scaling.str.value, requirements.dex, guard.physical, guard.resistances.bleed,
     status_buildup.bleed, max_level.attack_power.physical, max_level.scaling.str.grade, negation.slash,
@@ -850,7 +852,11 @@ def search_entities_literal(
             "warnings" entry — see the per-field notes in describe_fields(). Japanese fields named here are routed to the subfield for
             the active mode (.morph when use_kuromoji=True, .lemma when
             use_lemmatize=True), so an explicit fields list composes correctly with
-            those modes. The acquisition keyword fields (sold_by, acquisition_sources,
+            those modes (subtitles_ja too; subtitles / subtitles_ja are not in
+            the default set). Objects describe_fields() marks searchable: false
+            (placements, shop_listings, upgrade_curve, set_when, ...) are stored,
+            not indexed: naming one returns an error; read it with get_entity or
+            include_fields. The acquisition keyword fields (sold_by, acquisition_sources,
             acquisition_types) are NOT in the default set — to search them (e.g. find
             everything a merchant sells) you must name them explicitly, e.g.
             fields=["sold_by"]. See describe_fields() for the full field catalog.
