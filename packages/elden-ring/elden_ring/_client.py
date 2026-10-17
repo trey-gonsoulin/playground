@@ -5194,9 +5194,11 @@ _FIELD_NOTES: dict[str, str] = {
     "steps.locations": "where the phase plays out: the dungeon location docs, else the "
     "landmarks whose MSB footprint is centred on the open-world tile (#190) followed "
     "by the region of the grace nearest the tile's centre, of every map whose event "
-    "script checks the phase flag; for a map-local phase no map event checks (#421), "
-    "the maps whose events set it, else where the NPC's talk scripts that touch it "
-    "are placed",
+    "script checks the phase flag. A map-local step of a talk-driven quest (#420) is "
+    "where an event sets it, else where the NPC's talk scripts that touch it are "
+    "placed (those in the map the flag id names, if any), else as above; one no map "
+    "event checks (#421) is where an event sets it, else where the NPC's talk scripts "
+    "that touch it are placed, else any of the NPC's talk placements",
     "steps.when": "the other conditions of the transition, all required. kind: "
     "boss_defeated (bosses), invasion (an NPC-invasion defeat flag, #138; npc = the "
     "NPC fought, the invasion's host character, #314), item_pickup "
