@@ -17,6 +17,8 @@ _NEW = ("effect_text", "info_text")
 def test_message_and_network_streams_documented():
     # #387: the new game_text kinds and a message word's category
     assert _PROPS["message_category"] == {"type": "keyword"}
+    # a category label that filters match on
+    assert "Enemies" in _FIELD_NOTES["message_category"]
     for kind in ("network_message", "menu_dialog", "message_word", "placed_message"):
         assert kind in _FIELD_NOTES["tags"]
 

@@ -61,7 +61,7 @@ uv run --package elden-ring pytest packages/elden-ring/tests/   # offline; no AW
 packages/elden-ring/scripts/check.sh                            # the quality gate (below)
 ```
 
-There is no CI, so run `scripts/check.sh` before pushing. It runs the locked dev tools from `[dependency-groups].dev`: `ruff check`, `ruff format --check`, `pyright` (basic mode), then the offline tests with `--cov-fail-under=45`. The ruff rule set, pyright settings and per-file waivers are in this package's `pyproject.toml`. Arguments go to `uv run`; on a machine that can't reach the default index (#454), pass `--offline`. The loader scripts are on the test path (`pythonpath = ["scripts"]`), so tests import `load_data` and friends directly.
+There is no CI, so run `scripts/check.sh` before pushing. It runs the locked tools from the `lint` dependency group (`--group lint`): `ruff check`, `ruff format --check`, `pyright` (basic mode), then the offline tests with `--cov-fail-under=45`. The `lint` group is not installed by default, so the plain pytest command above never needs its wheels. Its packages (ruff, pyright, pytest-cov, coverage, nodeenv) are pinned to an explicit PyPI index through `[tool.uv.sources]`, so the first run downloads them from PyPI even when the default index is unreachable (#454); after that they are cached and `check.sh --offline` works too. The ruff rule set, pyright settings and per-file waivers are in this package's `pyproject.toml`. Other arguments also go to `uv run`. The loader scripts are on the test path (`pythonpath = ["scripts"]`), so tests import `load_data` and friends directly.
 
 Audit the locked runtime dependencies now and then, and after any lock change:
 
