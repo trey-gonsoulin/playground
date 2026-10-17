@@ -142,6 +142,17 @@ _STATUSES = (
     "madness",
     "death_blight",
 )
+# Follow-up actions of skill.attacks.recovery_frames (#431).
+_SKILL_RECOVERY_ACTIONS = (
+    "dodge",
+    "right_hand_attack",
+    "left_hand_attack",
+    "skill",
+    "guard",
+    "quick_item",
+    "item",
+    "move",
+)
 
 
 def _props(type_: str, keys) -> dict:
@@ -1362,6 +1373,11 @@ INDEX_MAPPING = {
                             "active_frames": {
                                 "properties": _props("integer", ("start", "end"))
                             },
+                            # Recovery per follow-up action, anim length (#431).
+                            "recovery_frames": {
+                                "properties": _props("integer", _SKILL_RECOVERY_ACTIONS)
+                            },
+                            "total_frames": {"type": "integer"},
                             "projectile": {"type": "boolean"},
                             "hit_count": {"type": "integer"},
                         }
@@ -3744,8 +3760,30 @@ _FIELD_NOTES: dict[str, str] = {
     "skill.attacks.active_frames": "frames (30 per second) from the start of the "
     "skill animation during which the hit's hitbox is active (the TAE attack event), "
     "start / end: Unsheathe light 13-15, Lion's Claw 50-53. This is the hitbox's "
-    "active window, so start is also the hit's startup; recovery after the hit isn't "
-    "in the data. Melee hits only",
+    "active window, so start is also the hit's startup; recovery_frames and "
+    "total_frames give the rest of the animation. Melee hits only",
+    "skill.attacks.recovery_frames": "frames (30 per second) from the end of the "
+    "last hit of the hit's skill animation until the player can leave it for each "
+    "follow-up action (#431): dodge, right_hand_attack, left_hand_attack, skill, "
+    "guard, quick_item, item, move. Each is the opening of that action's cancel "
+    "window in the animation's TAE (ChrActionFlag events). Lion's Claw dodge 30 / "
+    "right_hand_attack 41 / move 50, Unsheathe light dodge 18. 0 means the window "
+    "is already open when the last hit ends (some stances). Both hits of one "
+    "animation share its values. The cancel windows were checked against the "
+    "wiki's per-action tables for two skills that deal no damage, so they have no "
+    "hit here. Quickstep's roll 10 / right-hand attack 2 / left-hand attack 6 / Ash "
+    "of War 7 / block 10 / quick item 7 / item 12 / walk 14 all match when counted "
+    "from the end of its i-frames. Golden Parry's single figure of 18 matches its "
+    "earliest cancel. Its per-action list counts from a later frame, so its values "
+    "are 5 lower than this count (quick item 3 lower). The "
+    "animations come from the current patch's files, so older patches show today's "
+    "timing. Melee hits only",
+    "skill.attacks.total_frames": "length of the hit's skill animation in frames "
+    "(30 per second; the animation file's duration, or that of the animation it "
+    "reuses, like a no-FP version playing the FP one's) (#431): Lion's Claw 122, "
+    "Unsheathe light 68 / heavy 84. The player can usually act before the end; "
+    "recovery_frames says when. Current-patch animations, like active_frames. Melee "
+    "hits only",
     "skill.effects": "the buffs the skill itself applies (#326), decoded like item "
     "effects from the SpEffects its animations add (AddSpEffect_WeaponArts, enough-FP "
     "version): Barbaric Roar '+7.5% physical attack for 40s', Sacred Blade '+90 holy "
