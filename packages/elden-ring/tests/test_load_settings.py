@@ -3,21 +3,18 @@ needed."""
 
 import json
 import sys
-from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-
-import load_data  # noqa: E402
-import load_dataset  # noqa: E402
+import load_data
+import load_dataset
 
 
 def _run_main(monkeypatch, tmp_path, errors, *flags, prune_errors=()):
     ds = tmp_path / "ds.json"
     ds.write_text(json.dumps([{"entity_type": "weapon", "name": "Dagger"}]))
     pruned = []
-    monkeypatch.setattr(load_dataset, "_get_client", lambda: object())
+    monkeypatch.setattr(load_dataset, "_get_client", object)
     monkeypatch.setattr(load_dataset, "ensure_index", lambda c, recreate: None)
     monkeypatch.setattr(
         load_dataset, "load_documents", lambda c, docs, dry_run: (1, errors)

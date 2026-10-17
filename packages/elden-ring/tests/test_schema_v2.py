@@ -2,7 +2,7 @@
 No OpenSearch needed."""
 
 from elden_ring import mcp_server
-from elden_ring._client import _FIELD_NOTES, _flatten, INDEX_MAPPING
+from elden_ring._client import _FIELD_NOTES, INDEX_MAPPING, _flatten
 
 _PROPS = INDEX_MAPPING["mappings"]["properties"]
 

@@ -36,7 +36,7 @@ from load_data import INDEX, _concrete_indices, _to_bulk_actions, scan
 def doc_hash(source: dict) -> str:
     """A stable hash of a doc's indexed ``_source`` (key order doesn't matter)."""
     blob = json.dumps(source, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
-    return hashlib.sha1(blob.encode("utf-8")).hexdigest()[:16]
+    return hashlib.sha1(blob.encode("utf-8"), usedforsecurity=False).hexdigest()[:16]
 
 
 def target_index(client) -> str | None:
@@ -64,7 +64,7 @@ def _read(path: Path) -> dict[str, dict[str, str]]:
 def _hashes(docs: list[dict]) -> dict[str, dict[str, dict[str, str]]]:
     """version -> entity_type -> _id -> hash (the last doc of a repeated _id wins,
     as it does in the bulk load)."""
-    out: dict = defaultdict(lambda: defaultdict(dict))
+    out: dict[str, dict[str, dict[str, str]]] = defaultdict(lambda: defaultdict(dict))
     for a in _to_bulk_actions(docs):
         s = a["_source"]
         out[s.get("patch_version", "unknown")][s["entity_type"]][a["_id"]] = doc_hash(s)
@@ -104,7 +104,11 @@ def select_changed(
             total += len(ids)
             changed |= {i for i, h in ids.items() if prev.get(i) != h or i not in live}
     named = [d for d in docs if d.get("name")]
-    out = [d for d, a in zip(named, _to_bulk_actions(named)) if a["_id"] in changed]
+    out = [
+        d
+        for d, a in zip(named, _to_bulk_actions(named), strict=True)
+        if a["_id"] in changed
+    ]
     print(
         f"  Unchanged since the last load into '{index}': {total - len(changed)} of "
         f"{total} docs skipped; {len(changed)} to index."
@@ -116,15 +120,15 @@ def _update(manifest_dir, index: str, version: str, change) -> None:
     path = _path(manifest_dir, index, version)
     path.parent.mkdir(parents=True, exist_ok=True)
     # A lock per file: a dialogue reload may update the same version's manifest.
-    with open(path.with_name(f"{version}.lock"), "w") as lock:
+    with path.with_name(f"{version}.lock").open("w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         data = change(_read(path))
         tmp = path.with_name(f"{version}.json.tmp")
-        with open(tmp, "w", encoding="utf-8") as f:
+        with tmp.open("w", encoding="utf-8") as f:
             f.write(json.dumps(data, sort_keys=True))
             f.flush()
             os.fsync(f.fileno())  # durable before the rename replaces the old one
-        os.replace(tmp, path)
+        tmp.replace(path)
 
 
 def forget(docs: list[dict], manifest_dir, index: str) -> None:

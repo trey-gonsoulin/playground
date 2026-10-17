@@ -7,7 +7,7 @@ from elden_ring._calc import attack_rating, effective_stats, graph_value, spell_
 # CalcCorrectGraph 0 (damage) and 6 (status) as the 1.17 regulation defines them.
 _G0 = [[1, 0, 1.2], [18, 25, -1.2], [60, 75, 1], [80, 90, 1], [150, 110, 1]]
 _G6 = [[1, 0, 1], [25, 10, 1], [45, 75, 1], [60, 90, 1], [99, 100, 1]]
-_TENS = {s: 10 for s in ("str", "dex", "int", "fai", "arc")}
+_TENS = dict.fromkeys(("str", "dex", "int", "fai", "arc"), 10)
 
 
 def _inputs(**kw) -> dict:
@@ -86,7 +86,7 @@ def test_catalyst_spell_scaling():
         scaling={"int": [100.0]},
         correct={"physical": [], "magic": ["int"]},
         attack={"physical": [25.0]},
-        graph_ids={t: 0 for t in ("physical", "magic", "fire", "lightning", "holy")},
+        graph_ids=dict.fromkeys(("physical", "magic", "fire", "lightning", "holy"), 0),
     )
     r = attack_rating(inputs, {"int": 10}, {**_TENS, "int": 60}, 0, False)
     assert r["spell_scaling"]["magic"] == 175
@@ -243,9 +243,9 @@ def test_calculate_attack_rating_with_spell(monkeypatch):
             scaling={"int": [100.0]},
             correct={"physical": [], "magic": ["int"]},
             attack={"physical": [25.0]},
-            graph_ids={
-                t: 0 for t in ("physical", "magic", "fire", "lightning", "holy")
-            },
+            graph_ids=dict.fromkeys(
+                ("physical", "magic", "fire", "lightning", "holy"), 0
+            ),
         ),
     }
     spells = {

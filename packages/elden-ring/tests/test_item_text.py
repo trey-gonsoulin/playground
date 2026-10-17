@@ -6,8 +6,8 @@ from elden_ring._client import (
     _LITERAL_FIELDS,
     _LITERAL_FIELDS_LEMMA,
     _LITERAL_FIELDS_MORPH,
-    _route_literal_fields,
     INDEX_MAPPING,
+    _route_literal_fields,
 )
 
 _PROPS = INDEX_MAPPING["mappings"]["properties"]
