@@ -27,7 +27,7 @@ import json
 import sys
 
 from load_data import _get_client, ensure_index, load_documents, prune_stale
-from load_manifest import record, select_changed, target_index
+from load_manifest import forget, record, select_changed, target_index
 
 
 def main() -> None:
@@ -77,6 +77,8 @@ def main() -> None:
     if args.manifest_dir and client is not None:
         index = target_index(client)
         to_load = select_changed(client, docs, args.manifest_dir, index, args.full)
+        if index and not args.dry_run:
+            forget(docs, args.manifest_dir, index)
     _, errors = load_documents(client, to_load, dry_run=args.dry_run)
     if args.prune:
         if errors:
@@ -88,7 +90,8 @@ def main() -> None:
     # that check the exit status can't mistake a partial load for success.
     if errors:
         sys.exit(f"load had {len(errors)} errors")
-    # Only a clean load (+ prune) is recorded, so a failure never hides a doc (#409).
+    # Only a clean load (+ prune) is recorded; forget() above already dropped these
+    # types, so a failure never hides a doc (#409).
     if index and not args.dry_run:
         record(docs, args.manifest_dir, index)
 

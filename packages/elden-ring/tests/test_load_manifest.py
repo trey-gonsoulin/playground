@@ -59,7 +59,7 @@ def _load(monkeypatch, tmp_path, live, docs, *flags, indices=("er-v2",), errors=
     monkeypatch.setattr(load_dataset, "_get_client", lambda: object())
     monkeypatch.setattr(load_dataset, "ensure_index", lambda c, recreate: None)
     monkeypatch.setattr(load_dataset, "load_documents", fake_load)
-    monkeypatch.setattr(load_dataset, "prune_stale", lambda c, docs, dry_run: 0)
+    monkeypatch.setattr(load_dataset, "prune_stale", lambda c, docs, dry_run: (0, []))
     monkeypatch.setattr(load_manifest, "_concrete_indices", lambda c: list(indices))
     monkeypatch.setattr(sys, "argv", ["load_dataset.py", str(ds), *flags])
     load_dataset.main()
@@ -117,11 +117,24 @@ def test_full_new_index_and_failed_load(monkeypatch, tmp_path, live):
     # two concrete indices behind the alias: full load, no manifest written
     assert len(_load(monkeypatch, tmp_path, live, docs, *m, indices=("a", "b"))) == 2
     assert not (tmp_path / "m/a").exists()
-    # a failed load records nothing, so its changed docs load again next time
+    # a failed load drops its types from the manifest: they load in full next time
     docs[0] = _doc("Dagger", atk=9)
     with pytest.raises(SystemExit):
         _load(monkeypatch, tmp_path, live, docs, *m, errors=[{"index": {}}])
+    assert _load(monkeypatch, tmp_path, live, docs, *m) == ["Dagger", "Club"]
+
+
+def test_failed_load_then_revert_reloads(monkeypatch, tmp_path, live):
+    # a failed load may already have written some new content; reverting to the
+    # recorded content must not be skipped as "unchanged"
+    m = ["--manifest-dir", str(tmp_path / "m")]
+    docs = [_doc("Dagger", atk=1), _doc("Melina 1", "npc_dialogue")]
+    _load(monkeypatch, tmp_path, live, docs, *m)
+    with pytest.raises(SystemExit):
+        _load(monkeypatch, tmp_path, live, [_doc("Dagger", atk=9)], *m, errors=[{}])
     assert _load(monkeypatch, tmp_path, live, docs, *m) == ["Dagger"]
+    saved = json.loads((tmp_path / "m/er-v2/1.05.json").read_text())
+    assert sorted(saved) == ["npc_dialogue", "weapon"]
 
 
 def test_partial_type_load_keeps_other_types(monkeypatch, tmp_path, live):
