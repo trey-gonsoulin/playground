@@ -31,6 +31,14 @@ _DOC = {
                     "flag": 1039409260,
                     "negated": True,
                     "set_at": ["Liurnia of the Lakes"],
+                    # #314: what turns it on (stored, not indexed)
+                    "set_when": [
+                        {
+                            "kind": "boss_defeated",
+                            "flag": 2052400800,
+                            "bosses": ["Jagged Peak Drake"],
+                        }
+                    ],
                 },
                 {
                     "kind": "boss_defeated",
@@ -38,7 +46,7 @@ _DOC = {
                     "bosses": ["Rennala, Queen of the Full Moon"],
                 },
                 {"kind": "talk", "flag": 31159206, "npcs": ["Demi-Human Boc"]},
-                {"kind": "invasion", "flag": 7610},
+                {"kind": "invasion", "flag": 7610, "npc": "Millicent"},  # #314
                 {"kind": "item_pickup", "flag": 1, "items": ["Larval Tear"]},
                 {"kind": "item_held", "items": ["Larval Tear"]},
                 {"kind": "item_held", "item_id": 8185},
@@ -119,6 +127,8 @@ def _mapped(path: str) -> dict | None:
         spec = props.get(part)
         if spec is None:
             return None
+        if spec.get("enabled") is False:
+            return spec  # stored, not indexed: its leaves need no mapping
         props = spec.get("properties", {})
     return spec
 
@@ -126,6 +136,7 @@ def _mapped(path: str) -> dict | None:
 def test_quest_doc_fully_mapped():
     paths = set(_leaves(_DOC))
     assert "steps.when.bosses" in paths and "outcomes.when.life_state" in paths
+    assert "steps.when.set_when.bosses" in paths  # #314
     for path in paths:
         spec = _mapped(path)
         assert spec is not None and "type" in spec, path
