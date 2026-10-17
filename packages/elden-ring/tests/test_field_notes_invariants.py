@@ -41,6 +41,19 @@ def test_every_mapped_leaf_has_an_own_or_ancestor_note():
     assert not missing, missing
 
 
+def test_every_disabled_object_has_its_own_note():
+    # #469: an enabled: false object is a leaf of the mapping whose inner shape
+    # describe_fields can't show, so its note sits on the path itself.
+    missing = sorted(p for p in _client._disabled_paths() if p not in _FIELD_NOTES)
+    assert not missing, missing
+
+
+def test_every_shared_disabled_note_names_a_disabled_leaf():
+    leaves = {p.rsplit(".", 1)[-1] for p in _client._disabled_paths()}
+    stale = sorted(set(_client._DISABLED_LEAF_NOTES) - leaves)
+    assert not stale, stale
+
+
 def test_notes_are_non_empty_strings():
     bad = [
         k for k, v in _FIELD_NOTES.items() if not isinstance(v, str) or not v.strip()
