@@ -2508,8 +2508,8 @@ def _with_drop_fields(fields: list[str]) -> list[str]:
 
 def search_literal(
     client: OpenSearch,
-    *,
     pattern: str | None = None,
+    *,
     fields: list[str] | None = None,
     entity_type: str | None = None,
     patch_version: str | None = None,
@@ -2624,8 +2624,8 @@ def search_literal(
 
 def _search_literal(
     client: OpenSearch,
-    *,
     pattern: str | None = None,
+    *,
     fields: list[str] | None = None,
     entity_type: str | None = None,
     patch_version: str | None = None,
