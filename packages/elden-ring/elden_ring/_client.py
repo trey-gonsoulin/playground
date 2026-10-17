@@ -3727,17 +3727,23 @@ _FIELD_NOTES: dict[str, str] = {
     "Moonlight's wave 140 magic). How the weapon's scaling applies to it isn't "
     "derived",
     "skill.attacks.stamina_cost": "stamina the hit's attack costs (BehaviorParam_PC "
-    "stamina), the base value before the weapon's stamina_cost_multiplier; Lion's "
-    "Claw 45. Melee hits only",
+    "StaminaCost), the base value before the weapon's stamina_cost_multiplier; Lion's "
+    "Claw 45. Absent (not 0) when that row's StaminaCost is 0, which many melee hits "
+    "have: Sacred Blade's FP hit has none while its no-FP hit costs 30. Whether those "
+    "hits cost stamina some other way isn't derived. Never on projectile hits",
     "skill.attacks.active_frames": "frames (30 per second) from the start of the "
     "skill animation during which the hit's hitbox is active (the TAE attack event), "
-    "start / end: Unsheathe light 13-15, Lion's Claw 50-53. Startup only; recovery "
-    "isn't in the data. Melee hits only",
+    "start / end: Unsheathe light 13-15, Lion's Claw 50-53. This is the hitbox's "
+    "active window, so start is also the hit's startup; recovery after the hit isn't "
+    "in the data. Melee hits only",
     "skill.effects": "the buffs the skill itself applies (#326), decoded like item "
     "effects from the SpEffects its animations add (AddSpEffect_WeaponArts, enough-FP "
     "version): Barbaric Roar '+7.5% physical attack for 40s', Sacred Blade '+90 holy "
     "attack power for 40s; +100% damage vs undead for 40s', Determination '+60% "
-    "attack' (pvp 30) for 10s. skill.effect / effect_value / effect_duration "
+    "attack' (pvp 30) for 10s. An entry that holds only sometimes says so in its "
+    "condition: Determination's '-25% attack (on critical hits)' (its +60% is +20% "
+    "on a critical), Shriek of Sorrow's +10/15/20/25% by HP tier, Stamp's '-50% "
+    "damage taken (during the skill)'. skill.effect / effect_value / effect_duration "
     "summarise them like item effect. Buffs a skill spreads through a projectile or "
     "area (Golden Vow, Holy Ground) aren't included",
     "default_affinity": "Ash of War: the affinity a weapon takes when it's applied "
