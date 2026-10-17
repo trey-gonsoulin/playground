@@ -9,7 +9,7 @@ import os
 import ssl
 import time
 import unicodedata
-from typing import overload
+from typing import Any, overload
 
 import boto3
 from opensearchpy import OpenSearch, Urllib3HttpConnection
@@ -28,7 +28,7 @@ _cached_password: str | None = None
 _cached_client: OpenSearch | None = None
 
 
-def _ec2() -> "boto3.client":
+def _ec2() -> Any:  # a boto3 EC2 client (boto3.client is a factory, not a type)
     return boto3.client("ec2", region_name=os.environ.get("AWS_REGION", "us-east-1"))
 
 
@@ -98,7 +98,7 @@ class PinnedCAConnection(Urllib3HttpConnection):
         super()._create_urllib3_pool()
         # opensearch-py drops ssl_assert_hostname when given an ssl_context, and
         # urllib3 then matches the hostname itself. The chain check still runs.
-        self.pool.assert_hostname = False
+        self.pool.assert_hostname = False  # pyright: ignore[reportOptionalMemberAccess]
 
 
 def tls_options() -> dict:
@@ -191,7 +191,8 @@ def start_instance(timeout_seconds: int = 240) -> str:
     # Poll OpenSearch health (verified TLS, #467) until green/yellow or timeout.
     while time.monotonic() < deadline:
         try:
-            health = get_client().cluster.health(request_timeout=5)
+            # request_timeout is a global param the query_params decorator takes.
+            health = get_client().cluster.health(request_timeout=5)  # pyright: ignore[reportCallIssue]
             if health.get("status") in ("green", "yellow"):
                 return hostname
         except TransportError:  # unreachable, or 503 while the security index loads
@@ -1566,11 +1567,34 @@ def _variant_filter(collapse_variants: bool) -> list[dict]:
     Weapon affinities (Heavy Dagger), talisman ranks (Erdtree's Favor +2), flask +N
     and altered armor are their own docs naming their base in ``base_item``;
     collapsing keeps the docs without it (bases, and everything outside a family).
-    Supersedes the weapon-only collapse_affinity (#21).
+    Supersedes the weapon-only collapse_affinity (#21; alias removed in #458).
     """
     if not collapse_variants:
         return []
     return [{"bool": {"must_not": [{"exists": {"field": "base_item"}}]}}]
+
+
+def _base_filters(
+    *,
+    entity_type: str | None,
+    patch_version: str | None,
+    source: str | None,
+    include_unavailable: bool,
+    collapse_variants: bool,
+    is_dlc: bool | None,
+) -> list[dict]:
+    """The filter clauses search() and search_literal() share (#458)."""
+    filters: list[dict] = []
+    if entity_type:
+        filters.append({"term": {"entity_type": entity_type}})
+    if patch_version:
+        filters.append({"term": {"patch_version": patch_version}})
+    if source:
+        filters.append({"term": {"source": source}})
+    filters += _availability_filter(include_unavailable)
+    filters += _variant_filter(collapse_variants)
+    filters += _dlc_filter(is_dlc)
+    return filters
 
 
 # Source values from the retired erdb/fextralife layers (2026-09-21). An unknown
@@ -1622,6 +1646,7 @@ def unmapped_paths(docs: list[dict]) -> list[str]:
     return sorted(out)
 
 
+@functools.cache
 def _queryable_paths() -> frozenset[str]:
     """Mapped paths plus their subfields (description_ja.lemma, name.keyword)."""
     paths = set()
@@ -1778,6 +1803,7 @@ def _field_coverage_warnings(
 def search(
     client: OpenSearch,
     query: str,
+    *,
     entity_type: str | None = None,
     patch_version: str | None = None,
     limit: int = 20,
@@ -1785,23 +1811,20 @@ def search(
     count_only: bool = False,
     source: str | None = None,
     include_unavailable: bool = False,
-    collapse_affinity: bool = False,
     collapse_variants: bool = False,
     is_dlc: bool | None = None,
 ) -> list[dict] | dict:
     if err := _precheck(source, include_fields):
         return err
-    patch_version = _canonical_version(client, patch_version)
-    filters = []
-    if entity_type:
-        filters.append({"term": {"entity_type": entity_type}})
-    if patch_version:
-        filters.append({"term": {"patch_version": patch_version}})
-    if source:
-        filters.append({"term": {"source": source}})
-    filters += _availability_filter(include_unavailable)
-    filters += _variant_filter(collapse_variants or collapse_affinity)
-    filters += _dlc_filter(is_dlc)
+    patch_version = _request_version(client, patch_version)
+    filters = _base_filters(
+        entity_type=entity_type,
+        patch_version=patch_version,
+        source=source,
+        include_unavailable=include_unavailable,
+        collapse_variants=collapse_variants,
+        is_dlc=is_dlc,
+    )
 
     body: dict = {
         "size": 0 if count_only else limit,
@@ -1918,7 +1941,7 @@ def _swap_newest(
         if (k := _hit_entity_key(h))
     }
     return [
-        {**h, "_source": newest.get(_hit_entity_key(h), h.get("_source", {}))}
+        {**h, "_source": newest.get(_hit_entity_key(h) or "", h.get("_source", {}))}
         for h in hits
     ]
 
@@ -1934,27 +1957,38 @@ def _ascii_fold(s: str) -> str:
     return "".join(c for c in nfkd if not unicodedata.combining(c)).lower()
 
 
-def _newest_doc(client: OpenSearch, term: dict, entity_type: str | None) -> dict | None:
+def _newest_hit(
+    client: OpenSearch, term: dict, entity_type: str | None
+) -> tuple[dict | None, list[str]]:
+    """Newest doc matching ``term``, plus (untyped only) every entity_type that
+    carries it, from the same query (#468)."""
     filters: list[dict] = [{"term": term}]
     if entity_type:
         filters.append({"term": {"entity_type": entity_type}})
-    resp = client.search(
-        index=INDEX,
-        body={
-            "size": 1,
-            "query": {"bool": {"filter": filters}},
-            # entity_type breaks ties between same-name docs of two types (#443).
-            "sort": [{"patch_version": "desc"}, {"entity_type": "asc"}],
-        },
-    )
+    body: dict = {
+        "size": 1,
+        "query": {"bool": {"filter": filters}},
+        # entity_type breaks ties between same-name docs of two types (#443), so
+        # an untyped shared name resolves the same way every time (#468).
+        "sort": [{"patch_version": "desc"}, {"entity_type": "asc"}],
+    }
+    if not entity_type:
+        body["aggs"] = {"types": {"terms": {"field": "entity_type", "size": 50}}}
+    resp = client.search(index=INDEX, body=body)
     hits = resp["hits"]["hits"]
-    return hits[0]["_source"] if hits else None
+    buckets = resp.get("aggregations", {}).get("types", {}).get("buckets", [])
+    return (hits[0]["_source"] if hits else None), sorted(b["key"] for b in buckets)
+
+
+def _newest_doc(client: OpenSearch, term: dict, entity_type: str | None) -> dict | None:
+    return _newest_hit(client, term, entity_type)[0]
 
 
 def _resolve_entity_doc(
     client: OpenSearch, name: str, entity_type: str | None = None
-) -> tuple[dict, bool] | None:
-    """Newest doc matching an input name, plus whether the match was historical.
+) -> tuple[dict, bool, list[str]] | None:
+    """Newest doc matching an input name, whether the match was historical, and
+    (untyped only) the other entity_types carrying that name (#468).
 
     Tries exact name, then diacritic-folded name (e.g. "Misericorde" finds
     "Miséricorde"), then display_name exact/folded for historical names of items
@@ -1968,9 +2002,9 @@ def _resolve_entity_doc(
         ({"display_name.keyword": name}, True),
         ({"display_name.folded": folded}, True),
     ):
-        doc = _newest_doc(client, term, entity_type)
+        doc, types = _newest_hit(client, term, entity_type)
         if doc:
-            return doc, historical
+            return doc, historical, [t for t in types if t != doc["entity_type"]]
     return None
 
 
@@ -1987,6 +2021,10 @@ def _resolve_entity_name(
 PLACEMENTS_LIMIT = 50
 
 
+@overload
+def trim_placements(doc: dict, limit: int = ...) -> dict: ...
+@overload
+def trim_placements(doc: None, limit: int = ...) -> None: ...
 def trim_placements(doc: dict | None, limit: int = PLACEMENTS_LIMIT) -> dict | None:
     """Drop a doc's ``placements`` list (and its variant_docs') when it is longer
     than ``limit``, keeping the count as ``placements_total``; maps, regions, areas
@@ -2008,23 +2046,28 @@ def trim_placements(doc: dict | None, limit: int = PLACEMENTS_LIMIT) -> dict | N
 def get_entity(
     client: OpenSearch,
     name: str,
+    *,
     entity_type: str | None = None,
     include_variants: bool = False,
     patch_version: str | None = None,
 ) -> dict | None:
     requested_version = patch_version
     if patch_version:
-        patch_version, err = _loaded_version(client, patch_version)
+        labels, err = _loaded_versions(client, patch_version)
         if err:
             return err
+        patch_version = labels[patch_version]
     resolved = _resolve_entity_doc(client, name, entity_type)
     if resolved is None:
         return _check_filter_values(client, entity_type)
-    doc, historical = resolved
+    doc, historical, other_types = resolved
     if patch_version:
         # As-of the entity_type's own version set (#206): dialogue is loaded once
         # per Data0 group, so a patch between representatives maps to the earlier one.
-        resolved_version, err = _asof_version(client, patch_version, doc["entity_type"])
+        etype = doc["entity_type"]
+        resolved_version, err = _asof_version(
+            patch_version, _entity_versions(client, etype), etype
+        )
         if resolved_version is None:
             return err
         found = _version_doc(client, doc["name"], doc["entity_type"], resolved_version)
@@ -2046,6 +2089,8 @@ def get_entity(
         }
     else:
         out = _public(doc)
+    if other_types:
+        out["other_entity_types"] = other_types
     if include_variants:
         out["variant_docs"] = _family_docs(client, out)
     return out
@@ -2142,26 +2187,26 @@ def _trimmed_key(version: str) -> tuple:
     return tuple(key)
 
 
-@overload
-def _canonical_version(client: OpenSearch, version: str) -> str: ...
-@overload
-def _canonical_version(client: OpenSearch, version: None) -> None: ...
-@overload
-def _canonical_version(client: OpenSearch, version: str | None) -> str | None: ...
-def _canonical_version(client: OpenSearch, version: str | None) -> str | None:
+def _canonical_version(version: str, loaded: list[str]) -> str:
     """The loaded patch label a requested version means, ignoring trailing zeros.
 
     Labels 1.02–1.06 have no third part while 1.07.0 on do, so "1.02.0" and
     "1.10" would otherwise be "not loaded". Returns the input unchanged when it's
-    loaded already or doesn't match exactly one loaded label.
+    loaded already or doesn't match exactly one loaded label. Pure: ``loaded`` is
+    the global version list, fetched once per call by the caller (#458).
     """
-    if not version:
-        return version
-    loaded = _entity_versions(client, None)
     if version in loaded:
         return version
     matches = [v for v in loaded if _trimmed_key(v) == _trimmed_key(version)]
     return matches[0] if len(matches) == 1 else version
+
+
+def _request_version(client: OpenSearch, version: str | None) -> str | None:
+    """A search filter's patch_version as its loaded label (one aggregation, and
+    none without a version)."""
+    if not version:
+        return version
+    return _canonical_version(version, _entity_versions(client, None))
 
 
 def _resolve_asof(version: str, versions: list[str]) -> str | None:
@@ -2179,36 +2224,57 @@ def _resolve_asof(version: str, versions: list[str]) -> str | None:
     return max(candidates, key=_ver_key) if candidates else None
 
 
-def _loaded_version(client: OpenSearch, version: str) -> tuple[str, dict | None]:
-    """The loaded label for a requested version, plus an error if no type has it.
+def _loaded_versions(
+    client: OpenSearch, *versions: str
+) -> tuple[dict[str, str], dict | None]:
+    """Each requested version's loaded label, plus an error for the first that no
+    type has.
 
     Shared by get_entity, diff_entities, text_changed_between and
     calculate_attack_rating (#439): a request must be a real patch somewhere in the
-    index before it's resolved as-of one type's (possibly sparser) set.
+    index before it's resolved as-of one type's (possibly sparser) set. One global
+    version aggregation however many versions (#458).
     """
-    canonical = _canonical_version(client, version)
     loaded = _entity_versions(client, None)
-    if canonical not in loaded:
-        return canonical, {
-            "error": f"patch version '{canonical}' is not loaded; "
-            f"loaded versions: {loaded}"
-        }
-    return canonical, None
+    requested: dict[str, str] = {}
+    for v in versions:
+        requested[v] = canonical = _canonical_version(v, loaded)
+        if canonical not in loaded:
+            return requested, {
+                "error": f"patch version '{canonical}' is not loaded; "
+                f"loaded versions: {loaded}"
+            }
+    return requested, None
 
 
 def _asof_version(
-    client: OpenSearch, version: str, entity_type: str
+    version: str, versions: list[str], entity_type: str
 ) -> tuple[str | None, dict | None]:
-    """A loaded version resolved as-of one entity_type's own versions (#206, #439)."""
-    ev = _entity_versions(client, entity_type)
-    if not ev:
+    """A loaded version resolved as-of one entity_type's own ``versions`` (#206,
+    #439), or None and an error."""
+    if not versions:
         return None, {"error": f"no '{entity_type}' documents are loaded"}
-    resolved = _resolve_asof(version, ev)
+    resolved = _resolve_asof(version, versions)
     if resolved is None:
         return None, {
             "error": f"no {entity_type} data at or before '{version}' "
-            f"(earliest loaded: {ev[0]})"
+            f"(earliest loaded: {versions[0]})"
         }
+    return resolved, None
+
+
+def _resolve_pair(
+    client: OpenSearch, labels: list[str], entity_type: str
+) -> tuple[dict[str, str], dict | None]:
+    """Loaded labels resolved as-of entity_type's versions ({label: snapshot}),
+    from one aggregation, or the first label's error (#439, #458)."""
+    versions = _entity_versions(client, entity_type)
+    resolved: dict[str, str] = {}
+    for v in labels:
+        res, err = _asof_version(v, versions, entity_type)
+        if res is None:
+            return resolved, err or {}
+        resolved[v] = res
     return resolved, None
 
 
@@ -2278,13 +2344,12 @@ def diff_entities(
     name: str,
     v1: str,
     v2: str,
+    *,
     entity_type: str | None = None,
 ) -> dict:
-    requested = {}
-    for v in (v1, v2):
-        requested[v], err = _loaded_version(client, v)
-        if err:
-            return err
+    requested, err = _loaded_versions(client, v1, v2)
+    if err:
+        return err
     v1, v2 = requested[v1], requested[v2]
 
     # Accept historical/diacritic-folded names; diff the canonical entity (#59), of
@@ -2296,12 +2361,9 @@ def diff_entities(
     queried_name, name = name, found[0]["name"]
     etype = entity_type or found[0]["entity_type"]
 
-    resolved: dict[str, str] = {}
-    for v in (v1, v2):
-        res, err = _asof_version(client, v, etype)
-        if res is None:
-            return err or {}
-        resolved[v] = res
+    resolved, err = _resolve_pair(client, [v1, v2], etype)
+    if err is not None:
+        return err
     r1, r2 = resolved[v1], resolved[v2]
 
     doc1 = _version_doc(client, name, etype, r1)
@@ -2332,6 +2394,8 @@ def diff_entities(
     }
     if queried_name != name:
         result["queried_name"] = queried_name
+    if found[2]:
+        result["other_entity_types"] = found[2]
     return result | _resolution_info(etype, requested, resolved)
 
 
@@ -2366,36 +2430,6 @@ _LITERAL_FIELDS = [
     "effect_text_ja",
     "info_text_ja",
 ]
-# Same as above but Japanese fields routed through the segmentation-only .morph
-# subfield so phrase queries respect kuromoji morpheme boundaries.
-_LITERAL_FIELDS_MORPH = [
-    "name",
-    "display_name",
-    "description",
-    "text_content",
-    "effect_text",
-    "info_text",
-    "name_ja.morph",
-    "description_ja.morph",
-    "text_content_ja.morph",
-    "effect_text_ja.morph",
-    "info_text_ja.morph",
-]
-# Same as above but Japanese fields routed through the lemmatizing .lemma
-# subfield (kuromoji_baseform only) so a baseform query matches all inflections.
-_LITERAL_FIELDS_LEMMA = [
-    "name",
-    "display_name",
-    "description",
-    "text_content",
-    "effect_text",
-    "info_text",
-    "name_ja.lemma",
-    "description_ja.lemma",
-    "text_content_ja.lemma",
-    "effect_text_ja.lemma",
-    "info_text_ja.lemma",
-]
 # Japanese text fields whose analyzer lives on a subfield, not the base field:
 # every mapped path with a .morph subfield, so a new *_ja field routes without a
 # hand-kept list (subtitles_ja was missing, #446). subtitles / subtitles_ja stay
@@ -2405,6 +2439,16 @@ _JP_BASE_FIELDS = frozenset(
     for path, spec in _mapping_paths(INDEX_MAPPING["mappings"]["properties"]).items()
     if "morph" in spec.get("fields", {})
 )
+# Same as _LITERAL_FIELDS with the Japanese fields routed through the
+# segmentation-only .morph subfield (phrase queries respect kuromoji morpheme
+# boundaries) or the lemmatizing .lemma subfield (kuromoji_baseform only, so a
+# baseform query matches all inflections). Derived, not hand-kept (#458).
+_LITERAL_FIELDS_MORPH = [
+    f"{f}.morph" if f in _JP_BASE_FIELDS else f for f in _LITERAL_FIELDS
+]
+_LITERAL_FIELDS_LEMMA = [
+    f"{f}.lemma" if f in _JP_BASE_FIELDS else f for f in _LITERAL_FIELDS
+]
 _JP_SUBFIELD_SUFFIXES = (".lemma", ".morph", ".ja")
 
 
@@ -2464,6 +2508,7 @@ def _with_drop_fields(fields: list[str]) -> list[str]:
 
 def search_literal(
     client: OpenSearch,
+    *,
     pattern: str | None = None,
     fields: list[str] | None = None,
     entity_type: str | None = None,
@@ -2480,7 +2525,6 @@ def search_literal(
     source: str | None = None,
     use_lemmatize: bool = False,
     include_unavailable: bool = False,
-    collapse_affinity: bool = False,
     collapse_variants: bool = False,
     is_dlc: bool | None = None,
     include_drop_fields: bool = True,
@@ -2540,7 +2584,7 @@ def search_literal(
         _with_drop_fields(fields) if fields and include_drop_fields else fields
     )
     requested_version = patch_version
-    patch_version = _canonical_version(client, patch_version)
+    patch_version = _request_version(client, patch_version)
     out = _search_literal(
         client,
         pattern=pattern,
@@ -2559,7 +2603,6 @@ def search_literal(
         source=source,
         use_lemmatize=use_lemmatize,
         include_unavailable=include_unavailable,
-        collapse_affinity=collapse_affinity,
         collapse_variants=collapse_variants,
         is_dlc=is_dlc,
     )
@@ -2581,6 +2624,7 @@ def search_literal(
 
 def _search_literal(
     client: OpenSearch,
+    *,
     pattern: str | None = None,
     fields: list[str] | None = None,
     entity_type: str | None = None,
@@ -2597,7 +2641,6 @@ def _search_literal(
     source: str | None = None,
     use_lemmatize: bool = False,
     include_unavailable: bool = False,
-    collapse_affinity: bool = False,
     collapse_variants: bool = False,
     is_dlc: bool | None = None,
 ) -> dict:
@@ -2609,16 +2652,14 @@ def _search_literal(
         search_fields = _LITERAL_FIELDS_MORPH
     else:
         search_fields = _LITERAL_FIELDS
-    filters: list[dict] = []
-    if entity_type:
-        filters.append({"term": {"entity_type": entity_type}})
-    if patch_version:
-        filters.append({"term": {"patch_version": patch_version}})
-    if source:
-        filters.append({"term": {"source": source}})
-    filters += _availability_filter(include_unavailable)
-    filters += _variant_filter(collapse_variants or collapse_affinity)
-    filters += _dlc_filter(is_dlc)
+    filters = _base_filters(
+        entity_type=entity_type,
+        patch_version=patch_version,
+        source=source,
+        include_unavailable=include_unavailable,
+        collapse_variants=collapse_variants,
+        is_dlc=is_dlc,
+    )
     if sort_id_gte is not None or sort_id_lte is not None:
         sort_id_range: dict = {}
         if sort_id_gte is not None:
@@ -2675,7 +2716,6 @@ def _search_literal(
                 source=source,
                 use_lemmatize=use_lemmatize,
                 include_unavailable=include_unavailable,
-                collapse_affinity=collapse_affinity,
                 collapse_variants=collapse_variants,
                 is_dlc=is_dlc,
             )
@@ -2801,6 +2841,7 @@ def calculate_attack_rating(
     client: OpenSearch,
     weapon: str,
     stats: dict,
+    *,
     level: int | None = None,
     two_handed: bool = False,
     affinity: str | None = None,
@@ -2833,10 +2874,12 @@ def calculate_attack_rating(
     requested_version = patch_version
     if patch_version:
         # An unloaded version ("1.99") is an error, not the newest patch (#439).
-        patch_version, err = _loaded_version(client, patch_version)
+        labels, err = _loaded_versions(client, patch_version)
         if err:
             return err
-        version, err = _asof_version(client, patch_version, entity_type)
+        version, err = _asof_version(
+            labels[patch_version], _entity_versions(client, entity_type), entity_type
+        )
         if version is None:
             return err or {}
     else:
@@ -2908,28 +2951,9 @@ def _spell_cast(
     if name is None:
         return {"error": f"spell '{spell}' not found"}
     spell_version = _resolve_asof(version, _entity_versions(client, "spell"))
-    hits = (
-        client.search(
-            index=INDEX,
-            body={
-                "size": 1,
-                "query": {
-                    "bool": {
-                        "filter": [
-                            {"term": {"name.keyword": name}},
-                            {"term": {"entity_type": "spell"}},
-                            {"term": {"patch_version": spell_version}},
-                        ]
-                    }
-                },
-            },
-        )["hits"]["hits"]
-        if spell_version
-        else []
-    )
-    if not hits:
+    doc = _version_doc(client, name, "spell", spell_version) if spell_version else None
+    if not doc:
         return {"error": f"spell '{name}' not present at or before {version}"}
-    doc = hits[0]["_source"]
     entry = (doc.get("spell_attacks") or [{}])[0]
     base = entry.get("attack_power")
     if not base:
@@ -2972,7 +2996,7 @@ def _spell_cast(
                 "total": sum(v["total"] for v in p.values()),
                 **per_cast(cast),
             }
-    casts = _CASTS.get(catalyst.get("menu_category"))
+    casts = _CASTS.get(catalyst.get("menu_category") or "")
     if casts and doc.get("menu_category") and doc["menu_category"] != casts:
         out["notes"] = [
             f"a {catalyst['menu_category']} can't cast {doc['menu_category'].lower()}s"
@@ -3031,6 +3055,7 @@ def text_changed_between(
     field: str,
     v1: str,
     v2: str,
+    *,
     count_only: bool = False,
 ) -> dict:
     """Return all entities of entity_type where field differs between v1 and v2.
@@ -3041,22 +3066,17 @@ def text_changed_between(
     """
     if err := _precheck(None, [field]) or _leaf_field_error(field):
         return err
-    requested = {}
-    for v in (v1, v2):
-        # A requested version must be a real loaded patch somewhere in the index …
-        requested[v], err = _loaded_version(client, v)
-        if err:
-            return err
+    # A requested version must be a real loaded patch somewhere in the index …
+    requested, err = _loaded_versions(client, v1, v2)
+    if err:
+        return err
     v1, v2 = requested[v1], requested[v2]
 
     # … but this entity_type may be indexed at a sparser set of versions (dialogue
     # is stored once per Data0 group), so resolve each request as-of that set.
-    resolved: dict[str, str] = {}
-    for v in (v1, v2):
-        res, err = _asof_version(client, v, entity_type)
-        if res is None:
-            return err or {}
-        resolved[v] = res
+    resolved, err = _resolve_pair(client, [v1, v2], entity_type)
+    if err is not None:
+        return err
     r1, r2 = resolved[v1], resolved[v2]
 
     def _fetch_all(version: str) -> dict[str, object]:

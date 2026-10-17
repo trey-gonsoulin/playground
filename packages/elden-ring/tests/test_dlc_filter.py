@@ -28,7 +28,7 @@ class _Client:
 
 
 def test_search_passes_is_dlc(monkeypatch):
-    monkeypatch.setattr(_client, "_canonical_version", lambda c, v: "1.17.1")
+    monkeypatch.setattr(_client, "_request_version", lambda c, v: "1.17.1")
     client = _Client()
     _client.search(client, "sword", is_dlc=True)
     assert {"term": {"is_dlc": True}} in client.bodies[0]["query"]["bool"]["filter"]
@@ -40,7 +40,7 @@ def test_search_passes_is_dlc(monkeypatch):
 
 
 def test_search_literal_passes_is_dlc(monkeypatch):
-    monkeypatch.setattr(_client, "_canonical_version", lambda c, v: "1.17.1")
+    monkeypatch.setattr(_client, "_request_version", lambda c, v: "1.17.1")
     seen = {}
 
     def fake(client, **kw):

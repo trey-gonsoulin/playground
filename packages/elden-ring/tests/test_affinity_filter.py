@@ -55,7 +55,7 @@ def test_family_docs_from_a_base_use_its_own_name():
 
 def test_get_entity_include_variants(monkeypatch):
     halberd = _doc("Halberd")
-    monkeypatch.setattr(_client, "_resolve_entity_doc", lambda *a: (halberd, False))
+    monkeypatch.setattr(_client, "_resolve_entity_doc", lambda *a: (halberd, False, []))
     monkeypatch.setattr(_client, "_family_docs", lambda c, d: [_doc("Heavy Halberd")])
     assert "variant_docs" not in _client.get_entity(None, "Halberd")
     out = _client.get_entity(None, "Halberd", include_variants=True)
