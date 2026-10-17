@@ -54,6 +54,11 @@ def _read(path: Path) -> dict[str, dict[str, str]]:
         return json.loads(path.read_text(encoding="utf-8"))
     except FileNotFoundError:
         return {}
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        # A crash mid-write can leave a torn file (#448). An empty manifest just
+        # means a full load of that version, the documented recovery.
+        print(f"  !! corrupt load manifest {path}: ignoring it (full load)")
+        return {}
 
 
 def _hashes(docs: list[dict]) -> dict[str, dict[str, dict[str, str]]]:
@@ -115,7 +120,10 @@ def _update(manifest_dir, index: str, version: str, change) -> None:
         fcntl.flock(lock, fcntl.LOCK_EX)
         data = change(_read(path))
         tmp = path.with_name(f"{version}.json.tmp")
-        tmp.write_text(json.dumps(data, sort_keys=True), encoding="utf-8")
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(json.dumps(data, sort_keys=True))
+            f.flush()
+            os.fsync(f.fileno())  # durable before the rename replaces the old one
         os.replace(tmp, path)
 
 
