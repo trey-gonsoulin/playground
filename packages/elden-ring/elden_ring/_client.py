@@ -4174,8 +4174,13 @@ _FIELD_NOTES: dict[str, str] = {
     "belongs to a whole model family; the profile keeps only the moves this enemy's "
     "animations can fire (#123): unused rows and moves gated to another variant's "
     "SpEffect state are dropped (Commander Niall loses O'Neil's scarlet rot and keeps "
-    "frostbite). Moves the AI alone chooses between stay, so a shared table can still "
-    "carry a sibling's move (every soldier doc lists the Frenzied soldiers' madness). "
+    "frostbite). The AI battle scripts narrow it further (#164): a move whose "
+    "animations only another variant's script requests is dropped (Cleanrot spear vs "
+    "sickle knights, Beast Clergyman vs Maliketh; soldiers lacking the Frenzied "
+    "placements' SpEffect lose the madness bullet, the Soldier of Godrick its poison "
+    "and madness). Animations a script never weights, or no script names, stay, so a "
+    "sibling's move can remain (Commander O'Neil keeps Niall's frost: two "
+    "never-weighted acts also request it), and a fight's phases count as one enemy. "
     "Moves have no names in the data, so there is no per-move list. The profile covers "
     "every MSB placement of the name on that table: placements that spawn with another "
     "gate state add their moves here and list them under attacks.state_variants (#180). "
@@ -4184,8 +4189,8 @@ _FIELD_NOTES: dict[str, str] = {
     "in (#255). A name bound to a row with no move table takes its most-placed table "
     "(#256). Absent on humanoid NPCs/invaders, which fight with equipped weapons",
     "attacks.state_variants": "placed variants of the enemy that fire extra moves under "
-    "a TAE gate SpEffect state the doc's bound NpcParam row lacks (#180), most placements "
-    "first. Each entry has the profile (count / damage_types / elements / attack_power "
+    "a TAE gate SpEffect state the doc's bound NpcParam row lacks (#180), or whose AI "
+    "script requests moves the bound row's doesn't (#164), most placements first. Each entry has the profile (count / damage_types / elements / attack_power "
     "/ status_buildup / status_effects) of only the moves it adds. Gravebird: 46 "
     "placements under state 412 add the holy ring and poison tail, 6 under 413 add "
     "sleep. Where a gate state swaps the whole move set (Crystalian), an entry holds "
@@ -4194,7 +4199,7 @@ _FIELD_NOTES: dict[str, str] = {
     "enemies inflict X only in some placements'",
     "attacks.state_variants.special_states": "SpEffect SpecialState values these rows "
     "spawn with and the bound row doesn't (empty = same states, a different animation "
-    "set)",
+    "set or AI script)",
     "attacks.state_variants.placements": "MSB placements of the name on these rows",
     "attacks.state_variants.npc_param_ids": "the placed NpcParam rows of this variant",
     "attacks.other_tables": "placements of the same name on a different move table "
@@ -5189,7 +5194,9 @@ _FIELD_NOTES: dict[str, str] = {
     "(behavior_variation / count / damage_types / elements / attack_power / "
     "poise_damage / status_buildup / status_effects; no shared_with) (#124). Spirits share their field "
     "enemy's move table (Lone Wolf Ashes = the Lone Wolf's), narrowed to the moves the "
-    "spirit's animations fire, so AI-only sibling moves can remain. attack_power is "
+    "spirit's animations fire and its AI script requests (#164: the soldier ashes lose "
+    "the Frenzied soldiers' madness and poison); sibling moves its script may still "
+    "request remain. attack_power is "
     "scaled by that level's damage_multiplier and by the spirit's resident per-element "
     "damage multipliers: every spirit's x0.25 damage vs enemies (#248; five spirits "
     "carry their own x0.7 to x1.5 on top) and the 1.13+ balance effects (#181: "
