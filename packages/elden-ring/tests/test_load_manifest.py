@@ -59,7 +59,9 @@ def _load(monkeypatch, tmp_path, live, docs, *flags, indices=("er-v2",), errors=
     monkeypatch.setattr(load_dataset, "_get_client", lambda: object())
     monkeypatch.setattr(load_dataset, "ensure_index", lambda c, recreate: None)
     monkeypatch.setattr(load_dataset, "load_documents", fake_load)
-    monkeypatch.setattr(load_dataset, "prune_stale", lambda c, docs, dry_run: (0, []))
+    monkeypatch.setattr(
+        load_dataset, "prune_stale", lambda c, docs, dry_run, **kw: (0, [])
+    )
     monkeypatch.setattr(load_manifest, "_concrete_indices", lambda c: list(indices))
     monkeypatch.setattr(sys, "argv", ["load_dataset.py", str(ds), *flags])
     load_dataset.main()
@@ -69,8 +71,8 @@ def _load(monkeypatch, tmp_path, live, docs, *flags, indices=("er-v2",), errors=
 def test_rerun_loads_only_changed_docs(monkeypatch, tmp_path, live):
     m = ["--manifest-dir", str(tmp_path / "m"), "--prune"]
     docs = [
-        _doc("Dagger", atk=1),
-        _doc("Club", atk=2),
+        _doc("Dagger", weight=1),
+        _doc("Club", weight=2),
         _doc("Melina 1", "npc_dialogue"),
     ]
     assert _load(monkeypatch, tmp_path, live, docs, *m) == [
@@ -80,13 +82,13 @@ def test_rerun_loads_only_changed_docs(monkeypatch, tmp_path, live):
     ]
     assert live.scans == 0  # no manifest yet: nothing to check against
     assert _load(monkeypatch, tmp_path, live, docs, *m) == []  # nothing changed
-    docs[1] = _doc("Club", atk=3)  # changed content
+    docs[1] = _doc("Club", weight=3)  # changed content
     docs.append(_doc("Mace"))  # new doc
     assert _load(monkeypatch, tmp_path, live, docs, *m) == ["Club", "Mace"]
     assert _load(monkeypatch, tmp_path, live, docs, *m) == []
     # key order and None values don't count as a change (None isn't indexed)
     docs[0] = {
-        "atk": 1,
+        "weight": 1,
         "name": "Dagger",
         "patch_version": "1.05",
         "entity_type": "weapon",
@@ -118,7 +120,7 @@ def test_full_new_index_and_failed_load(monkeypatch, tmp_path, live):
     assert len(_load(monkeypatch, tmp_path, live, docs, *m, indices=("a", "b"))) == 2
     assert not (tmp_path / "m/a").exists()
     # a failed load drops its types from the manifest: they load in full next time
-    docs[0] = _doc("Dagger", atk=9)
+    docs[0] = _doc("Dagger", weight=9)
     with pytest.raises(SystemExit):
         _load(monkeypatch, tmp_path, live, docs, *m, errors=[{"index": {}}])
     assert _load(monkeypatch, tmp_path, live, docs, *m) == ["Dagger", "Club"]
@@ -128,10 +130,10 @@ def test_failed_load_then_revert_reloads(monkeypatch, tmp_path, live):
     # a failed load may already have written some new content; reverting to the
     # recorded content must not be skipped as "unchanged"
     m = ["--manifest-dir", str(tmp_path / "m")]
-    docs = [_doc("Dagger", atk=1), _doc("Melina 1", "npc_dialogue")]
+    docs = [_doc("Dagger", weight=1), _doc("Melina 1", "npc_dialogue")]
     _load(monkeypatch, tmp_path, live, docs, *m)
     with pytest.raises(SystemExit):
-        _load(monkeypatch, tmp_path, live, [_doc("Dagger", atk=9)], *m, errors=[{}])
+        _load(monkeypatch, tmp_path, live, [_doc("Dagger", weight=9)], *m, errors=[{}])
     assert _load(monkeypatch, tmp_path, live, docs, *m) == ["Dagger"]
     saved = json.loads((tmp_path / "m/er-v2/1.05.json").read_text())
     assert sorted(saved) == ["npc_dialogue", "weapon"]
@@ -140,9 +142,9 @@ def test_failed_load_then_revert_reloads(monkeypatch, tmp_path, live):
 def test_partial_type_load_keeps_other_types(monkeypatch, tmp_path, live):
     # a dialogue-only reload replaces just npc_dialogue in the version's manifest
     m = ["--manifest-dir", str(tmp_path / "m")]
-    items = [_doc("Dagger"), _doc("Melina 1", "npc_dialogue", text="a")]
+    items = [_doc("Dagger"), _doc("Melina 1", "npc_dialogue", description="a")]
     _load(monkeypatch, tmp_path, live, items, *m)
-    dlg = [_doc("Melina 1", "npc_dialogue", text="b")]
+    dlg = [_doc("Melina 1", "npc_dialogue", description="b")]
     assert _load(monkeypatch, tmp_path, live, dlg, *m) == ["Melina 1"]
     saved = json.loads((tmp_path / "m/er-v2/1.05.json").read_text())
     assert sorted(saved) == ["npc_dialogue", "weapon"]
