@@ -4163,10 +4163,15 @@ _FIELD_NOTES: dict[str, str] = {
     "Margit true, Night's Cavalry true (18 of 36). See attacks.parryable_animations "
     "for how many. AtkParam_Npc isDisableParry is not the signal. Absent without a "
     "melee attack animation (pure casters like Rennala) and on humanoids, which fight "
-    "with equipped weapons. Animations are from the current patch",
+    "with equipped weapons. Animations are from the current patch. Counted over the "
+    "same rows as attacks: the doc's bound row plus every attacks.state_variants "
+    "entry, each without the animations its AI script never requests (#164). "
+    "Marionette Soldier is bound to a crossbow row whose script only shoots; its "
+    "sword variants parry. Crystalian (Staff) false: its script requests only the "
+    "staff's spells, not the spear/ringblade swings",
     "attacks.parryable_animations": "attack animations with a get-parried window "
     "(#302). Fewer than attacks.attack_animations means only some attacks can be "
-    "parried (Margit 48 of 88)",
+    "parried (Margit 40 of 73)",
     "attacks.attack_animations": "the enemy's animations that fire an attack of this "
     "profile (#302), the base of attacks.parryable_animations",
     "attacks": "enemy attack profile (#81), aggregated over the move table of its NpcParam "
@@ -4237,7 +4242,8 @@ _FIELD_NOTES: dict[str, str] = {
     "attacks.behavior_variation": "NpcParam BehaviorVariationID (the move table id)",
     "grabs": "enemy grab attacks on the player (#82): the moves of the same move table as "
     "attacks whose catch hit starts a ThrowParam grab, plus the hits dealt during the "
-    "throw, narrowed the same way (see attacks.shared_with). Absent = "
+    "throw, narrowed the same way (see attacks.shared_with) and over the same rows "
+    "(attacks.state_variants included, #164). Absent = "
     "no grab. Filter exists:grabs for 'which enemies can grab you'",
     "grabs.count": "distinct grabs (ThrowParam rows for this enemy's model)",
     "grabs.attack_power": "max base attack power per element across grab hits (before "
@@ -5135,7 +5141,8 @@ _FIELD_NOTES: dict[str, str] = {
     "and the Short Spear with [3]; field c4376 rows with mask [0] drop the Dagger too. "
     "summon_stats.weapons names these weapons",
     "summon_stats.weapons": "on a spirit_ash doc: what a spirit wields, on entries "
-    "whose stats match another entry of the same ash, so the label tells them apart "
+    "whose stats match another entry of the same ash (attacks aside: each spirit's "
+    "AI script narrows its moves, #164), so the label tells them apart "
     "(#418; humanoid spirits with a loadout use summon_stats.equipment instead). Read "
     "from the drops of field enemy rows of the same model drawn with the same "
     "summon_stats.model_display_masks: a weapon (ammo excluded) dropped by more than "
@@ -5150,8 +5157,9 @@ _FIELD_NOTES: dict[str, str] = {
     "/ Club; Wandering Noble Ashes: Noble's Slender Sword (two), Noble's Estoc and "
     "Torch (two; the torch bearers' field rows drop no weapon, so this one is "
     "hand-written, after Fextralife's '3 Nobles are armed with swords and 2 with "
-    "Torches'). The same at 1.02, apart from the DLC Messmer ash. Absent when no weapon is known: the "
-    "Mausoleum Soldier Ashes entry drawn with [22, 27, 28], Man-Fly Ashes and "
+    "Torches'); Radahn Soldier Ashes: Lordsworn's Straight Sword (143140100). The "
+    "same at 1.02, apart from the DLC Messmer ash. Absent when no weapon is known: the "
+    "Mausoleum and Radahn Soldier Ashes entries drawn with [22, 27, 28], Man-Fly Ashes and "
     "Nightmaiden & Swordstress Puppets",
     "summon_stats.equipment": "on a spirit_ash doc: the gear of a humanoid spirit that "
     "fights with a loadout instead of an attacks profile (#310): the Puppets (Dung Eater "
