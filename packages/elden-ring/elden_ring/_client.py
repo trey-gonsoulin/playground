@@ -1370,6 +1370,15 @@ INDEX_MAPPING = {
                 }
             },
             "gestures": {"type": "keyword"},
+            # Keepsake docs (#475): what the keepsake gives, each item linked by
+            # name + entity_type.
+            "grants": {
+                "properties": {
+                    "item": {"type": "keyword"},
+                    "entity_type": {"type": "keyword"},
+                    "quantity": {"type": "integer"},
+                }
+            },
             # Great Rune twins: key item <-> restored rune (#312).
             "restoration": {
                 "properties": {
@@ -3220,7 +3229,8 @@ _FIELD_NOTES: dict[str, str] = {
     "(weapon, armor, spell, item = talismans, ash_of_war, ammo), goods (consumable, "
     "key_item, info, crafting_material, upgrade_material, crystal_tear, spirit_ash, "
     "remembrance, great_rune, tool), gesture (#306), starting_class (one doc per "
-    "selectable class, #422), merchant, enemy, boss (one doc per boss encounter, "
+    "selectable class, #422), keepsake (one doc per character-creation keepsake, "
+    "#475), merchant, enemy, boss (one doc per boss encounter, "
     "#79), site_of_grace, location, warp, quest, cutscene (one doc per realtime "
     "cutscene scene, #92), npc_dialogue, game_text (prompts, map banners, tutorials, "
     "loading tips, #98; item-use dialogs, #90), talk_option (talk-script menu options, "
@@ -3298,7 +3308,9 @@ _FIELD_NOTES: dict[str, str] = {
     "ash's +0 row, else the lowest-id uncut row. Absent on cut items whose row is "
     "gone (text only). Gestures (#355): the GestureParam row (Bow 0; The Ring's "
     "lowest of its two rows, 108). Starting classes (#422): the CharaInitParam "
-    "row (Vagabond 3000 ... Heavy Knight 3011). Not compared between variants",
+    "row (Vagabond 3000 ... Heavy Knight 3011). Keepsakes (#475): the CharaInitParam "
+    "row holding the grant (Crimson Amber Medallion 2401 ... Shabriri's Woe 2409). "
+    "Not compared between variants",
     "icon_id": "the item's menu icon id (#327), the number in its MENU_Knowledge "
     "icon texture name: iconId of the param_id row (Uchigatana 10320; affinity "
     "docs share the base's icon), armor's body type 1 icon (iconIdM; see "
@@ -3442,7 +3454,7 @@ _FIELD_NOTES: dict[str, str] = {
     "body: a placement with on_corpse, #136; found_in_world still shows too) / "
     "given_by_npc (an NPC's talk "
     "script gives it, see given_by) / starting_equipment (a starting class's gear or item, "
-    "see starting_classes) / keepsake (on the character-creation keepsake menu) (#23) / "
+    "see starting_classes) / keepsake (on the character-creation keepsake menu; each is a keepsake doc, #475) (#23) / "
     "crafted (has a crafting recipe, see crafted_from, #87) / gathered (a gathering-node "
     "pickup such as a herb, butterfly or ore; placements with gathering, #142) / "
     "quest_reward (a map event script awards it once a quest flag is set, e.g. Rogier's "
@@ -3660,6 +3672,11 @@ _FIELD_NOTES: dict[str, str] = {
     "gestures": "on a starting_class doc (#422): the gestures the class starts "
     "with, in gesture-menu order: its CharaInitParam gesture slots plus the ones "
     "the new-game event gives every class (each a gesture doc)",
+    "grants": "on a keepsake doc (#475): what choosing the keepsake gives, as "
+    "{item, entity_type, quantity}; item + entity_type name the item's own doc, e.g. "
+    "Stonesword Key: Stonesword Key (key_item) x2; Crimson Amber Medallion (item, a "
+    "talisman) x1. From the keepsake's CharaInitParam row (2400 + the menu row's "
+    "Value). The item docs list it in acquisition_types as keepsake",
     "crafted_from": "on a craftable consumable/ammo doc: the crafting recipe's materials as "
     "[{item, quantity}] (ShopLineupParam_Recipe -> EquipMtrlSetParam, #87), e.g. Redmane "
     "Fire Pot: Mushroom x2, Smoldering Butterfly, Old Fang. Filter crafted_from.item to find "
@@ -4397,7 +4414,8 @@ _FIELD_NOTES: dict[str, str] = {
     "itself on npc_dialogue / game_text / talk_option and a stock summary on merchant. Absent on enemy, "
     "boss, location, site_of_grace, warp, quest and cutscene docs. On a "
     "starting_class doc (#422): the class blurb from the character-creation "
-    "menu (the CharMakeMenuListItemParam caption, a GR_LineHelp line)",
+    "menu (the CharMakeMenuListItemParam caption, a GR_LineHelp line). Likewise on "
+    "a keepsake doc (#475): the keepsake menu blurb",
     "text_content": "searchable long text. Goods (consumable, key_item, …): the "
     "description; npc_dialogue / game_text / talk_option: the line; merchant: the full stock list, "
     "each price in its own currency and materials as in shop_listings (e.g. '1 Dragon "

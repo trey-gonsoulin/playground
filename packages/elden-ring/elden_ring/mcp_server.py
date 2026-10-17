@@ -121,6 +121,10 @@ def search_entities(
                            equipment (as on enemy docs) with weapon_slots
                            (upgrade_level) / ammo_slots (quantity), items and
                            gestures
+            keepsake     — the character-creation keepsakes (Crimson Amber
+                           Medallion … Shabriri's Woe; #475), one per keepsake
+                           menu row: description (the menu blurb) and grants
+                           ({item, entity_type, quantity})
             merchant     — NPC vendor inventories with item names and rune prices;
                            search by item name to find who sells it, or by merchant
                            name / location to get their full stock
