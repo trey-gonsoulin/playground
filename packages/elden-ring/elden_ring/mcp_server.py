@@ -417,6 +417,7 @@ def search_entities(
       placements / maps  — where it is picked up in the world (MSB treasure: map,
                            world_position or map-local position, in_chest; #76;
                            on_corpse when looted from a body, #136;
+                           in_coffin when it lies in a coffin, #395;
                            gathering nodes flagged gathering: true, #135)
       regions / locations — map-menu regions (+ tabs) and dungeon location docs of
                            those placements (#140)
