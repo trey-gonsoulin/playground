@@ -285,20 +285,22 @@ def search_entities(
             is extracted per-patch from that patch's regulation.bin, so this is the
             real in-game version, not a scrape snapshot — trustworthy for tracking
             when stats/text changed. Use list_patch_versions() to see what's loaded.
-            Omit to return one result per entity (latest indexed version); pass
-            a specific version to scope results to that snapshot only.
+            Omit to return one result per (entity_type, name), always its newest
+            patch even when only older text matched, so Lightning Spear the spell
+            and the weapon are two results; pass a specific version to scope results
+            to that snapshot only.
         limit: Maximum results to return (default 20, max 100). The list is capped here
             and carries no total — use count_only for a count.
         include_fields: If provided, only these fields are returned per document (e.g.
             ["name", "sort_id"]). Reduces payload size for large result sets.
         count_only: If True, return {"total": N} instead of the full document list.
             N is never capped by limit. Without patch_version it is the number of
-            distinct names (a name shared by two entity_types counts once); with
-            patch_version it is the number of matching docs in that snapshot, which is
-            one per (entity_type, name). Each weapon affinity (Heavy Dagger, Keen
-            Dagger, …) is its own name — see collapse_variants. Fuzzy matching makes
-            this a relevance count, not an exact-phrase count; for corpus counts use
-            search_entities_literal.
+            distinct (entity_type, name) pairs (a name shared by two entity_types
+            counts twice); with patch_version it is the number of matching docs in
+            that snapshot, which is also one per (entity_type, name). Each weapon
+            affinity (Heavy Dagger, Keen Dagger, …) is its own name — see
+            collapse_variants. Fuzzy matching makes this a relevance count, not an
+            exact-phrase count; for corpus counts use search_entities_literal.
         source: If provided, restrict to documents from one internal game-data
             origin — the param table, FMG or script the docs were extracted from
             (e.g. EquipParamWeapon, EquipParamGoods, Magic, NpcName, GameAreaParam,
@@ -847,7 +849,8 @@ def search_entities_literal(
             inflected Japanese verbs that require multiple stem queries — e.g.
             patterns=["象っ", "象ら", "象り", "象る"] returns all entities matching
             any inflection as a single deduplicated total. Combines with pattern if
-            both are provided.
+            both are provided. At most 20 distinct patterns per call; more returns
+            {"error": ...}.
         fields: Which fields to search. Defaults to the eleven text fields: name,
             display_name, description, text_content, effect_text, info_text, name_ja,
             description_ja, text_content_ja, effect_text_ja, info_text_ja (the
@@ -867,7 +870,8 @@ def search_entities_literal(
             key_item, spirit_ash, ammo, enemy, boss, site_of_grace, etc.). See search_entities() for the full
             list or call list_entity_types() for the authoritative live set.
         patch_version: Filter to a specific patch snapshot (e.g. "1.10.0"). Omit to
-            search across all patches and return one result per entity (latest version).
+            search across all patches and return one result per (entity_type, name),
+            its newest matching patch.
             Use list_patch_versions() to see available versions. Trailing-zero
             spellings are aliases ("1.02.0" → "1.02", "1.10" → "1.10.0"); a remapped
             request returns requested_patch_version and the patch_version used.
@@ -927,14 +931,16 @@ def search_entities_literal(
     Returns a dict with:
         total: int — the full match count, never capped by limit (results may be
             shorter; total is still exact).
-            - Without patch_version: the number of distinct names across all patches
-              (exact below 40,000). A name shared by two entity_types counts once;
-              each weapon affinity counts separately unless collapse_variants=True.
+            - Without patch_version: the number of distinct (entity_type, name) pairs
+              across all patches (exact below 40,000). A name shared by two
+              entity_types counts twice; each weapon affinity counts separately
+              unless collapse_variants=True.
             - With patch_version: the number of matching docs in that snapshot, which
               is one per (entity_type, name) — no cross-patch duplicates.
-            - With patterns: the size of the de-duplicated union by name. It's exact
-              unless a single pattern matches more than 10,000 docs, in which case
-              it's a lower bound.
+            - With patterns: the size of the union de-duplicated by (entity_type,
+              name). It's exact unless a single pattern matches more than 10,000
+              docs; then it's a lower bound and total_is_lower_bound is True.
+        total_is_lower_bound: present (True) only in that patterns case.
         results: list of entity documents (omitted when count_only is True).
     """
     return _os.search_literal(

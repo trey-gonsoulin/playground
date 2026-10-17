@@ -604,6 +604,9 @@ INDEX_MAPPING = {
         "dynamic": "strict",
         "properties": {
             "entity_type": {"type": "keyword"},
+            # "<entity_type>::<name>", stamped at load (#443): the collapse, dedupe
+            # and distinct-count key, so same-name docs of two types stay apart.
+            "entity_key": {"type": "keyword"},
             "name": {
                 "type": "text",
                 "fields": {
@@ -1657,21 +1660,22 @@ def search(
             body["aggs"] = {
                 "distinct_entities": {
                     "cardinality": {
-                        "field": "name.keyword",
+                        "field": "entity_key",
                         "precision_threshold": 40000,
                     }
                 }
             }
     else:
-        # Without a specific patch filter, collapse by entity name to deduplicate across
-        # the 16+ indexed patch versions. Sort by _score first so groups stay in relevance
-        # order (the primary contract of this tool), then patch_version desc as a tiebreak so
-        # the representative doc per entity is the latest version. Without the tiebreak,
-        # identical-content patches tie on _score and an arbitrary (often older) doc wins,
-        # dropping fields stamped only on the newest patch (e.g. a talisman's effect).
+        # Without a specific patch filter, collapse by entity (entity_type::name,
+        # #443) to deduplicate across the indexed patch versions. Sort by _score
+        # first so groups stay in relevance order (the primary contract of this
+        # tool). A group's top hit can be an older patch whose rewritten text scores
+        # higher, or the only patch whose text matches at all, so _swap_newest
+        # replaces it with the entity's newest patch under the same filters, keeping
+        # the group's score (#442).
         if not patch_version:
             body["sort"] = [{"_score": "desc"}, {"patch_version": "desc"}]
-            body["collapse"] = {"field": "name.keyword"}
+            body["collapse"] = {"field": "entity_key"}
 
     resp = client.search(index=INDEX, body=body)
 
@@ -1683,12 +1687,54 @@ def search(
         else:
             out = {"total": resp["hits"]["total"]["value"]}
     else:
-        out = [
-            {"score": hit["_score"], **hit["_source"]} for hit in resp["hits"]["hits"]
-        ]
+        hits = resp["hits"]["hits"]
+        if not patch_version:
+            hits = _swap_newest(client, hits, filters, include_fields)
+        out = [{"score": hit["_score"], **hit.get("_source", {})} for hit in hits]
     if not out or out == {"total": 0}:
         return _check_filter_values(client, entity_type, source, patch_version) or out
     return out
+
+
+def _swap_newest(
+    client: OpenSearch,
+    hits: list[dict],
+    filters: list[dict],
+    include_fields: list[str] | None,
+) -> list[dict]:
+    """Replace each collapsed hit's doc with its entity's newest patch (#442).
+
+    One query, no text clause: the same filters plus the hits' entity_keys, sorted
+    newest first and collapsed on entity_key. The newest patch is returned even when
+    only an older patch's text matched. A key it doesn't return keeps its matched doc.
+    """
+    keys = [k for h in hits if (k := _hit_entity_key(h))]
+    if not keys:
+        return hits
+    body: dict = {
+        "size": len(keys),
+        "query": {"bool": {"filter": [*filters, {"terms": {"entity_key": keys}}]}},
+        "sort": [{"patch_version": "desc"}],
+        "collapse": {"field": "entity_key"},
+    }
+    if include_fields is not None:
+        body["_source"] = include_fields
+    resp = client.search(index=INDEX, body=body)
+    newest = {
+        k: h.get("_source", {})
+        for h in resp["hits"]["hits"]
+        if (k := _hit_entity_key(h))
+    }
+    return [
+        {**h, "_source": newest.get(_hit_entity_key(h), h.get("_source", {}))}
+        for h in hits
+    ]
+
+
+def _hit_entity_key(hit: dict) -> str | None:
+    """A collapsed hit's entity_key (the collapse puts it in hit["fields"])."""
+    vals = hit.get("fields", {}).get("entity_key")
+    return vals[0] if vals else hit.get("_source", {}).get("entity_key")
 
 
 def _ascii_fold(s: str) -> str:
@@ -1705,7 +1751,8 @@ def _newest_doc(client: OpenSearch, term: dict, entity_type: str | None) -> dict
         body={
             "size": 1,
             "query": {"bool": {"filter": filters}},
-            "sort": [{"patch_version": "desc"}],
+            # entity_type breaks ties between same-name docs of two types (#443).
+            "sort": [{"patch_version": "desc"}, {"entity_type": "asc"}],
         },
     )
     hits = resp["hits"]["hits"]
@@ -2096,10 +2143,19 @@ def diff_entities(
     return result | _resolution_info(etype, requested, resolved)
 
 
-# Per-pattern page size for the patterns-OR union path. Large enough that the
-# deduped union count is exact (the corpus is a few thousand docs, well under the
-# 10k max_result_window) rather than silently capped at the caller's `limit`.
+# Per-pattern page size for the patterns-OR union path (the 10k max_result_window).
+# The union pass fetches only the key fields, so a full page is ~1 MB, not ~48 MB
+# of full docs (#447). One patch has ~20k distinct names, so a broad pattern can
+# match more than a page: the union total is then a lower bound
+# (total_is_lower_bound).
 _UNION_FETCH_SIZE = 10000
+
+# Most distinct patterns one patterns-OR call may run (one sub-query each, #447).
+_MAX_PATTERNS = 20
+
+# The union pass's sub-query source: the dedupe key plus the patch, which with
+# them makes the doc's bulk _id (load_data._to_bulk_actions) for the full fetch.
+_UNION_KEY_FIELDS = ["name", "entity_type", "patch_version"]
 
 # Default literal-search fields: text only, by design. The acquisition keyword
 # fields (sold_by/acquisition_sources/acquisition_types) are opt-in — a caller must
@@ -2238,8 +2294,9 @@ def search_literal(
 ) -> dict:
     """Exact-phrase search across text fields, with optional structural filters.
 
-    When patch_version is None (default): collapses by entity name and returns the
-    latest version per entity; total reflects distinct entities, not raw index hits.
+    When patch_version is None (default): collapses by entity_key (entity_type::name,
+    #443) and returns each entity's newest matching patch; total reflects distinct
+    entities, not raw index hits.
     When patch_version is specified: filters to that snapshot; total is the raw hit count.
 
     use_kuromoji routes Japanese fields through .morph subfields (kuromoji_segmenter:
@@ -2271,6 +2328,11 @@ def search_literal(
     """
     if err := _precheck(source, fields, include_fields):
         return err
+    if patterns and (n := len({p for p in [pattern, *patterns] if p})) > _MAX_PATTERNS:
+        return {
+            "error": f"patterns: {n} distinct patterns, at most {_MAX_PATTERNS} per "
+            "call (one sub-query each); split the search"
+        }
     search_fields = (
         _with_drop_fields(fields) if fields and include_drop_fields else fields
     )
@@ -2378,26 +2440,19 @@ def _search_literal(
         all_patterns.append(pattern)
     if patterns:
         all_patterns.extend(patterns)
+        all_patterns = list(dict.fromkeys(all_patterns))  # dedupe, keep order (#447)
 
     if len(all_patterns) > 1 or patterns:
         # OpenSearch absorbs phrase clauses that share CJK tokens in a bool.should,
         # silently returning fewer results than any individual pattern alone (#64).
         # The only safe OR is one query per pattern with a Python-side union.
         #
-        # Dedup keys on doc["name"], so name must always be in the sub-query source —
-        # otherwise every doc collapses under "" and the union returns a single result.
-        # Fetch a large per-pattern page so the deduped union (and thus total) is exact
-        # rather than silently capped at `limit`; the returned list is trimmed to `limit`.
-        want_name = include_fields is None or "name" in include_fields
-        if count_only:
-            sub_include: list[str] | None = ["name"]
-        elif include_fields is None:
-            sub_include = None
-        elif want_name:
-            sub_include = include_fields
-        else:
-            sub_include = [*include_fields, "name"]
-        seen: dict[str, dict] = {}
+        # The union pass fetches a large per-pattern page of key fields only and
+        # dedupes on (entity_type, name) (#443), so total is exact unless a pattern
+        # matched more than a page (then total_is_lower_bound). Full docs are then
+        # fetched for just the first `limit` keys (#447).
+        seen: dict[tuple[str, str], dict] = {}
+        lower_bound = False
         for p in all_patterns:
             r = _search_literal(
                 client,
@@ -2406,7 +2461,7 @@ def _search_literal(
                 entity_type=entity_type,
                 patch_version=patch_version,
                 limit=_UNION_FETCH_SIZE,
-                include_fields=sub_include,
+                include_fields=_UNION_KEY_FIELDS,
                 count_only=False,
                 sort_id_gte=sort_id_gte,
                 sort_id_lte=sort_id_lte,
@@ -2421,14 +2476,17 @@ def _search_literal(
                 collapse_variants=collapse_variants,
                 is_dlc=is_dlc,
             )
-            for doc in r.get("results", []):
-                seen.setdefault(doc.get("name", ""), doc)
+            docs = r.get("results", [])
+            lower_bound |= r["total"] > len(docs)
+            for doc in docs:
+                seen.setdefault((doc.get("entity_type", ""), doc.get("name", "")), doc)
+        out: dict = {"total": len(seen)}
+        if lower_bound:
+            out["total_is_lower_bound"] = True
         if count_only:
-            return {"total": len(seen)}
-        results = list(seen.values())[:limit]
-        if not want_name:
-            results = [{k: v for k, v in d.items() if k != "name"} for d in results]
-        return {"total": len(seen), "results": results}
+            return out
+        keys = list(seen.values())[:limit]
+        return out | {"results": _union_docs(client, keys, include_fields)}
 
     if not all_patterns:
         query_clause: dict = {"bool": {"must": [{"match_all": {}}], "filter": filters}}
@@ -2458,16 +2516,17 @@ def _search_literal(
         body["_source"] = include_fields
 
     if not patch_version:
-        # Cardinality agg gives exact distinct-entity count; collapse + sort ensure the
-        # representative doc per entity is the latest version.
+        # Cardinality agg gives exact distinct-entity count (per entity_type::name,
+        # #443). The patch_version-first sort makes each collapse group's top hit its
+        # newest matching patch, so no inner_hits (they cost one search per group).
         body["aggs"] = {
             "distinct_entities": {
-                "cardinality": {"field": "name.keyword", "precision_threshold": 40000}
+                "cardinality": {"field": "entity_key", "precision_threshold": 40000}
             }
         }
         if not count_only:
             body["sort"] = [{"patch_version": "desc"}, "_score"]
-            body["collapse"] = {"field": "name.keyword"}
+            body["collapse"] = {"field": "entity_key"}
 
     resp = client.search(index=INDEX, body=body)
 
@@ -2478,7 +2537,34 @@ def _search_literal(
 
     if count_only:
         return {"total": total}
-    return {"total": total, "results": [hit["_source"] for hit in resp["hits"]["hits"]]}
+    return {
+        "total": total,
+        "results": [h.get("_source", {}) for h in resp["hits"]["hits"]],
+    }
+
+
+def _union_docs(
+    client: OpenSearch, keys: list[dict], include_fields: list[str] | None
+) -> list[dict]:
+    """The full docs behind the patterns union's key docs, in union order: one ids
+    query on their bulk _ids (entity_type::name::patch_version, #447)."""
+    if not keys:
+        return []
+    ids = [
+        f"{d.get('entity_type')}::{d.get('name')}::{d.get('patch_version', 'unknown')}"
+        for d in keys
+    ]
+    body: dict = {"size": len(ids), "query": {"ids": {"values": ids}}}
+    if include_fields is not None:
+        body["_source"] = include_fields
+    resp = client.search(index=INDEX, body=body)
+    by_id = {h["_id"]: h.get("_source", {}) for h in resp["hits"]["hits"]}
+    # A doc gone since the union pass (a concurrent load) keeps its key fields.
+    return [
+        by_id.get(i)
+        or {k: v for k, v in d.items() if include_fields is None or k in include_fields}
+        for i, d in zip(ids, keys)
+    ]
 
 
 def _affinity_variant(client: OpenSearch, base: str, affinity: str) -> str | None:
@@ -2936,6 +3022,9 @@ _FIELD_NOTES: dict[str, str] = {
     "loading tips, #98; item-use dialogs, #90), talk_option (talk-script menu options, "
     "notices and confirmations, #307). An unknown value returns an error listing these",
     "patch_version": "real game patch the doc was extracted from (native is per-patch); use with diff_entities",
+    "entity_key": "'<entity_type>::<name>', stamped at load (#443). Unscoped searches "
+    "return, dedupe and count one result per entity_key, so a name shared by two types "
+    "(Lightning Spear the spell and the weapon) is two results and counts twice",
     "source": "internal game-data origin — the param table, FMG or event script the doc "
     "was built from; the live values are listed under sources above (EquipParamWeapon, "
     "EquipParamGoods, Magic, NpcName, GameAreaParam, BonfireWarpParam, EMEVD, TalkMsg, …). "
