@@ -64,6 +64,22 @@ def test_skill_attacks_and_effects_mapped():  # #326
         assert f"skill.{key}" in _FIELD_NOTES, key
     assert "Barbaric Roar" in _FIELD_NOTES["skill.effects"]
     assert "190" in _FIELD_NOTES["skill.attacks"]
+    # #431: recovery per follow-up action and the animation's length
+    assert set(hit["recovery_frames"]["properties"]) == {
+        "dodge",
+        "right_hand_attack",
+        "left_hand_attack",
+        "skill",
+        "guard",
+        "quick_item",
+        "item",
+        "move",
+    }
+    assert hit["recovery_frames"]["properties"]["dodge"] == {"type": "integer"}
+    assert hit["total_frames"] == {"type": "integer"}
+    assert "left out" in _FIELD_NOTES["skill.attacks.recovery_frames"]
+    assert "122" in _FIELD_NOTES["skill.attacks.total_frames"]
+    assert "isn't in the data" not in _FIELD_NOTES["skill.attacks.active_frames"]
     for key, note in _FIELD_NOTES.items():
         if key.startswith("skill."):
             assert not any(b in note for b in ("R1", "R2", "L1", "L2")), key
