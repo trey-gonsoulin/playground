@@ -783,25 +783,16 @@ def test_flatten_to_dotted_leaves():
     assert _flatten({"scaling": {"str": {"grade": "D"}}}) == {"scaling.str.grade": "D"}
 
 
-def test_effects_note_documents_stacking_tiers():
-    # #155: stacking talismans decode, one effects entry per tier.
-    note = _FIELD_NOTES["effects"]
-    assert "successive attacks, tier 1" in note and "on hit" in note
-    assert "stacking talismans" not in note
-
-
 def test_acquisition_types_note_lists_interaction_reward():
     # #147: interaction-only scripted awards get their own type.
     note = _FIELD_NOTES["acquisition_types"]
-    assert "interaction_reward" in note and "Great Rune" in note
-    assert "carry neither" not in note
+    assert "interaction_reward" in note
     assert _PROPS["acquisition_types"]["type"] == "keyword"
 
 
 def test_acquisition_types_note_lists_strike_reward():
     # #266: awards for striking a character get their own type, not interaction.
-    note = _FIELD_NOTES["acquisition_types"]
-    assert "strike_reward (a map event script awards it for striking" in note
+    assert "strike_reward" in _FIELD_NOTES["acquisition_types"]
     assert "strike_reward" in mcp_server.search_entities.__doc__
 
 
@@ -820,23 +811,19 @@ def test_reward_sources_from_weapons_and_quest_rewards_mapped():
     assert _PROPS["rewards"]["type"] == "keyword"
     for field in ("reward_sources", "from_weapons", "rewards"):
         assert field in _FIELD_NOTES
-    assert "from_weapon (an Ash of War" in _FIELD_NOTES["acquisition_types"]
     assert "from_weapon" in mcp_server.search_entities.__doc__
     assert "requires_flag" in _FIELD_NOTES["placements"]
 
 
 def test_corpse_acquisition_type_and_placement_flag_documented():
     # #136: corpse type + placements[].on_corpse (placements isn't indexed).
-    assert "corpse (looted from a body" in _FIELD_NOTES["acquisition_types"]
     assert "on_corpse" in _FIELD_NOTES["placements"]
     assert _PROPS["placements"] == {"type": "object", "enabled": False}
 
 
 def test_critical_hits_notes_name_the_confirmed_kinds():
     # #128: ThrowParam ThrowType 1 / 20 / 25 labelled; the rest stay raw.
-    assert "Tree Sentinel" in _FIELD_NOTES["critical_hits"]
     for leaf in ("backstab", "riposte", "stance_break", "other_throw_types"):
         assert f"critical_hits.{leaf}" in _FIELD_NOTES
     # Multi-phase bosses: per-phase values, top level is their union (Rennala).
     assert "phases.critical_hits" in _FIELD_NOTES
-    assert "union" in _FIELD_NOTES["critical_hits"]

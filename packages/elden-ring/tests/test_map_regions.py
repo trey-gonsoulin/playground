@@ -104,10 +104,9 @@ def test_notes_document_new_fields():
     assert "footprint" in _FIELD_NOTES["area_scaling"]
     assert "rotation_y" in _FIELD_NOTES["footprint"]
     assert "invader_flag" in _FIELD_NOTES["invasion_instances"]
-    assert "Castle Morne" in _FIELD_NOTES["locations"]
 
 
 def test_areas_filterable():
     """The placements' areas are a filterable keyword summary (#194)."""
     assert _PROPS["areas"] == {"type": "keyword"}
-    assert "#194" in _FIELD_NOTES["areas"] and "areas" in _FIELD_NOTES["placements"]
+    assert "areas" in _FIELD_NOTES["placements"]

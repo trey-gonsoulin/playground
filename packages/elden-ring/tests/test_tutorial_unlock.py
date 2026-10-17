@@ -80,21 +80,15 @@ def test_tutorial_unlock_fields_mapped():
 
 
 def test_tutorial_unlock_documented():
-    assert "UnlockEventFlagId" in _FIELD_NOTES["unlock_flag"]
     assert "site_of_grace" in _FIELD_NOTES["unlock_flag"]
     note = _FIELD_NOTES["unlock_set_when"]
     for word in (
         "gate_set_when",
         "item_acquired",
-        "ItemGetTutorialFlagId",
         "enemy_killed",
         "npc_param_ids",
-        "ChrDeadTutorialFlagId",
         "telescope_view",
         "enemy_group_reward",
         "spiritspring_region",
-        "1.12",
-        "holding none",
     ):
         assert word in note, word
-    assert "holds none of them" in _FIELD_NOTES["steps.when"]

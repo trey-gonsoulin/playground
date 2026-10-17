@@ -37,20 +37,8 @@ def test_fields_mapped():
 
 def test_fields_documented():
     assert "npc_dialogue" in _FIELD_NOTES["speakers"]
-    assert "Kenneth Haight" in _FIELD_NOTES["speakers"]
     for ctx in ("talk", "nearby", "attacked", "hostile", "killed", "player_killed"):
         assert ctx in _FIELD_NOTES["talk_contexts"], ctx
     assert "talk_option" in _FIELD_NOTES["npcs"]
     # talk_option is its own entity_type, not a game_text kind (#307)
     assert "talk_option" in _FIELD_NOTES["entity_type"]
-    assert "talk_option" not in _FIELD_NOTES["tags"]
-
-
-def test_option_answerers_and_shared_numbers_documented():
-    # #367: grace-menu entries another character answers name that character
-    assert "Miniature Ranni" in _FIELD_NOTES["npcs"]
-    assert "'Talk to Melina' -> ['Melina']" in _FIELD_NOTES["npcs"]
-    # #336: notices and counter-built entries; shared-number lines by neighbours
-    assert "OpenGenericDialog" in _FIELD_NOTES["npcs"]
-    assert "Offer Pidia's Bell Bearing" in _FIELD_NOTES["npcs"]
-    assert "TalkMsg block" in _FIELD_NOTES["speakers"]

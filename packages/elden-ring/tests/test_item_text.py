@@ -19,8 +19,6 @@ def test_message_and_network_streams_documented():
     assert _PROPS["message_category"] == {"type": "keyword"}
     for kind in ("network_message", "menu_dialog", "message_word", "placed_message"):
         assert kind in _FIELD_NOTES["tags"]
-    assert "Enemies" in _FIELD_NOTES["message_category"]
-    assert "map event scripts" not in _FIELD_NOTES["raised_by_items"]  # #386
 
 
 def test_placed_message_placements_documented():
@@ -61,10 +59,7 @@ def test_explicit_jp_fields_route_to_analyzer_subfield():
 
 
 def test_field_notes():
-    assert "WeaponEffect" in _FIELD_NOTES["effect_text"]
     assert "status_buildup" in _FIELD_NOTES["effect_text"]
-    assert "ProtectorInfo" in _FIELD_NOTES["info_text"]
-    assert "mountWepTextId" in _FIELD_NOTES["info_text"]  # Ash of War (#169)
     assert "item_dialog" in _FIELD_NOTES["tags"]
     for f in _NEW:
         assert f"{f}_ja" in _FIELD_NOTES

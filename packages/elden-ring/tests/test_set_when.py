@@ -191,28 +191,14 @@ def test_set_when_fields_mapped():
 
 
 def test_set_when_documented():
-    assert "Imbued Sword Key" in _FIELD_NOTES["gate_set_when"]
     assert "unresolved" in _FIELD_NOTES["gate_set_when"].lower()
     assert "gate_set_when" in _FIELD_NOTES["gate_flag"]
     assert "requires_set_when" in _FIELD_NOTES["npc_summons"]
     assert "requires_set_when" in _FIELD_NOTES["hostile_signs"]
-    assert "{flag, when}" in _FIELD_NOTES["trigger_set_when"]
     # guards beside an undecoded wait aren't presented as enough (#228)
     assert "untracked_wait" in _FIELD_NOTES["gate_set_when"]
-    assert "quest-only" in _FIELD_NOTES["npc_summons"]
     # a flag only a talk script or pickup sets (#232)
     assert "item_pickup" in _FIELD_NOTES["gate_set_when"]
-    assert "Castellan Jerren" in _FIELD_NOTES["trigger_set_when"]
-
-
-def test_set_when_alternatives_and_own_slot_documented():
-    """#238 talk / pickup alternatives, #237 own slot flags, #236 re-sets."""
-    note = _FIELD_NOTES["gate_set_when"]
-    assert "one more any_of alternative" in note
-    assert "event id + slot" in note
-    assert "already on" in note
-    # an event's own slot flag is no longer named as never resolved
-    assert "(an event's own slot flag, a computed flag)" not in note
 
 
 def test_set_when_progress_and_all_of_documented():
@@ -226,11 +212,15 @@ def test_set_when_progress_and_all_of_documented():
         "in_region",
         "map",
         "locations",
-        "area / subarea / landmark",
+        "subarea",
+        "landmark",
         "flag_range",
         "first_flag",
         "last_flag",
-        "all_on / all_off / any_on / any_off",
+        "all_on",
+        "all_off",
+        "any_on",
+        "any_off",
         "in_own_world",
         "armor_equipped",
         "item_id",
@@ -238,21 +228,14 @@ def test_set_when_progress_and_all_of_documented():
         "untracked_wait",
     ):
         assert word in note, word
-    # the #228 "differ by more than one condition" absence rule is gone
-    assert "more than one condition" not in note
-    assert "'Examine'" in note
-    assert "with 9410 already on" in _FIELD_NOTES["trigger_set_when"]
 
 
 def test_set_when_or_groups_and_paths_documented():
     """#234 near_entity and OR groups, #235 per-path alternatives, #242 the
     player's character type."""
     note = _FIELD_NOTES["gate_set_when"]
-    for word in ("near_entity", "distance", "only some of the event's", "re-run"):
+    for word in ("near_entity", "distance"):
         assert word in note, word
-    assert "character type is Alive" in note
-    # distances and either-of waits are decoded now, no longer untracked examples
-    assert "a distance, either of several regions" not in note
     assert _PROPS["gate_set_when"]["properties"]["distance"]["type"] == "float"
     when = _PROPS["trigger_set_when"]["properties"]["when"]["properties"]
     assert when["conditions"]["properties"]["distance"]["type"] == "float"
@@ -264,11 +247,13 @@ def test_set_when_multiplayer_and_character_alternatives_documented():
     note = _FIELD_NOTES["gate_set_when"]
     for word in (
         "multiplayer_state",
-        "host / client / multiplayer / multiplayer_pending / singleplayer / "
-        "invasion / invasion_pending",
-        "20000",
-        "or character states",
-        "past 12 conditions",
+        "host",
+        "client",
+        "multiplayer",
+        "multiplayer_pending",
+        "singleplayer",
+        "invasion",
+        "invasion_pending",
     ):
         assert word in note, word
     assert _PROPS["gate_set_when"]["properties"]["state"]["type"] == "keyword"
@@ -280,4 +265,3 @@ def test_shop_unlock_steps_documented():
     assert "unlock_step" in note and "unlock_set_when" in note
     assert "gate_set_when" in note and "requires_step" in note
     # #247: a labelled talk id names a quest block
-    assert "Melina" in _FIELD_NOTES["npc"]

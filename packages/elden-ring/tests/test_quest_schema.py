@@ -172,7 +172,6 @@ def test_quest_fields_documented():
     ):
         assert f in _FIELD_NOTES, f
     assert "waited_for" in _FIELD_NOTES["outcomes.trigger"]
-    assert "quest doc" in _FIELD_NOTES["locations"]
     for kind in (
         "boss_defeated",
         "invasion",

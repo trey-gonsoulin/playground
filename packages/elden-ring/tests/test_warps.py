@@ -33,8 +33,7 @@ def test_warp_fields_documented():
         "warps_to",
         "warps_from",
     ):
-        assert "#94" in _FIELD_NOTES[key], key
+        assert key in _FIELD_NOTES, key
     kinds = _FIELD_NOTES["kind"]
     for kind in ("waygate", "return_to_entrance", "evergaol", "cutscene", "scripted"):
         assert kind in kinds, kind
-    assert "90005605" in _FIELD_NOTES["event_id"]

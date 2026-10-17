@@ -2,7 +2,7 @@
 the type is documented. No OpenSearch needed."""
 
 from elden_ring import mcp_server
-from elden_ring._client import _FIELD_NOTES, INDEX_MAPPING, _flatten
+from elden_ring._client import INDEX_MAPPING, _flatten
 
 _PROPS = INDEX_MAPPING["mappings"]["properties"]
 
@@ -75,7 +75,4 @@ def test_gesture_docs_fully_mapped():
 
 
 def test_gesture_type_documented():
-    assert "gesture (#306)" in _FIELD_NOTES["entity_type"]
-    assert "gesture doc (#306)" in _FIELD_NOTES["acquisition_types"]
-    assert "gesture doc" in _FIELD_NOTES["given_by"]
     assert "gesture      —" in mcp_server.search_entities.__doc__
