@@ -21,8 +21,11 @@ def test_rules_well_formed():
         assert pos.startswith("カスタム"), rule
         surfaces.append(surface)
     assert len(surfaces) == len(set(surfaces))
-    for term in ("褪せ人", "黄金樹", "二本指", "結晶人", "しろがね人"):
+    for term in ("褪せ人", "黄金樹", "二本指", "結晶人", "しろがね人", "稀人", "竜印"):
         assert term in surfaces
+    # descriptive compounds stay split so 獅子 / ルーン still match inside them
+    for term in ("赤獅子", "王都", "大ルーン", "大剣"):
+        assert term not in surfaces
 
 
 def test_both_kuromoji_tokenizers_use_the_dictionary():
@@ -54,6 +57,19 @@ _EXPECTED = {
     "小黄金樹": (["小", "黄金樹"], ["小", "黄金樹"], ["小", "黄金樹"]),
     "朱い腐敗": (["朱い", "腐敗"], ["朱い", "腐敗"], ["朱い", "腐敗"]),
     "輝石頭": (["輝石頭"], ["輝石頭"], ["輝石頭"]),
+    # #272 mid-frequency coinages
+    "魔力竜印のタリスマン": (
+        ["魔力", "竜印", "の", "タリスマン"],
+        ["魔力", "竜印", "の", "タリスマン"],
+        ["魔力", "竜印", "タリスマン"],
+    ),
+    "瘤の結晶雫": (
+        ["瘤", "の", "結晶雫"],
+        ["瘤", "の", "結晶雫"],
+        ["瘤", "結晶雫"],
+    ),
+    "竜人兵": (["竜人", "兵"], ["竜人", "兵"], ["竜人", "兵"]),
+    "責問官": (["責問官"], ["責問官"], ["責問官"]),
 }
 
 
