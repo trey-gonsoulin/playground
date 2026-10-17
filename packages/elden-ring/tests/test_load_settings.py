@@ -23,8 +23,8 @@ def _run_main(monkeypatch, tmp_path, errors, *flags, prune_errors=()):
         load_dataset, "load_documents", lambda c, docs, dry_run: (1, errors)
     )
 
-    def _prune(c, docs, dry_run):
-        pruned.append(1)
+    def _prune(c, docs, dry_run, max_fraction):
+        pruned.append(max_fraction)
         return 0, list(prune_errors)
 
     monkeypatch.setattr(load_dataset, "prune_stale", _prune)
@@ -76,7 +76,7 @@ def test_prune_stale_returns_delete_errors(monkeypatch):
 
 
 def test_clean_load_exits_zero(monkeypatch, tmp_path):
-    assert _run_main(monkeypatch, tmp_path, [], "--prune") == [1]
+    assert _run_main(monkeypatch, tmp_path, [], "--prune") == [0.5]
     assert _run_main(monkeypatch, tmp_path, []) == []
 
 
