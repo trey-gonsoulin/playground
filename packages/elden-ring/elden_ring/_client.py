@@ -1069,6 +1069,7 @@ INDEX_MAPPING = {
             "drop_regions": {"type": "keyword"},
             "drop_locations": {"type": "keyword"},
             "drop_near_locations": {"type": "keyword"},  # #347
+            "near_locations": {"type": "keyword"},  # #427
             # Warp / portal graph (EMEVD WarpToMap + cutscene warps, #94): each end
             # is filterable by map / grace / region / location; positions are
             # returned, not searched. warps_to / warps_from summarise it on
@@ -5064,8 +5065,10 @@ _FIELD_NOTES: dict[str, str] = {
     "church, Forge of the Giants -> forge), or area for a text-only map label with no "
     "icon (#350: Three Sisters, Uld Palace Ruins, Wailing Dunes, Scadutree Base; a "
     "label repeating a marker's name, like the Finger Ruins' second rows, folds into "
-    "that marker's doc). A marker named like a region merges into the "
-    "region doc. "
+    "that marker's doc), or for an area-name banner with no marker (#428, source "
+    "MapNameOverride: Theatre of the Divine Beast; Capital Outskirts on early patches like 1.02.1), "
+    "with its banner volume as footprint and the bosses located there. A marker named "
+    "like a region merges into the region doc. "
     "On a warp doc (#94): waygate (a portal: 'Travel to another location?'), "
     "return_to_entrance (a dungeon boss room's shortcut back), evergaol (entering an "
     "evergaol, or the exit after its boss), cutscene (a warp that plays a cutscene: "
@@ -5088,7 +5091,9 @@ _FIELD_NOTES: dict[str, str] = {
     "volumes that outline it, the same shapes placements are matched against. Each: "
     "{shape (box | cylinder | sphere), map, world_position (the base centre, same frame "
     "as placements), rotation_y (degrees), width / depth / height | radius (metres)}; "
-    "a composite landmark lists every part. Returned, not searchable",
+    "a composite landmark lists every part; an area-name banner doc (#428) lists its "
+    "MapNameOverride volumes (world_position, or position in a dungeon's own map). "
+    "Returned, not searchable",
     "invasion_instances": "on a location doc (#96): the NPC-invasion versions of the "
     "map there (the game's Ceremony instances: a Volcano Manor request, a Bloody "
     "Finger or quest invasion). Each: {ceremony (the instance id, 20-50), hosts (the "
@@ -5182,7 +5187,9 @@ _FIELD_NOTES: dict[str, str] = {
     "Altus). Where the texture names no area (the stacked Scadu Altus / Rauh Base "
     "band, unpainted map edges; #264) it is the map-name volume holding the spot, else "
     "the nearest name the texture paints within 128 m. location is the landmark "
-    "whose MSB footprint holds it (Castle Morne, Caria Manor). In other maps, subarea is the map-name banner of the volume holding "
+    "whose MSB footprint holds it (Castle Morne, Caria Manor); an item pickup outside "
+    "every location carries near_location instead when a dungeon entrance or landmark "
+    "is within reach (#427, see near_locations). In other maps, subarea is the map-name banner of the volume holding "
     "it when that differs from its location and region (Ainsel River Main, Nokron, "
     "Eternal City). An enemy that exists only in an NPC-invasion instance of the map "
     "carries world_state {kind: 'npc_invasion', ceremony, host, invader_flag} (#96; "
@@ -5244,6 +5251,14 @@ _FIELD_NOTES: dict[str, str] = {
     "drop_locations; a landmark only a few metres off (3 m, less for a small "
     "shack) is drop_locations instead (#353). fields=['locations'] searches them "
     "too (#344)",
+    "near_locations": "on item docs (#427): the location docs its open-world pickup "
+    "placements outside every location stand just outside of: a dungeon whose "
+    "world-map marker is within 50 m sideways and 20 m up or down, else the "
+    "open-world landmark whose map footprint is that close (evergaols included), "
+    "e.g. Fire Knight's Cookbook [2] -> Ellac Greatbridge, Red-Hot Whetblade -> "
+    "Redmane Castle. Each such placement carries near_location. Names already in "
+    "locations are left out. Searched on its own: fields=['locations'] doesn't "
+    "include it",
     "from": "on a warp doc (#94): where the warp starts. {map, world_position | "
     "position, grace, region, parent_region, location, entity_id}: entity_id is the "
     "MSB entity that triggers it (the waygate or stone asset the prompt is on, or a "
