@@ -218,7 +218,8 @@ _STATUSES = (
     "madness",
     "death_blight",
 )
-# Follow-up actions of skill.attacks.recovery_frames (#431).
+# Follow-up actions of skill.attacks.recovery_frames (#431) and
+# skill.frames.recovery (#477).
 _SKILL_RECOVERY_ACTIONS = (
     "dodge",
     "right_hand_attack",
@@ -616,6 +617,22 @@ _EFFECTS_MAPPING = {
         "duration": {"type": "float"},
         "target": {"type": "keyword"},
         "scales_with": {"type": "keyword"},
+    }
+}
+
+# One skill hit (#326): ``skill.attacks`` and ``skill.attacks_by_class.attacks``.
+_SKILL_ATTACKS_MAPPING = {
+    "properties": {
+        "hit_label": {"type": "keyword"},
+        "motion_values": _AP_INT,
+        "attack_power": _AP_INT,
+        "stamina_cost": {"type": "integer"},
+        "active_frames": {"properties": _props("integer", ("start", "end"))},
+        # Recovery per follow-up action, anim length (#431).
+        "recovery_frames": {"properties": _props("integer", _SKILL_RECOVERY_ACTIONS)},
+        "total_frames": {"type": "integer"},
+        "projectile": {"type": "boolean"},
+        "hit_count": {"type": "integer"},
     }
 }
 
@@ -1441,22 +1458,28 @@ INDEX_MAPPING = {
                     },
                     "chargeable": {"type": "boolean"},
                     # Per-hit motion values, stamina, frames; the buff (#326).
-                    "attacks": {
+                    "attacks": _SKILL_ATTACKS_MAPPING,
+                    # Ash of War hit lists of the classes that differ (#432).
+                    "attacks_by_class": {
                         "properties": {
-                            "hit_label": {"type": "keyword"},
-                            "motion_values": _AP_INT,
-                            "attack_power": _AP_INT,
-                            "stamina_cost": {"type": "integer"},
-                            "active_frames": {
+                            "weapon_classes": {"type": "keyword"},
+                            "attacks": _SKILL_ATTACKS_MAPPING,
+                        }
+                    },
+                    # Skill-level i-frames / parry window / recovery (#477).
+                    "frames": {
+                        "properties": {
+                            "startup": {"type": "integer"},
+                            "invulnerable": {
                                 "properties": _props("integer", ("start", "end"))
                             },
-                            # Recovery per follow-up action, anim length (#431).
-                            "recovery_frames": {
+                            "parry": {
+                                "properties": _props("integer", ("start", "end"))
+                            },
+                            "recovery": {
                                 "properties": _props("integer", _SKILL_RECOVERY_ACTIONS)
                             },
-                            "total_frames": {"type": "integer"},
-                            "projectile": {"type": "boolean"},
-                            "hit_count": {"type": "integer"},
+                            "total": {"type": "integer"},
                         }
                     },
                     "effects": _EFFECTS_MAPPING,
@@ -4062,7 +4085,8 @@ _FIELD_NOTES: dict[str, str] = {
     "'FP follow-up'; same labels as skill_poise_damage.hit_labels). Melee hits first, "
     "then projectile hits (projectile: true, hit_count = hits on one target). Weapons: "
     "at the weapon's own attack rows; Ashes of War: the rows most of the weapon "
-    "classes it mounts on share (a few ashes, e.g. Wall of Sparks, differ per class). "
+    "classes it mounts on share (the classes that differ are in "
+    "skill.attacks_by_class). "
     "Uchigatana Unsheathe: FP light 190 / no FP light 115 / FP heavy 245 / no FP heavy "
     "135 with stamina 24 / 40, matching the wikis",
     "skill.attacks.motion_values": "% of the weapon's attack rating per damage type "
@@ -4097,6 +4121,33 @@ _FIELD_NOTES: dict[str, str] = {
     "Unsheathe light 68 / heavy 84. The player can usually act before the end; "
     "recovery_frames says when. Current-patch animations, like active_frames. Melee "
     "hits only",
+    "skill.attacks_by_class": "Ashes of War only (#432): the hit lists of the weapon "
+    "classes whose hits differ from skill.attacks (the list most classes share), each "
+    "with weapon_classes (the classes using that list) and attacks (same fields as "
+    "skill.attacks). Absent when every class shares one list. 9 ashes at 1.17: Flame "
+    "Skewer on Greatswords, Colossal Swords, Great Spears, Halberds, Thrusting Shields "
+    "and Great Katanas 138 instead of 151, Heavy Thrusting Swords 148; Wild Strikes on "
+    "Curved Swords, Axes, Hammers and Flails 126 instead of 107; Blood Tax, Repeating "
+    "Thrust and Spinning Weapon on Daggers; Sword Dance on Twinblades; Shield Bash and "
+    "Shield Crash on Thrusting Shields; Aspects of the Crucible: Wings. A class with "
+    "two weapon bases (Great Hammer, Claw, Colossal Weapon) can be in two lists",
+    "skill.attacks_by_class.weapon_classes": "the weapon classes (weapon_type names) "
+    "whose skill hits are this entry's attacks (#432)",
+    "skill.frames": "frame data of the skill as a whole (#477), 30 frames per second "
+    "from the start of its animation, for skills with i-frames or a parry window, "
+    "including those with no damaging hit (Quickstep, Bloodhound's Step, the parries). "
+    "Read from the first such animation (the FP version; Quickstep's forward step). "
+    "invulnerable.start / .end: the i-frames (Quickstep 0-15, wiki 15; Bloodhound's "
+    "Step 0-16, wiki 16; Vow of the Indomitable 4-34); frames 9-15 of Quickstep's "
+    "only protect against non-player attacks. parry.start / .end: when an attack "
+    "can be parried (Golden Parry 4-7, the wiki's 4 startup and 3 parry frames). "
+    "startup: frames before the first of them opens. recovery: frames from the end "
+    "of the skill's last guard, i-frame, parry or hit window until the player can "
+    "leave the animation for each follow-up action (dodge, right_hand_attack, "
+    "left_hand_attack, skill, guard, quick_item, item, move; Quickstep 10/2/6/7/10/7/"
+    "12/14 and Bloodhound's Step 9/1/5/7/8/6/11/13 as the wiki, Golden Parry dodge 15 "
+    "/ guard 14 / move 17). total: the animation's length. Current-patch "
+    "animations, so older patches show today's timing",
     "skill.effects": "the buffs the skill itself applies (#326), decoded like item "
     "effects from the SpEffects its animations add (AddSpEffect_WeaponArts, enough-FP "
     "version): Barbaric Roar '+7.5% physical attack for 40s', Sacred Blade '+90 holy "
@@ -4105,8 +4156,12 @@ _FIELD_NOTES: dict[str, str] = {
     "condition: Determination's '-25% attack (on critical hits)' (its +60% is +20% "
     "on a critical), Shriek of Sorrow's +10/15/20/25% by HP tier, Stamp's '-50% "
     "damage taken (during the skill)'. skill.effect / effect_value / effect_duration "
-    "summarise them like item effect. Buffs a skill spreads through a projectile or "
-    "area (Golden Vow, Holy Ground) aren't included",
+    "summarise them like item effect. Also the buffs a skill spreads through a "
+    "projectile or area that spares enemies (#430): Golden Vow '+11.5% attack for "
+    "45s; -7.5% damage taken for 45s', Holy Ground '-20% damage taken (while in the "
+    "area) for 35s; 5 HP restored (while in the area) every 0.3s for 35s' (an "
+    "area's buffs last as long as the area, conditioned 'while in the area'). "
+    "Seppuku '+30 physical attack power for 60s'",
     "default_affinity": "Ash of War: the affinity a weapon takes when it's applied "
     "(EquipParamGem defaultWepAttr; Golden Parry Sacred, Lion's Claw Heavy) (#290)",
     "affinities": "Ash of War: every affinity it allows (#290), named like weapon "
