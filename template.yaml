@@ -10,7 +10,8 @@ Globals:
 
 Resources:
   # ---------------------------------------------------------------------------
-  # Elden Ring OpenSearch — self-hosted on EC2 (t4g.small, stopped when idle)
+  # Elden Ring OpenSearch — self-hosted on EC2 (t4g.small). start_search_service
+  # starts it; EldenRingSearchIdleStopAlarm stops it after an hour of low CPU.
   # ---------------------------------------------------------------------------
 
   # Port 9200 open to the world; OpenSearch security plugin handles auth + TLS.
@@ -181,6 +182,30 @@ Resources:
         - Key: Name
           Value: elden-ring-search
 
+  # Idle stop (#464): the built-in EC2 stop action, no Lambda. Idle OpenSearch
+  # averages about 0.9% CPU; reindexes and boots run far above 2%. Twelve
+  # 5-minute periods below 2% (an hour) stop the instance. A stopped instance
+  # sends no data, which counts as not breaching, so the alarm returns to OK
+  # and fires again on the next idle hour after start_search_service.
+  EldenRingSearchIdleStopAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Stop the Elden Ring OpenSearch instance after an hour idle
+      Namespace: AWS/EC2
+      MetricName: CPUUtilization
+      Dimensions:
+        - Name: InstanceId
+          Value: !Ref EldenRingSearchInstance
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 12
+      DatapointsToAlarm: 12
+      Threshold: 2
+      ComparisonOperator: LessThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Sub 'arn:aws:automate:${AWS::Region}:ec2:stop'
+
   EldenRingHttpApi:
     Type: AWS::Serverless::HttpApi
 
@@ -188,9 +213,10 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       PackageType: Image
-      # Override the global 30 s timeout — start_search_service polls for up to
-      # 4 minutes while the EC2 instance boots and OpenSearch initialises.
-      Timeout: 300
+      # HTTP API stops waiting at 30 s, so keep the function just under it like
+      # genealogy's. start_search_service polls for at most ~20 s and tells the
+      # caller to call again while the instance boots (#440).
+      Timeout: 29
       Policies:
         - Statement:
             - Effect: Allow
