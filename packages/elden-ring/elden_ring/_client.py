@@ -1281,6 +1281,13 @@ INDEX_MAPPING = {
                     "entered_from": {"type": "long"},
                     "locations": {"type": "keyword"},
                     "when": {"properties": _QUEST_CONDITION},
+                    # #485: what bringing the NPC in during the phase needs
+                    "placements": {
+                        "properties": {
+                            "locations": {"type": "keyword"},
+                            "when": {"properties": _QUEST_CONDITION},
+                        }
+                    },
                 }
             },
             "outcomes": {
@@ -5482,7 +5489,11 @@ _FIELD_NOTES: dict[str, str] = {
     "Gideon Ofnir -> Leyndell, Ashen Capital), then (#424) where its own enemy "
     "placements stand: a character it names with no talk script (Knight Bernahl -> "
     "Crumbling Farum Azula, Redmane Freyja -> Rauh Base) or one a summon / invasion "
-    "sign places (Hornsent -> Ancient Ruins of Rauh)",
+    "sign places (Hornsent -> Ancient Ruins of Rauh). #488: only names sharing a word "
+    "with the NPC's count (Blaidd's look-alike Baleful Shadow in Ainsel River Main "
+    "doesn't), and a sign whose gate flag stands for one of the NPC's quests' steps "
+    "adds its map to that quest only (D's Black Knife Catacombs and Tibia Mariner "
+    "signs go to D, Hunter of the Dead 4040-4059, not to his twin's 4060-4079)",
     "drop_regions": "on item docs (#141): the regions (+ tabs) of the enemies in "
     "dropped_by, counting only the placements that carry the item (their own death "
     "lot or scripted award) when known, else every placement of that enemy. "
@@ -5925,6 +5936,14 @@ _FIELD_NOTES: dict[str, str] = {
     "the Jagged Peak Drake or Bayle defeated), or any_of (conditions: at least one "
     "of these nested conditions holds, each shaped as above). negated = the "
     "condition must be off",
+    "steps.placements": "#485: what a map event that brings the NPC's character in "
+    "during this phase needs on besides the phase, one entry per distinct gate: "
+    "locations (the event's map, as steps.locations) + when (as steps.when, all "
+    "required; the NPC's own flag_block flags left out). Needle Knight Leda's 4445 at "
+    "Mohgwyn Palace needs flag 12059261, whose set_when is Mohg, Lord of Blood and "
+    "Starscourge Radahn defeated; Demi-Human Boc's 3947 needs each spot's Site of "
+    "Grace flag. Tests that a flag is off (the NPC having moved on already) are left "
+    "out, so a step without placements may still be placed conditionally",
     "outcomes": "on a quest doc: life-state changes: flag + slot (0-4) + life_state "
     "(hostile for +1/+2, dead for +3: labelled from the death / SetTeamType events "
     "that set them; +0/+4 unlabelled), with when (as steps.when) or trigger (death / "
