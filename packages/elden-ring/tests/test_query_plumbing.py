@@ -137,7 +137,7 @@ def test_routed_literal_fields_derive_from_literal_fields():
         (_client._LITERAL_FIELDS_LEMMA, ".lemma"),
     ):
         assert len(routed) == len(_client._LITERAL_FIELDS)
-        for base, f in zip(_client._LITERAL_FIELDS, routed):
+        for base, f in zip(_client._LITERAL_FIELDS, routed, strict=True):
             ja = base in _client._JP_BASE_FIELDS
             assert f == (base + suffix if ja else base)
     assert "name_ja.morph" in _client._LITERAL_FIELDS_MORPH
@@ -225,7 +225,7 @@ def test_tool_forwards_every_param_to_its_name(monkeypatch, tool):
         for n, p in inspect.signature(_ORIG[fn]).parameters.items()
         if p.kind is p.POSITIONAL_OR_KEYWORD and n != "client"
     ]
-    got = dict(zip(positional, seen["args"])) | seen["kwargs"]
+    got = dict(zip(positional, seen["args"], strict=False)) | seen["kwargs"]
     assert got == {k: v for k, v in vals.items() if k not in wrapper_only}
 
 
