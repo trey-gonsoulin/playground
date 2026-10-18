@@ -243,6 +243,15 @@ def search_entities(
                            scenes ("Melina's first meeting", "Age of the Stars
                            ending"), else native (boss + kind, or the first line).
                            Search a quote to find the scene it's spoken in.
+            ending       — one doc per Erdtree ending (#425): Age of Fracture, Age
+                           of the Stars, Lord of Frenzied Flame, Age of Order, Age
+                           of the Duskborn, Blessing of Despair. ending_flags
+                           (9400-9407), choices (Fractured Marika's option or the
+                           prompt: 'Summon Ranni'), trigger_options / npcs,
+                           trigger_items (the Mending Rune it needs),
+                           trigger_steps / trigger_set_when (what each requirement
+                           needs) and its cutscene doc, which names it back
+                           (ending).
             site_of_grace — one doc per named Site of Grace (#78, BonfireWarpParam):
                            region + parent_region (the map-menu grouping), map,
                            position (map-local) or world_position (open world),
