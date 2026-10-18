@@ -41,7 +41,16 @@ _DOC = {
                             ],
                         },
                     ],
-                }
+                    # #495: the event's off-tests, said on
+                    "until": [
+                        {
+                            "kind": "quest_flag",
+                            "flag": 4897,
+                            "npc": "Redmane Freyja",
+                        }
+                    ],
+                },
+                {"locations": ["Limgrave"], "until": [{"kind": "talk", "flag": 7}]},
             ],
         },
         {
@@ -98,6 +107,20 @@ _DOC = {
                                 {"kind": "flag", "flag": 181, "set_when": []},
                                 {"kind": "talk", "flag": 11109659, "npcs": ["x"]},
                                 {"kind": "quest_phase", "flag": 3966, "npc": "x"},
+                            ],
+                        },
+                        # #494: an any_of inside the all_of (stored, not indexed)
+                        {
+                            "kind": "all_of",
+                            "conditions": [
+                                {"kind": "flag", "flag": 3105},
+                                {
+                                    "kind": "any_of",
+                                    "conditions": [
+                                        {"kind": "flag", "flag": 16009206},
+                                        {"kind": "talk", "flag": 16009208},
+                                    ],
+                                },
                             ],
                         },
                     ],
@@ -197,8 +220,26 @@ def test_quest_flags_are_long():
         "steps.when.conditions.conditions.flag",  # #484
         "outcomes.when.conditions.conditions.flag",
         "steps.placements.when.flag",  # #485
+        "steps.placements.until.flag",  # #495
     ):
         assert _mapped(path)["type"] == "long", path
+
+
+def test_quest_third_condition_level_stored():
+    """#494: an all_of member's any_of (the third level) is stored, not indexed,
+    on every quest condition mount; until (#495) holds leaves only."""
+    off = {"type": "object", "enabled": False}
+    for path in (
+        "steps.when.conditions.conditions.conditions",
+        "steps.placements.when.conditions.conditions.conditions",
+        "outcomes.when.conditions.conditions.conditions",
+        "outcomes.waited_for.conditions.conditions.conditions",
+    ):
+        assert _mapped(path) == off, path
+    assert _mapped("steps.placements.until.conditions") is None
+    assert "set_when" in _mapped("steps.placements.until")["properties"]
+    assert "#494" in _FIELD_NOTES["steps.when.conditions.conditions.conditions"]
+    assert "until" in _FIELD_NOTES["steps.placements"]
 
 
 def test_quest_fields_documented():
