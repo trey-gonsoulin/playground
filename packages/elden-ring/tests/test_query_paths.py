@@ -3,11 +3,18 @@ literal patterns union, calculate_attack_rating's mid-name affinity fallback,
 list_menu_categories / list_entity_types, and start_instance. diff_entities and
 text_changed_between are covered in test_version_diff_tools.py."""
 
+import asyncio
+import json
+import os
+
+import boto3
 import pytest
+from botocore.stub import Stubber
 from opensearchpy.exceptions import ConnectionError as SearchConnectionError
+from opensearchpy.exceptions import ConnectionTimeout, TransportError
 from test_filter_validation import _Client, _doc
 
-from elden_ring import _client
+from elden_ring import _client, mcp_server
 
 
 def _words(s: str) -> set[str]:
@@ -295,7 +302,7 @@ def test_list_entity_types():
 
 
 # ---------------------------------------------------------------------------
-# start_instance
+# start_instance (#440: non-blocking, at most ~20 s per call)
 # ---------------------------------------------------------------------------
 
 
@@ -313,6 +320,8 @@ class _Clock:
 
 
 class _EC2:
+    """Fake EC2: each describe_instances pops the next (state, dns), keeping the last."""
+
     def __init__(self, states):
         self.states, self.started = list(states), []
 
@@ -327,14 +336,14 @@ class _EC2:
 
 class _Health:
     def __init__(self, answers):
-        self.answers, self.calls = list(answers), 0
+        self.answers, self.timeouts = list(answers), []
 
     @property
     def cluster(self):
         return self
 
     def health(self, request_timeout):
-        self.calls += 1
+        self.timeouts.append(request_timeout)
         answer = self.answers.pop(0) if len(self.answers) > 1 else self.answers[0]
         if isinstance(answer, Exception):
             raise answer
@@ -344,35 +353,145 @@ class _Health:
 @pytest.fixture
 def instance(monkeypatch):
     monkeypatch.setenv("EC2_INSTANCE_ID", "i-123")
-    monkeypatch.setattr(_client, "time", _Clock())
+    clock = _Clock()
+    monkeypatch.setattr(_client, "time", clock)
     _client._cached_endpoint = "stale-host"
     _client._cached_client = object()
-    yield monkeypatch
+    yield monkeypatch, clock
     _client.reset_cache()
 
 
-def test_start_instance_waits_for_running_then_health(instance):
-    ec2 = _EC2([("pending", ""), ("pending", "host-new"), ("running", "host-new")])
-    health = _Health([SearchConnectionError("N/A", "refused", None), "red", "yellow"])
-    instance.setattr(_client, "_ec2", lambda: ec2)
-    instance.setattr(_client, "get_client", lambda: health)
-    assert _client.start_instance() == "host-new"
+def _wire(monkeypatch, ec2, health=None):
+    monkeypatch.setattr(_client, "_ec2", lambda: ec2)
+    if health is not None:
+        monkeypatch.setattr(_client, "get_client", lambda: health)
+
+
+def test_start_instance_boots_then_waits_out_read_timeouts(instance):
+    monkeypatch, _ = instance
+    ec2 = _EC2([("stopped", ""), ("pending", ""), ("running", "host-new")])
+    health = _Health(
+        [
+            SearchConnectionError("N/A", "refused", None),
+            ConnectionTimeout("TIMEOUT", "Read timed out", None),
+            "red",
+            "yellow",
+        ]
+    )
+    _wire(monkeypatch, ec2, health)
+    assert _client.start_instance(budget_seconds=60) == {"status": "ready"}
     assert ec2.started == [["i-123"]]
-    assert health.calls == 3
+    assert len(health.timeouts) == 4
+    assert max(health.timeouts) <= 5
     # The stale client is dropped and the new hostname cached.
     assert _client._cached_endpoint == "host-new"
-    assert _client._cached_client is None
 
 
-def test_start_instance_times_out_waiting_for_running(instance):
-    instance.setattr(_client, "_ec2", lambda: _EC2([("pending", "")]))
-    with pytest.raises(TimeoutError, match="running state"):
-        _client.start_instance(timeout_seconds=20)
-    assert _client._cached_endpoint == "stale-host"
+def test_start_instance_returns_starting_within_budget(instance):
+    monkeypatch, clock = instance
+    ec2 = _EC2([("stopped", ""), ("pending", "")])
+    _wire(monkeypatch, ec2)
+    out = _client.start_instance()
+    assert out["status"] == "starting" and out["state"] == "pending"
+    assert "~30 s" in out["message"]
+    assert ec2.started == [["i-123"]]
+    assert clock.now <= 20
+    # The stop invalidated the old hostname (#456).
+    assert _client._cached_endpoint is None and _client._cached_client is None
 
 
-def test_start_instance_times_out_waiting_for_health(instance):
-    instance.setattr(_client, "_ec2", lambda: _EC2([("running", "host-new")]))
-    instance.setattr(_client, "get_client", lambda: _Health(["red"]))
-    with pytest.raises(TimeoutError, match="healthy"):
-        _client.start_instance(timeout_seconds=30)
+def test_start_instance_returns_starting_while_opensearch_initialises(instance):
+    monkeypatch, clock = instance
+    health = _Health(
+        [
+            ConnectionTimeout("TIMEOUT", "Read timed out", None),
+            TransportError(503, "unavailable", None),  # security index loading
+        ]
+    )
+    _wire(monkeypatch, _EC2([("running", "host-new")]), health)
+    out = _client.start_instance()
+    assert out == {
+        "status": "starting",
+        "state": "running",
+        "message": "OpenSearch is still initialising; "
+        "call start_search_service() again in ~30 s",
+    }
+    assert clock.now <= 20
+    assert all(t <= 5 for t in health.timeouts)
+
+
+def test_start_instance_already_running_keeps_cached_client(instance):
+    monkeypatch, clock = instance
+    ec2 = _EC2([("running", "stale-host")])
+    health = _Health(["green"])
+    _wire(monkeypatch, ec2, health)
+    cached = _client._cached_client
+    assert _client.start_instance() == {"status": "ready"}
+    assert ec2.started == []
+    assert _client._cached_client is cached
+    assert clock.now == 0
+
+
+def test_start_instance_waits_out_stopping(instance):
+    monkeypatch, _ = instance
+    ec2 = _EC2([("stopping", ""), ("stopping", ""), ("stopped", ""), ("running", "h")])
+    _wire(monkeypatch, ec2, _Health(["green"]))
+    assert _client.start_instance() == {"status": "ready"}
+    assert ec2.started == [["i-123"]]
+
+
+def test_start_instance_still_stopping_does_not_start(instance):
+    monkeypatch, clock = instance
+    ec2 = _EC2([("stopping", "")])
+    _wire(monkeypatch, ec2)
+    out = _client.start_instance()
+    assert out["status"] == "starting" and out["state"] == "stopping"
+    assert ec2.started == []
+    assert clock.now <= 20
+
+
+def test_start_instance_terminated_is_an_error(instance):
+    monkeypatch, _ = instance
+    ec2 = _EC2([("terminated", "")])
+    _wire(monkeypatch, ec2)
+    assert _client.start_instance()["status"] == "error"
+    assert ec2.started == []
+
+
+def test_start_search_service_wraps_client_error(instance):
+    """A real boto3 client under Stubber: StartInstances raising
+    IncorrectInstanceState comes back as {"status": "error"}, not an exception."""
+    monkeypatch, _ = instance
+    monkeypatch.setenv("AWS_CONFIG_FILE", os.devnull)  # no profile lookups
+    ec2 = boto3.client(
+        "ec2",
+        region_name="us-east-1",
+        aws_access_key_id="testing",
+        aws_secret_access_key="testing",  # noqa: S106
+    )
+    stopped = {"Reservations": [{"Instances": [{"State": {"Name": "stopped"}}]}]}
+    with Stubber(ec2) as stub:
+        stub.add_response("describe_instances", stopped, {"InstanceIds": ["i-123"]})
+        stub.add_client_error(
+            "start_instances",
+            service_error_code="IncorrectInstanceState",
+            service_message="The instance is not in a state from which it can be started.",
+        )
+        _wire(monkeypatch, ec2)
+        out = asyncio.run(mcp_server.mcp.call_tool("start_search_service", {}))
+        stub.assert_no_pending_responses()
+    blocks = out[0] if isinstance(out, tuple) else out
+    result = json.loads(blocks[0].text)
+    assert result["status"] == "error"
+    assert "IncorrectInstanceState" in result["message"]
+
+
+def test_start_search_service_annotations():
+    tool = mcp_server.mcp._tool_manager.get_tool("start_search_service")
+    assert tool is not None and tool.annotations is not None
+    ann = tool.annotations
+    assert (ann.readOnlyHint, ann.destructiveHint, ann.idempotentHint) == (
+        False,
+        False,
+        True,
+    )
