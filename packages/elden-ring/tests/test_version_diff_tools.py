@@ -206,7 +206,7 @@ def _tools():
 @pytest.mark.parametrize("tool", [t.name for t in _tools()])
 def test_every_tool_returns_one_json_object(monkeypatch, tool):
     if tool == "start_search_service":
-        monkeypatch.setattr(_client, "start_instance", lambda **_: "host")
+        monkeypatch.setattr(_client, "start_instance", lambda **_: {"status": "ready"})
     monkeypatch.setattr(_client, "get_client", _ToolClient)
     out = asyncio.run(mcp_server.mcp.call_tool(tool, _ARGS.get(tool, {})))
     blocks = out[0] if isinstance(out, tuple) else out

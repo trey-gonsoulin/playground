@@ -1,6 +1,6 @@
 # elden-ring
 
-An MCP server that searches Elden Ring game data at every patch: items, enemies, NPCs, quests, locations and dialogue. The data lives in an OpenSearch index on an EC2 instance in the `mcp-playground` stack. The Lambda (`EldenRingMcpFunction`) reads the index, and `start_search_service` starts the instance on demand.
+An MCP server that searches Elden Ring game data at every patch: items, enemies, NPCs, quests, locations and dialogue. The data lives in an OpenSearch index on an EC2 instance in the `mcp-playground` stack. The Lambda (`EldenRingMcpFunction`) reads the index, and `start_search_service` starts the instance on demand. That tool returns within about 20 s, so a cold start takes a few calls before it answers `ready`. The `EldenRingSearchIdleStopAlarm` alarm stops the instance after an hour below 2% average CPU.
 
 The repo-level summary is the elden-ring section of the root `CLAUDE.md`. This file is the runbook.
 

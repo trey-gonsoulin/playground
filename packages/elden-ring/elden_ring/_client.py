@@ -13,7 +13,11 @@ from typing import Any, overload
 
 import boto3
 from opensearchpy import OpenSearch, Urllib3HttpConnection
-from opensearchpy.exceptions import AuthenticationException, TransportError
+from opensearchpy.exceptions import (
+    AuthenticationException,
+    SerializationError,
+    TransportError,
+)
 from opensearchpy.exceptions import ConnectionError as SearchConnectionError
 
 from elden_ring._calc import DAMAGE_TYPES as _DAMAGE_TYPES
@@ -160,46 +164,74 @@ def unreachable_as_error(fn):
     return wrapper
 
 
-def start_instance(timeout_seconds: int = 240) -> str:
-    """Start the EC2 instance, wait for OpenSearch to be healthy, return the hostname."""
+def _instance_state(ec2: Any, instance_id: str) -> tuple[str, str | None]:
+    """Return the instance's state name and public hostname (None if it has none)."""
+    resp = ec2.describe_instances(InstanceIds=[instance_id])
+    inst = resp["Reservations"][0]["Instances"][0]
+    hostname = inst.get("PublicDnsName") or inst.get("PublicIpAddress") or None
+    return inst["State"]["Name"], hostname
+
+
+def start_instance(budget_seconds: float = 20) -> dict:
+    """Start the EC2 instance and poll OpenSearch for at most budget_seconds.
+
+    Returns {"status": "ready"} once the cluster is green or yellow, otherwise
+    {"status": "starting", "state": ..., "message": ...}. A cold start takes 2-3
+    minutes, longer than the HTTP API's 30 s cap, so callers poll by calling
+    again (#440). An instance that is still stopping is waited out first,
+    because StartInstances rejects it with IncorrectInstanceState. Boto
+    ClientErrors propagate to the tool.
+    """
     global _cached_endpoint
 
     instance_id = os.environ["EC2_INSTANCE_ID"]
-
     ec2 = _ec2()
-    ec2.start_instances(InstanceIds=[instance_id])
+    deadline = time.monotonic() + budget_seconds
 
-    # Wait for the instance to reach 'running' and get a public hostname.
-    deadline = time.monotonic() + timeout_seconds
-    hostname: str | None = None
-    while time.monotonic() < deadline:
-        resp = ec2.describe_instances(InstanceIds=[instance_id])
-        inst = resp["Reservations"][0]["Instances"][0]
-        dns = inst.get("PublicDnsName") or inst.get("PublicIpAddress")
-        if inst["State"]["Name"] == "running" and dns:
-            hostname = dns
-            break
-        time.sleep(5)
+    def starting(state: str, why: str) -> dict:
+        message = f"{why}; call start_search_service() again in ~30 s"
+        return {"status": "starting", "state": state, "message": message}
 
-    if not hostname:
-        raise TimeoutError("Instance did not reach running state in time.")
+    state, hostname = _instance_state(ec2, instance_id)
+    while state == "stopping" and time.monotonic() + 3 <= deadline:
+        time.sleep(3)
+        state, hostname = _instance_state(ec2, instance_id)
+    if state == "stopping":
+        return starting(state, "the instance is still stopping")
+    if state in ("shutting-down", "terminated"):
+        return {"status": "error", "state": state, "message": f"instance is {state}"}
+    if state == "stopped":
+        reset_cache()  # the old hostname went away with the stop (#456)
+        ec2.start_instances(InstanceIds=[instance_id])
 
-    # Invalidate stale cache now that we have a fresh hostname.
-    reset_cache()
-    _cached_endpoint = hostname
+    # Wait for 'running' and a public hostname.
+    while not (state == "running" and hostname):
+        if time.monotonic() + 3 > deadline:
+            return starting(state, "the instance is booting")
+        time.sleep(3)
+        state, hostname = _instance_state(ec2, instance_id)
 
-    # Poll OpenSearch health (verified TLS, #467) until green/yellow or timeout.
-    while time.monotonic() < deadline:
+    if hostname != _cached_endpoint:
+        reset_cache()  # drop a client bound to an old hostname
+        _cached_endpoint = hostname
+
+    # Poll OpenSearch health (verified TLS, #467) until green/yellow.
+    while True:
+        remaining = deadline - time.monotonic()
         try:
             # request_timeout is a global param the query_params decorator takes.
-            health = get_client().cluster.health(request_timeout=5)  # pyright: ignore[reportCallIssue]
+            health = get_client().cluster.health(  # pyright: ignore[reportCallIssue]
+                request_timeout=max(1.0, min(5.0, remaining))
+            )
             if health.get("status") in ("green", "yellow"):
-                return hostname
-        except TransportError:  # unreachable, or 503 while the security index loads
+                return {"status": "ready"}
+        except (TransportError, SerializationError):
+            # TransportError covers refused connections, timeouts (ReadTimeout)
+            # and the 503 while the security index loads.
             pass
-        time.sleep(10)
-
-    raise TimeoutError("OpenSearch did not become healthy in time.")
+        if time.monotonic() + 3 > deadline:
+            return starting("running", "OpenSearch is still initialising")
+        time.sleep(3)
 
 
 # ---------------------------------------------------------------------------
