@@ -12,7 +12,7 @@ The repo-level summary is the elden-ring section of the root `CLAUDE.md`. This f
   - the query layer behind the tools: `search`, `get_entity`, the literal-search and patch-diff helpers.
 - `elden_ring/mcp_server.py`: the twelve tools, their docstrings and `_FIELD_NOTES` (served by `describe_fields`).
 - `elden_ring/_calc.py`: the attack-rating math behind `calculate_attack_rating`.
-- `scripts/load_dataset.py`: loads one `dataset.json` into OpenSearch. `scripts/load_data.py` holds the shared client, `ensure_index` and bulk helpers. `load_manifest.py` and `index_settings.py` support incremental loads and the load-time settings.
+- `scripts/load_dataset.py`: loads one `dataset.json` into OpenSearch. `scripts/opensearch_load.py` holds the shared client, `ensure_index` and bulk helpers (the retired erdb loader that shared `load_data.py` with them was deleted in #444). `load_manifest.py` and `index_settings.py` support incremental loads and the load-time settings.
 - `tests/`: offline unit tests, plus the opt-in live suite (see Tests).
 
 ## Data flow
@@ -61,7 +61,7 @@ uv run --package elden-ring pytest packages/elden-ring/tests/   # offline; no AW
 packages/elden-ring/scripts/check.sh                            # the quality gate (below)
 ```
 
-There is no CI, so run `scripts/check.sh` before pushing. It runs the locked tools from the `lint` dependency group (`--group lint`): `ruff check`, `ruff format --check`, `pyright` (basic mode), then the offline tests with `--cov-fail-under=45`. The `lint` group is not installed by default, so the plain pytest command above never needs its wheels. Once they are cached, `check.sh --offline` works too. The ruff rule set, pyright settings and per-file waivers are in this package's `pyproject.toml`. Other arguments also go to `uv run`. The loader scripts are on the test path (`pythonpath = ["scripts"]`), so tests import `load_data` and friends directly.
+There is no CI, so run `scripts/check.sh` before pushing. It runs the locked tools from the `lint` dependency group (`--group lint`): `ruff check`, `ruff format --check`, `pyright` (basic mode), then the offline tests with `--cov-fail-under=45`. The `lint` group is not installed by default, so the plain pytest command above never needs its wheels. Once they are cached, `check.sh --offline` works too. The ruff rule set, pyright settings and per-file waivers are in this package's `pyproject.toml`. Other arguments also go to `uv run`. The loader scripts are on the test path (`pythonpath = ["scripts"]`), so tests import `opensearch_load` and friends directly.
 
 `uv.lock` resolves against PyPI, and the Dockerfiles install from it with `--require-hashes` (#454). A shell that exports `UV_DEFAULT_INDEX` overrides the workspace's index, and an unfrozen `uv run` or `uv lock` then rewrites the lock with that index's URLs. In such a shell, run with `--frozen`, or relock with `uv lock --default-index https://pypi.org/simple`.
 

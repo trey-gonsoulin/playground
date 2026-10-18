@@ -37,7 +37,8 @@ import sys
 from pathlib import Path
 
 from elden_ring._client import unmapped_paths
-from load_data import (
+from load_manifest import forget, record, select_changed, target_index
+from opensearch_load import (
     _PRUNE_MAX_FRACTION,
     IndexMissing,
     PruneRefused,
@@ -46,7 +47,6 @@ from load_data import (
     load_documents,
     prune_stale,
 )
-from load_manifest import forget, record, select_changed, target_index
 
 
 def main() -> None:

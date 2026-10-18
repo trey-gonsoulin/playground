@@ -459,7 +459,6 @@ dependencies = [
     { name = "mangum" },
     { name = "mcp" },
     { name = "opensearch-py" },
-    { name = "requests" },
 ]
 
 [package.dev-dependencies]
@@ -481,7 +480,6 @@ requires-dist = [
     { name = "mangum", specifier = ">=0.21.0" },
     { name = "mcp", specifier = ">=1.28,<2" },
     { name = "opensearch-py", specifier = ">=3.0" },
-    { name = "requests", specifier = ">=2.32" },
 ]
 
 [package.metadata.requires-dev]

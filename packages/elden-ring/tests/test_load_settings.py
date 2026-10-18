@@ -6,8 +6,8 @@ import sys
 
 import pytest
 
-import load_data
 import load_dataset
+import opensearch_load
 
 
 def _run_main(monkeypatch, tmp_path, errors, *flags, prune_errors=()):
@@ -62,14 +62,18 @@ def test_prune_stale_returns_delete_errors(monkeypatch):
         {"entity_type": "enemy", "name": f"K{i}", "patch_version": "1.02"}
         for i in range(8)
     ]
-    monkeypatch.setattr(load_data, "_stale_ids", lambda live_ids, d: ["enemy::B::1.02"])
-    monkeypatch.setattr(load_data, "scan", lambda client, **kw: iter(live))
+    monkeypatch.setattr(
+        opensearch_load, "_stale_ids", lambda live_ids, d: ["enemy::B::1.02"]
+    )
+    monkeypatch.setattr(opensearch_load, "scan", lambda client, **kw: iter(live))
     err = {"delete": {"_id": "enemy::B::1.02", "status": 503}}
-    monkeypatch.setattr(load_data, "bulk", lambda client, actions, **kw: (0, [err]))
-    assert load_data.prune_stale(object(), docs, dry_run=False) == (0, [err])
-    monkeypatch.setattr(load_data, "bulk", lambda client, actions, **kw: (1, []))
-    assert load_data.prune_stale(object(), docs, dry_run=False) == (1, [])
-    assert load_data.prune_stale(object(), docs, dry_run=True) == (0, [])
+    monkeypatch.setattr(
+        opensearch_load, "bulk", lambda client, actions, **kw: (0, [err])
+    )
+    assert opensearch_load.prune_stale(object(), docs, dry_run=False) == (0, [err])
+    monkeypatch.setattr(opensearch_load, "bulk", lambda client, actions, **kw: (1, []))
+    assert opensearch_load.prune_stale(object(), docs, dry_run=False) == (1, [])
+    assert opensearch_load.prune_stale(object(), docs, dry_run=True) == (0, [])
 
 
 def test_clean_load_exits_zero(monkeypatch, tmp_path):
@@ -104,7 +108,7 @@ def test_pause_targets_concrete_index(monkeypatch):
     for k in ("ER_LOAD_PAUSE_REFRESH", "ER_LOAD_ASYNC_TRANSLOG"):
         monkeypatch.delenv(k, raising=False)
     c = _Client()
-    assert load_data.pause_refresh(c) == ["elden-ring-entities-v3"]
+    assert opensearch_load.pause_refresh(c) == ["elden-ring-entities-v3"]
     assert c.indices.calls == [
         (
             "put",
@@ -118,18 +122,18 @@ def test_pause_knobs(monkeypatch):
     monkeypatch.setenv("ER_LOAD_ASYNC_TRANSLOG", "0")
     monkeypatch.delenv("ER_LOAD_PAUSE_REFRESH", raising=False)
     c = _Client()
-    load_data.pause_refresh(c)
+    opensearch_load.pause_refresh(c)
     assert c.indices.calls[0][2] == {"index.refresh_interval": "-1"}
     monkeypatch.setenv("ER_LOAD_PAUSE_REFRESH", "off")
     c = _Client()
-    assert load_data.pause_refresh(c) == [] and c.indices.calls == []
+    assert opensearch_load.pause_refresh(c) == [] and c.indices.calls == []
 
 
 def test_restore_resets_defaults_and_refreshes(monkeypatch):
     # restore ignores the knobs: it always undoes everything pause can set
     monkeypatch.setenv("ER_LOAD_PAUSE_REFRESH", "0")
     c = _Client()
-    load_data.restore_refresh(c)
+    opensearch_load.restore_refresh(c)
     assert c.indices.calls == [
         (
             "put",
@@ -142,7 +146,7 @@ def test_restore_resets_defaults_and_refreshes(monkeypatch):
 
 def test_missing_index_is_a_noop():
     c = _Client(names=())
-    assert load_data.pause_refresh(c) == [] == load_data.restore_refresh(c)
+    assert opensearch_load.pause_refresh(c) == [] == opensearch_load.restore_refresh(c)
     assert c.indices.calls == []
 
 
@@ -150,7 +154,7 @@ def test_client_compresses_unless_turned_off(monkeypatch):
     monkeypatch.setenv("OPENSEARCH_ENDPOINT", "localhost")
     monkeypatch.setenv("OPENSEARCH_PASSWORD", "x")
     monkeypatch.delenv("ER_LOAD_COMPRESS", raising=False)
-    conn = load_data._get_client().transport.get_connection()
+    conn = opensearch_load._get_client().transport.get_connection()
     assert conn.http_compress
     monkeypatch.setenv("ER_LOAD_COMPRESS", "0")
-    assert not load_data._get_client().transport.get_connection().http_compress
+    assert not opensearch_load._get_client().transport.get_connection().http_compress
