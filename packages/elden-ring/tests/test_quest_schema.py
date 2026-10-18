@@ -21,6 +21,8 @@ _DOC = {
     "text_content": "Demi-Human Boc\nBoc the Seamster\nLimgrave",
     "steps": [
         {"phase_flag": 3945, "order": 1, "locations": ["Limgrave"]},
+        # #502: an any-on range over the NPC's own phases enters from either
+        {"phase_flag": 3949, "entered_from": [3945, 3946], "order": 5},
         {
             "phase_flag": 3947,
             "order": 3,
