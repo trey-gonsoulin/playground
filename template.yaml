@@ -256,26 +256,6 @@ Resources:
       Dockerfile: packages/elden-ring/Dockerfile
 
 
-  TherapistFinderFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      PackageType: Image
-      Events:
-        Root:
-          Type: HttpApi
-          Properties:
-            Path: /
-            Method: ANY
-        Proxy:
-          Type: HttpApi
-          Properties:
-            Path: /{proxy+}
-            Method: ANY
-    Metadata:
-      DockerTag: latest
-      DockerContext: .
-      Dockerfile: packages/therapist-finder/Dockerfile
-
   YnabMcpFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -332,7 +312,7 @@ Resources:
   GenealogyHttpApi:
     Type: AWS::Serverless::HttpApi
 
-  # No auth for now (like the Elden Ring and Therapist Finder functions): claude.ai
+  # No auth for now (like the Elden Ring function): claude.ai
   # connectors can't send a static bearer header. The app enforces one if
   # GENEALOGY_MCP_SECRET is set.
   GenealogyMcpFunction:
@@ -370,10 +350,6 @@ Resources:
       Dockerfile: packages/genealogy/Dockerfile
 
 Outputs:
-  TherapistFinderApiUrl:
-    Description: Therapist Finder HTTP API endpoint URL (MCP server at /mcp)
-    Value: !Sub "https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com"
-
   YnabMcpApiUrl:
     Description: YNAB MCP HTTP API endpoint URL (MCP server at /mcp)
     Value: !Sub "https://${YnabHttpApi}.execute-api.${AWS::Region}.amazonaws.com"

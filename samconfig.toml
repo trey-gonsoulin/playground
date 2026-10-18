@@ -1,6 +1,6 @@
 # SAM CLI configuration for the mcp-playground stack, committed so deploys are
-# reproducible. Every function in template.yaml (elden-ring, therapist-finder,
-# ynab, genealogy) deploys into this one stack.
+# reproducible. Every function in template.yaml (elden-ring, ynab,
+# genealogy) deploys into this one stack.
 #
 # Deploy with a reviewed change set (see packages/elden-ring/README.md#deploy):
 #   export DOCKER_HOST=unix://$HOME/.docker/run/docker.sock
@@ -34,6 +34,4 @@ capabilities = "CAPABILITY_IAM"
 confirm_changeset = true
 resolve_s3 = true
 s3_prefix = "mcp-playground"
-# TherapistFinderFunction's repo belongs to the companion stack of the old
-# standalone `therapist-finder` stack, so that companion stack must stay.
-image_repositories = ["TherapistFinderFunction=268834972001.dkr.ecr.us-east-1.amazonaws.com/therapistfinder8ff77c7a/therapistfinderfunction87be2aadrepo", "YnabMcpFunction=268834972001.dkr.ecr.us-east-1.amazonaws.com/mcpplayground7d6ff2e8/ynabmcpfunction7a0a73f1repo", "EldenRingMcpFunction=268834972001.dkr.ecr.us-east-1.amazonaws.com/mcpplayground7d6ff2e8/eldenringmcpfunction0d23b4b2repo", "GenealogyMcpFunction=268834972001.dkr.ecr.us-east-1.amazonaws.com/mcp-playground/genealogymcpfunction"]
+image_repositories = ["YnabMcpFunction=268834972001.dkr.ecr.us-east-1.amazonaws.com/mcpplayground7d6ff2e8/ynabmcpfunction7a0a73f1repo", "EldenRingMcpFunction=268834972001.dkr.ecr.us-east-1.amazonaws.com/mcpplayground7d6ff2e8/eldenringmcpfunction0d23b4b2repo", "GenealogyMcpFunction=268834972001.dkr.ecr.us-east-1.amazonaws.com/mcp-playground/genealogymcpfunction"]

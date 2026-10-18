@@ -10,7 +10,7 @@ dependencies = []
 members = ["packages/*"]
 
 # Shared ruff settings for the repo root and the packages without their own config
-# (genealogy, therapist-finder, ynab-mcp). elden-ring keeps its own [tool.ruff] in
+# (genealogy, ynab-mcp). elden-ring keeps its own [tool.ruff] in
 # packages/elden-ring/pyproject.toml (#457); ruff uses the closest config per file.
 [tool.ruff]
 target-version = "py313"
