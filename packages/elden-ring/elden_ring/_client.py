@@ -517,8 +517,17 @@ _QUEST_CONDITION = {
     # stored, not indexed (the field limit)
     "set_when": {"type": "object", "enabled": False},
 }
-# kind any_of (#203): at least one of the nested (leaf) conditions holds
-_QUEST_CONDITION = {**_QUEST_CONDITION, "conditions": {"properties": _QUEST_CONDITION}}
+# kind any_of (#203): at least one of the nested conditions holds; a member is a
+# leaf or kind all_of (#484: every one of its own leaf conditions holds)
+_QUEST_CONDITION = {
+    **_QUEST_CONDITION,
+    "conditions": {
+        "properties": {
+            **_QUEST_CONDITION,
+            "conditions": {"properties": _QUEST_CONDITION},
+        }
+    },
+}
 # What an 'event' outcome's script waited for (#213): the conditions above, or kind
 # character (a character's state, named via its MSB entities); multiplayer_state (#245)
 _QUEST_WAITED_FOR = {
@@ -545,6 +554,11 @@ _SET_WHEN_LEAF = {
     "first_flag": {"type": "long"},
     "last_flag": {"type": "long"},
     "range_state": {"type": "keyword"},
+    # kind flag_count (#486): how many flags of [first_flag, last_flag] are on,
+    # compared with count; counted names what the flags record when known
+    "comparison": {"type": "keyword"},
+    "count": {"type": "integer"},
+    "counted": {"type": "keyword"},
     # kind near_entity (#234): the player within distance of MSB entity_id
     "distance": {"type": "float"},
     # kind enemy_killed (#202): the NpcParam rows whose death sets the flag
@@ -5627,7 +5641,11 @@ _FIELD_NOTES: dict[str, str] = {
     "is on), in_region (the player inside MSB region entity_id; negated = outside: "
     "map (when the MSB dumps place the region), plus locations of that map, area "
     "/ subarea / landmark of the region's position when they add a name), flag_range (first_flag..last_flag, "
-    "range_state all_on / all_off / any_on / any_off), in_own_world (the player is "
+    "range_state all_on / all_off / any_on / any_off), flag_count (#486: how many "
+    "flags of first_flag..last_flag are on, compared (comparison ==, !=, >, <, >=, "
+    "<=) with count; counted names what the flags record when known: Great Runes "
+    "obtained for 170–179, so flag 181 = Great Runes obtained >= 1, Great Runes "
+    "restored for 190–199), in_own_world (the player is "
     "the host, not a summoned phantom; negated = not in their own world; also when "
     "the event only runs on past a check of it, #237, or checks that the player's "
     "character type is Alive, i.e. not a phantom, #242), "
@@ -5984,7 +6002,10 @@ _FIELD_NOTES: dict[str, str] = {
     "locations of the maps whose events set it; set_when, #314: what turns it on, "
     "shaped like a set_when, stored unindexed: Igon's 2048429205 = in own world and "
     "the Jagged Peak Drake or Bayle defeated), or any_of (conditions: at least one "
-    "of these nested conditions holds, each shaped as above). negated = the "
+    "of these nested conditions holds, each shaped as above, or #484 all_of "
+    "(conditions: every one of its own holds), when the test is an OR of ANDs that "
+    "share nothing: Gideon's 3967 = any_of(flag 110, all_of(phase 3966, talk "
+    "11109358, talk 11109660), all_of(flag 181, talk 11109659))). negated = the "
     "condition must be off",
     "outcomes": "on a quest doc: life-state changes: flag + slot (0-4) + life_state "
     "(hostile for +1/+2, dead for +3: labelled from the death / SetTeamType events "
