@@ -11,6 +11,8 @@ import re
 import ssl
 import time
 import unicodedata
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, overload
 
 import boto3
@@ -33,13 +35,19 @@ from elden_ring._schema import (
     _mapping_paths,
 )
 
+
 # ---------------------------------------------------------------------------
 # Module-level cache — survives across warm Lambda invocations.
 # Cold starts re-derive endpoint + password via one API call each.
 # ---------------------------------------------------------------------------
-_cached_endpoint: str | None = None
-_cached_password: str | None = None
-_cached_client: OpenSearch | None = None
+@dataclass
+class _Cache:
+    endpoint: str | None = None
+    password: str | None = None
+    client: OpenSearch | None = None
+
+
+_cache = _Cache()
 
 
 def _ec2() -> Any:  # a boto3 EC2 client (boto3.client is a factory, not a type)
@@ -48,16 +56,15 @@ def _ec2() -> Any:  # a boto3 EC2 client (boto3.client is a factory, not a type)
 
 def _get_password() -> str:
     """Fetch the OpenSearch admin password from SSM SecureString (cached)."""
-    global _cached_password
-    if _cached_password:
-        return _cached_password
+    if _cache.password:
+        return _cache.password
     ssm = boto3.client("ssm", region_name=os.environ.get("AWS_REGION", "us-east-1"))
     resp = ssm.get_parameter(
         Name=os.environ["OPENSEARCH_PASSWORD_SSM_PATH"],
         WithDecryption=True,
     )
-    _cached_password = str(resp["Parameter"]["Value"])
-    return _cached_password
+    _cache.password = str(resp["Parameter"]["Value"])
+    return _cache.password
 
 
 def _get_current_endpoint() -> str:
@@ -65,9 +72,8 @@ def _get_current_endpoint() -> str:
 
     Raises RuntimeError if the instance is stopped (no public hostname assigned yet).
     """
-    global _cached_endpoint
-    if _cached_endpoint:
-        return _cached_endpoint
+    if _cache.endpoint:
+        return _cache.endpoint
 
     resp = _ec2().describe_instances(InstanceIds=[os.environ["EC2_INSTANCE_ID"]])
     instance = resp["Reservations"][0]["Instances"][0]
@@ -76,7 +82,7 @@ def _get_current_endpoint() -> str:
         raise RuntimeError(
             "Search service is offline. Call start_search_service() first."
         )
-    _cached_endpoint = hostname
+    _cache.endpoint = hostname
     return hostname
 
 
@@ -86,7 +92,7 @@ def _get_current_endpoint() -> str:
 # this file then. The node cert's SANs (localhost, 127.0.0.1, elden-ring-search)
 # don't include the changing EC2 DNS name, so the chain is checked but not the
 # hostname.
-CA_CERTS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "er-root-ca.pem")
+CA_CERTS = str(Path(__file__).absolute().parent / "er-root-ca.pem")
 
 
 def pinned_ssl_context() -> ssl.SSLContext:
@@ -122,12 +128,11 @@ def tls_options() -> dict:
 
 def get_client() -> OpenSearch:
     """Return a cached OpenSearch client, creating one if needed."""
-    global _cached_client
-    if _cached_client is not None:
-        return _cached_client
+    if _cache.client is not None:
+        return _cache.client
 
     host = _get_current_endpoint()
-    _cached_client = OpenSearch(
+    _cache.client = OpenSearch(
         hosts=[{"host": host, "port": 9200}],
         http_auth=(os.environ["OPENSEARCH_USER"], _get_password()),
         **tls_options(),
@@ -137,13 +142,12 @@ def get_client() -> OpenSearch:
         timeout=20,
         max_retries=0,
     )
-    return _cached_client
+    return _cache.client
 
 
 def reset_cache() -> None:
     """Forget the cached endpoint, password and client (#456)."""
-    global _cached_endpoint, _cached_password, _cached_client
-    _cached_endpoint = _cached_password = _cached_client = None
+    _cache.endpoint = _cache.password = _cache.client = None
 
 
 UNREACHABLE = (
@@ -192,8 +196,6 @@ def start_instance(budget_seconds: float = 20) -> dict:
     because StartInstances rejects it with IncorrectInstanceState. Boto
     ClientErrors propagate to the tool.
     """
-    global _cached_endpoint
-
     instance_id = os.environ["EC2_INSTANCE_ID"]
     ec2 = _ec2()
     deadline = time.monotonic() + budget_seconds
@@ -221,17 +223,19 @@ def start_instance(budget_seconds: float = 20) -> dict:
         time.sleep(3)
         state, hostname = _instance_state(ec2, instance_id)
 
-    if hostname != _cached_endpoint:
+    if hostname != _cache.endpoint:
         reset_cache()  # drop a client bound to an old hostname
-        _cached_endpoint = hostname
+        _cache.endpoint = hostname
 
     # Poll OpenSearch health (verified TLS, #467) until green/yellow.
     while True:
         remaining = deadline - time.monotonic()
         try:
-            # request_timeout is a global param the query_params decorator takes.
-            health = get_client().cluster.health(  # pyright: ignore[reportCallIssue]
-                request_timeout=max(1.0, min(5.0, remaining))
+            # The transport pops request_timeout from params (the typed signature
+            # has no request_timeout keyword; the query_params decorator moves it
+            # into params unchanged).
+            health = get_client().cluster.health(
+                params={"request_timeout": max(1.0, min(5.0, remaining))}
             )
             if health.get("status") in ("green", "yellow"):
                 return {"status": "ready"}
@@ -534,7 +538,7 @@ def _field_coverage_warnings(
     return [
         f"{f}: no {scope} carry this field; "
         f"text fields they carry: {', '.join(carried) or 'none'}"
-        for f, base in zip(fields, bases)
+        for f, base in zip(fields, bases, strict=True)
         if not counts.get(base) and base not in unsearchable
     ]
 
@@ -1579,7 +1583,7 @@ def _union_docs(
     return [
         by_id.get(i)
         or {k: v for k, v in d.items() if include_fields is None or k in include_fields}
-        for i, d in zip(ids, keys)
+        for i, d in zip(ids, keys, strict=True)
     ]
 
 
@@ -2271,7 +2275,7 @@ def describe_index(
         entry: dict = {"type": spec.get("type", "object")}
         if path in folds:
             entry["same_shape_as"], entry["folded_paths"] = folds[path]
-        subs = [s for s in spec.get("fields", {})]
+        subs = list(spec.get("fields", {}))
         if subs:
             entry["subfields"] = subs
         # Stored in _source, not indexed: get_entity / include_fields only (#446).
