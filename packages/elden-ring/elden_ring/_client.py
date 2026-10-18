@@ -2102,7 +2102,13 @@ _FOLD_FAMILIES: tuple[tuple[str, ...], ...] = (
     ),
     ("skill.attacks_by_hand", "skill.attacks_by_class.attacks_by_hand"),
     ("skill.effects", "skill.effects_by_class.effects"),
-    ("skill.frames", "skill.frames_by_class.frames"),
+    (
+        "skill.frames",
+        "skill.frames_by_class.frames",
+        "skill.frames_by_hand.frames",
+        "skill.frames_by_class.frames_by_hand.frames",
+    ),
+    ("skill.frames_by_hand", "skill.frames_by_class.frames_by_hand"),
 )
 
 
