@@ -95,19 +95,6 @@ sam build && sam deploy --no-execute-changeset # build + change set; export DOCK
 
 ## Packages
 
-### therapist-finder (`packages/therapist-finder/`)
-
-Searches [inclusivetherapists.com](https://www.inclusivetherapists.com) and [psychologytoday.com](https://www.psychologytoday.com) and returns therapist profiles. One MCP tool: `search_therapists(location, specialties, insurance, telehealth, lgbtq, issue, sources, max_results)`.
-
-**Inclusive Therapists scraping mechanics:**
-- First page: `GET /{state-slug}/{city-slug}?{filter}=on` — IT uses full state names in URL slugs (`new-york`, not `ny`), mapped via `_IT_STATE_SLUGS` in `_scrapers.py`.
-- Subsequent pages: `POST /wapi/widget` with multipart FormData. The `queryString` JS object embedded in each page response contains the exact parameters to mirror back for pagination.
-- Filters are checkbox slugs (e.g. `anxiety=on`, `virtual-video-online-therapy-counseling-coaching-teletherapy=on`). Common human-readable terms are mapped to slugs in `_IT_SPECIALTY_SLUGS` and `_IT_INSURANCE_SLUGS`.
-
-**Psychology Today scraping mechanics:**
-- `GET /us/therapists/{state-abbr-lower}/{city-slug}?issue=X&insurance=Y&telehealth=true&lgbta=true`
-- Results are server-side rendered as a Nuxt 3 flat-array state object in a `<script>` tag. Each therapist is a dict with `firstName`, `lastName`, `suffixes`, `primaryLocation`, `personalStatements`, `accepting_appointments`, `appointmentTypes`, and `urlPath` fields that reference other positions in the flat array by integer index. `_deref()` in `_scrapers.py` resolves those references. The `urlPath` template placeholders `[COUNTRY_CODE]` and `[PROFILE_CLASS]` are replaced with `us` and `therapists` respectively.
-
 ### genealogy (`packages/genealogy/`)
 
 A personal family tree built up through MCP tools and exported as GEDCOM. It is fed by WikiTree, Library of Congress newspapers, and GEDCOM files from other apps.
@@ -140,7 +127,7 @@ A personal family tree built up through MCP tools and exported as GEDCOM. It is 
   - With `TREE_BUCKET` set, files go to `s3://$TREE_BUCKET/trees/<name>/{tree.json,tree.ged,exports/,resources/}`. Otherwise they go to `$TREE_DIR` (default `~/.genealogy-mcp/trees`).
   - Saves are conditional, so overlapping invocations raise `ConcurrentModification` instead of losing writes.
   - Resources are content-addressed (`resources/<sha256[:16]>-<name>`). The bucket is versioned and retained.
-- **Auth:** none when deployed, like elden-ring and therapist-finder, because claude.ai connectors can't send a static bearer header. The app still requires `Authorization: Bearer <secret>` if `GENEALOGY_MCP_SECRET` is set (same pattern as ynab-mcp), but `template.yaml` leaves it unset.
+- **Auth:** none when deployed, like elden-ring, because claude.ai connectors can't send a static bearer header. The app still requires `Authorization: Bearer <secret>` if `GENEALOGY_MCP_SECRET` is set (same pattern as ynab-mcp), but `template.yaml` leaves it unset.
 
 ### elden-ring (`packages/elden-ring/`)
 
