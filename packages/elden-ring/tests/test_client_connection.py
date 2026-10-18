@@ -1,6 +1,7 @@
 """Search-node TLS pinning (#467) and dead-connection handling (#456). No
 OpenSearch needed."""
 
+import shutil
 import ssl
 import subprocess
 from pathlib import Path
@@ -53,9 +54,14 @@ def test_pinned_ca_passes_strict_x509():
     # fails with "CA cert does not include key usage extension"
     ctx = ssl.create_default_context(cafile=_client.CA_CERTS)
     assert ctx.verify_flags & ssl.VERIFY_X509_STRICT
-    text = subprocess.run(
-        ["openssl", "x509", "-in", _client.CA_CERTS, "-noout", "-ext", "keyUsage"],
-        capture_output=True, text=True, check=True,
+    openssl = shutil.which("openssl")
+    if openssl is None:
+        pytest.skip("openssl not installed")
+    text = subprocess.run(  # noqa: S603 -- fixed argv, the package's own CA file
+        [openssl, "x509", "-in", _client.CA_CERTS, "-noout", "-ext", "keyUsage"],
+        capture_output=True,
+        text=True,
+        check=True,
     ).stdout
     assert "critical" in text and "Certificate Sign" in text and "CRL Sign" in text
 
