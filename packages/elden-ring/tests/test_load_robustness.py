@@ -9,9 +9,9 @@ import pytest
 from opensearchpy import RequestError
 
 import index_settings
-import load_data
 import load_dataset
 import load_manifest
+import opensearch_load
 from elden_ring import _client
 
 _MAPPING = {
@@ -90,7 +90,7 @@ def test_load_dataset_refuses_unmapped_before_connecting(monkeypatch, tmp_path, 
 def test_client_retries_timeouts(monkeypatch):
     monkeypatch.setenv("OPENSEARCH_ENDPOINT", "localhost")
     monkeypatch.setenv("OPENSEARCH_PASSWORD", "x")
-    t = load_data._get_client().transport
+    t = opensearch_load._get_client().transport
     assert t.retry_on_timeout and t.max_retries == 3
 
 
@@ -101,13 +101,13 @@ def test_load_documents_bulk_retries_429(monkeypatch):
         calls.append((list(actions), kw))
         return len(calls[-1][0]), []
 
-    monkeypatch.setattr(load_data, "bulk", _bulk)
+    monkeypatch.setattr(opensearch_load, "bulk", _bulk)
     docs = [{"entity_type": "weapon", "name": "A", "patch_version": "1.02", "x": None}]
-    assert load_data.load_documents(object(), docs, dry_run=False) == (1, [])
+    assert opensearch_load.load_documents(object(), docs, dry_run=False) == (1, [])
     ((actions, kw),) = calls
     assert actions == [
         {
-            "_index": load_data.INDEX,
+            "_index": opensearch_load.INDEX,
             "_id": "weapon::A::1.02",
             "_source": {
                 "entity_type": "weapon",
@@ -119,8 +119,11 @@ def test_load_documents_bulk_retries_429(monkeypatch):
     ]
     assert kw["max_retries"] == 3 and kw["initial_backoff"] == 2
     assert not kw["raise_on_error"]
-    assert load_data.load_documents(object(), docs, dry_run=True) == (0, [])
-    assert load_data.load_documents(object(), [{"entity_type": "x"}], False) == (0, [])
+    assert opensearch_load.load_documents(object(), docs, dry_run=True) == (0, [])
+    assert opensearch_load.load_documents(object(), [{"entity_type": "x"}], False) == (
+        0,
+        [],
+    )
     assert len(calls) == 1
 
 
@@ -152,41 +155,41 @@ class _Client:
 
 
 def test_ensure_index_creates_missing_concrete_index(monkeypatch):
-    monkeypatch.setattr(load_data, "INDEX", "elden-ring-entities-v9")
+    monkeypatch.setattr(opensearch_load, "INDEX", "elden-ring-entities-v9")
     c = _Client(exists=False)
-    load_data.ensure_index(c)
+    opensearch_load.ensure_index(c)
     assert c.indices.calls == [("create", "elden-ring-entities-v9")]
 
 
 def test_ensure_index_updates_existing(monkeypatch):
     c = _Client(exists=True)
-    load_data.ensure_index(c)
+    opensearch_load.ensure_index(c)
     assert [k for k, _ in c.indices.calls] == ["put_settings", "put_mapping"]
 
 
 def test_ensure_index_lost_create_race_puts_mapping(monkeypatch):
-    monkeypatch.setattr(load_data, "INDEX", "elden-ring-entities-v9")
+    monkeypatch.setattr(opensearch_load, "INDEX", "elden-ring-entities-v9")
     err = RequestError(400, "resource_already_exists_exception", {})
     c = _Client(exists=False, create_error=err)
-    load_data.ensure_index(c)
+    opensearch_load.ensure_index(c)
     assert [k for k, _ in c.indices.calls] == ["create", "put_settings", "put_mapping"]
 
 
 def test_ensure_index_reraises_other_create_errors(monkeypatch):
-    monkeypatch.setattr(load_data, "INDEX", "elden-ring-entities-v9")
+    monkeypatch.setattr(opensearch_load, "INDEX", "elden-ring-entities-v9")
     c = _Client(exists=False, create_error=RequestError(400, "mapper_parsing", {}))
     with pytest.raises(RequestError):
-        load_data.ensure_index(c)
+        opensearch_load.ensure_index(c)
 
 
 def test_ensure_index_refuses_to_create_under_alias_name(monkeypatch, tmp_path):
-    monkeypatch.setattr(load_data, "INDEX", "elden-ring-entities")
+    monkeypatch.setattr(opensearch_load, "INDEX", "elden-ring-entities")
     c = _Client(exists=False)
-    with pytest.raises(load_data.IndexMissing):
-        load_data.ensure_index(c)
+    with pytest.raises(opensearch_load.IndexMissing):
+        opensearch_load.ensure_index(c)
     assert c.indices.calls == []
     # load_dataset turns it into a non-zero exit for the reload scripts
-    monkeypatch.setattr(load_dataset, "ensure_index", load_data.ensure_index)
+    monkeypatch.setattr(load_dataset, "ensure_index", opensearch_load.ensure_index)
     monkeypatch.setattr(load_dataset, "_get_client", lambda: c)
     ds = tmp_path / "ds.json"
     ds.write_text(json.dumps([{"entity_type": "weapon", "name": "A"}]))
@@ -207,14 +210,14 @@ def _prune(monkeypatch, live_names, built_names, **kw):
     """Run the real prune_stale (real _stale_ids) over fake scan + bulk."""
     deleted = []
     live = [{"_id": f"enemy::{n}::1.02"} for n in live_names]
-    monkeypatch.setattr(load_data, "scan", lambda client, **k: iter(live))
+    monkeypatch.setattr(opensearch_load, "scan", lambda client, **k: iter(live))
 
     def _bulk(client, actions, **k):
         deleted.extend(a["_id"] for a in actions)
         return len(deleted), []
 
-    monkeypatch.setattr(load_data, "bulk", _bulk)
-    result = load_data.prune_stale(object(), _docs(built_names), False, **kw)
+    monkeypatch.setattr(opensearch_load, "bulk", _bulk)
+    result = opensearch_load.prune_stale(object(), _docs(built_names), False, **kw)
     return result, deleted
 
 
@@ -234,7 +237,7 @@ def test_rename_of_most_docs_is_allowed_whatever_the_refresh_state(
 def test_truncated_build_is_refused(monkeypatch):
     old = [f"K{i}" for i in range(10)]
     built = old[:3]
-    with pytest.raises(load_data.PruneRefused, match="7 of 10 enemy"):
+    with pytest.raises(opensearch_load.PruneRefused, match="7 of 10 enemy"):
         _prune(monkeypatch, old, built)
     # nothing deleted, and an override lets it through
     (n, _), deleted = _prune(monkeypatch, old, built, max_fraction=1.0)
@@ -254,7 +257,7 @@ def _run_prune_main(monkeypatch, tmp_path, *flags, refuse=True):
     def _prune_stale(c, docs, dry_run, max_fraction):
         seen.append(max_fraction)
         if refuse and max_fraction < 1:
-            raise load_data.PruneRefused("refusing to prune: 9 of 10")
+            raise opensearch_load.PruneRefused("refusing to prune: 9 of 10")
         return 9, []
 
     monkeypatch.setattr(load_dataset, "prune_stale", _prune_stale)
