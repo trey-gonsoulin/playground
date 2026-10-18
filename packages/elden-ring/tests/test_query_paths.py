@@ -189,7 +189,7 @@ _SCAVENGER = [
 
 def _ar(weapon, affinity=None):
     return _client.calculate_attack_rating(
-        _QueryClient(_SCAVENGER), weapon, {}, None, False, affinity
+        _QueryClient(_SCAVENGER), weapon, {}, affinity=affinity
     )
 
 
@@ -316,10 +316,10 @@ class _EC2:
     def __init__(self, states):
         self.states, self.started = list(states), []
 
-    def start_instances(self, InstanceIds):  # noqa: N803 — boto3 kwarg
+    def start_instances(self, InstanceIds):
         self.started.append(InstanceIds)
 
-    def describe_instances(self, InstanceIds):  # noqa: N803 — boto3 kwarg
+    def describe_instances(self, InstanceIds):
         state, dns = self.states.pop(0) if len(self.states) > 1 else self.states[0]
         inst = {"State": {"Name": state}, "PublicDnsName": dns}
         return {"Reservations": [{"Instances": [inst]}]}
