@@ -9,7 +9,7 @@ import elden_ring._schema as _schema
 
 # sha256 of json.dumps(INDEX_MAPPING, sort_keys=True) before the #459 dedupe
 # (main @ a3cd4e8). The refactor must not change a byte of the mapping. If you
-_MAPPING_SHA256 = "4f56a2059fcb98e42d36fe7b2ef9cb0d9df21857cf5da622064b6f014433ee9a"
+_MAPPING_SHA256 = "2fd26a5e3be9d074f9c6476c4a88daf703148c6019d4262e852a8567d9251394"
 
 _PROPS = _schema.INDEX_MAPPING["mappings"]["properties"]
 
@@ -43,6 +43,16 @@ def test_skill_attacks_by_hand_fragment():
     assert skill["attacks_by_class"]["properties"]["attacks_by_hand"] is by_hand
     assert by_hand["properties"]["hands"] == {"type": "keyword"}
     assert by_hand["properties"]["attacks"] is _schema._SKILL_ATTACKS_MAPPING
+
+
+def test_skill_frames_by_hand_fragment():
+    # #503: shield arts' per-hand frames, on the skill and per class
+    skill = _PROPS["skill"]["properties"]
+    by_hand = _schema._SKILL_FRAMES_BY_HAND_MAPPING
+    assert skill["frames_by_hand"] is by_hand
+    assert skill["frames_by_class"]["properties"]["frames_by_hand"] is by_hand
+    assert by_hand["properties"]["hands"] == {"type": "keyword"}
+    assert by_hand["properties"]["frames"] is _schema._SKILL_FRAMES_MAPPING
 
 
 def test_vocabulary_from_calc():
