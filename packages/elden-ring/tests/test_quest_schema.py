@@ -63,6 +63,21 @@ _DOC = {
                         {"kind": "flag", "flag": 1043379354, "negated": True},
                     ],
                 },
+                # #484: an OR of ANDs sharing nothing (Gideon's 3967)
+                {
+                    "kind": "any_of",
+                    "conditions": [
+                        {"kind": "flag", "flag": 110},
+                        {
+                            "kind": "all_of",
+                            "conditions": [
+                                {"kind": "flag", "flag": 181, "set_when": []},
+                                {"kind": "talk", "flag": 11109659, "npcs": ["x"]},
+                                {"kind": "quest_phase", "flag": 3966, "npc": "x"},
+                            ],
+                        },
+                    ],
+                },
             ],
         },
     ],
@@ -137,6 +152,7 @@ def test_quest_doc_fully_mapped():
     paths = set(_leaves(_DOC))
     assert "steps.when.bosses" in paths and "outcomes.when.life_state" in paths
     assert "steps.when.set_when.bosses" in paths  # #314
+    assert "steps.when.conditions.conditions.npcs" in paths  # #484
     for path in paths:
         spec = _mapped(path)
         assert spec is not None and "type" in spec, path
@@ -154,6 +170,8 @@ def test_quest_flags_are_long():
         "outcomes.waited_for.entity_ids",
         "steps.when.entity_ids",
         "steps.when.conditions.entity_ids",
+        "steps.when.conditions.conditions.flag",  # #484
+        "outcomes.when.conditions.conditions.flag",
     ):
         assert _mapped(path)["type"] == "long", path
 
@@ -182,6 +200,7 @@ def test_quest_fields_documented():
         "life_state",
         "set_at",
         "any_of",
+        "all_of",  # #484
         "conditions",
         "hit_count",
         "hits",
