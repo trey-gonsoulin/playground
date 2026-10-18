@@ -30,7 +30,7 @@ import os
 from collections import defaultdict
 from pathlib import Path
 
-from load_data import INDEX, _concrete_indices, _to_bulk_actions, scan
+from opensearch_load import INDEX, _concrete_indices, _to_bulk_actions, scan
 
 
 def doc_hash(source: dict) -> str:

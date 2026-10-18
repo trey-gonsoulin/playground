@@ -9,8 +9,6 @@ dependencies = [
     "mcp>=1.28,<2",
     "opensearch-py>=3.0",
     "boto3>=1.35",
-    # Imported directly by scripts/load_data.py (#462); opensearch-py also pulls it in.
-    "requests>=2.32",
 ]
 
 [project.scripts]

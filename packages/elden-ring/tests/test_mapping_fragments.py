@@ -42,5 +42,5 @@ def test_vocabulary_from_calc():
 
 
 def test_single_ensure_index():
-    # load_data.ensure_index (create + limit + put_mapping) is the only one.
+    # opensearch_load.ensure_index (create + limit + put_mapping) is the only one.
     assert not hasattr(_client, "ensure_index")

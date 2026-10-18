@@ -14,7 +14,7 @@ from opensearchpy.exceptions import (
 )
 
 import elden_ring._client as _client
-import load_data
+import opensearch_load
 from elden_ring.mcp_server import mcp
 
 
@@ -66,7 +66,7 @@ def test_lambda_client_verifies_and_fails_fast(lambda_client):
 def test_loader_client_verifies(monkeypatch):
     monkeypatch.setenv("OPENSEARCH_ENDPOINT", "localhost")
     monkeypatch.setenv("OPENSEARCH_PASSWORD", "x")
-    _assert_pinned(load_data._get_client())
+    _assert_pinned(opensearch_load._get_client())
 
 
 def _prime_caches():
