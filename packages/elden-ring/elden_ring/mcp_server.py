@@ -492,7 +492,9 @@ def get_entity(
     If this tool returns a connection error, call start_search_service() first.
 
     Args:
-        name: Exact entity name (case-sensitive), e.g. "Rivers of Blood".
+        name: Entity name, e.g. "Rivers of Blood". An exact match wins; failing
+            that, a case- and diacritic-folded match ("misericorde" finds
+            "Miséricorde"), then a historical (pre-rename) name.
         entity_type: Optional type hint to disambiguate if two entities share
             a name across categories (e.g. a boss and its enemy doc).
         include_variants: If True, add variant_docs: the full docs of the rest of the
@@ -735,6 +737,8 @@ def describe_fields() -> dict:
         sources:      {source: doc_count} — internal game-data origins (param/FMG
                       names the docs were extracted from)
         fields:       {field: {type, subfields?, note?}} — the queryable field catalog
+        warnings:     only when entity_types or sources hit the listing cap and
+                      some values are missing
     """
     return _os.describe_index(_os.get_client())
 
@@ -762,11 +766,14 @@ def list_patch_versions() -> dict:
 
 @mcp.tool(annotations=_READ_ONLY)
 def analyze_text(text: str) -> dict:
-    """Return the token stream for a text string under all three indexed JP analyzers.
+    """Return the token stream for a text string under all four indexed JP analyzers.
 
-    Calls OpenSearch's _analyze API using the exact field paths that search_literal()
-    applies, so the output reflects precisely what a phrase query will match:
-    - standard: CJK unigram tokenization (default mode, use_kuromoji=False)
+    Calls OpenSearch's _analyze API using the exact field paths the search tools
+    apply, so the output reflects precisely what a query will match:
+    - standard: CJK unigram tokenization (search_entities_literal default mode,
+      use_kuromoji=False)
+    - kuromoji_analyzer: search-mode segmentation + baseform, POS/stopword
+      filtering and stemming (the .ja subfields search_entities queries)
     - kuromoji_segmenter: dictionary segmentation, no lemmatization (use_kuromoji=True)
     - kuromoji_lemmatizer: dictionary segmentation + baseform reduction (use_lemmatize=True)
 
@@ -784,6 +791,7 @@ def analyze_text(text: str) -> dict:
 
     Returns:
         standard: list[str] — tokens under standard CJK-unigram tokenization
+        kuromoji_analyzer: list[str] — tokens search_entities matches against
         kuromoji_segmenter: list[str] — tokens under kuromoji segmentation-only mode
         kuromoji_lemmatizer: list[str] — tokens under kuromoji baseform reduction
     """
@@ -914,8 +922,9 @@ def search_entities_literal(
             (enemies, merchants, dialogue) never match. Not a way to count distinct
             armaments: some bases aren't 1000-aligned in the base game too (Butchering
             Knife 2106500, Prelate's Inferno Crozier 2504500) and many in the DLC, so
-            it silently drops them. Use collapse_variants instead.
-        sort_id_remainder: Remainder for the modulo filter (default 0).
+            it silently drops them. Use collapse_variants instead. Must be >= 1.
+        sort_id_remainder: Remainder for the modulo filter (default 0); must satisfy
+            0 <= sort_id_remainder < sort_id_mod, else {"error": ...}.
         use_kuromoji: If True, route Japanese fields through kuromoji morpheme segmentation
             so phrase queries respect dictionary word boundaries. Prevents single-kanji
             queries from matching compounds that contain that kanji as a sub-character.
@@ -1081,8 +1090,8 @@ def diff_entities(
     If this tool returns a connection error, call start_search_service() first.
 
     Args:
-        name: Exact entity name (case-sensitive), e.g. "Longtail Cat Talisman".
-            A historical (pre-rename) name also works; it's resolved to the
+        name: Entity name, e.g. "Longtail Cat Talisman". An exact match wins;
+            failing that, a case- and diacritic-folded match. A historical (pre-rename) name also works; it's resolved to the
             item's current name, so the diff spans the rename.
         v1: Older patch version, e.g. "1.06.0".
         v2: Newer patch version, e.g. "1.07.0".

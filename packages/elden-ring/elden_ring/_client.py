@@ -1519,15 +1519,18 @@ _SUMMON_STATS.update(
 
 
 def analyze_text(client: OpenSearch, text: str) -> dict:
-    """Return token streams for text under all three indexed JP analyzers.
+    """Return token streams for text under all four indexed JP analyzers.
 
     Calls OpenSearch's _analyze API via the field path so the result reflects
     exactly what each search mode applies:
     - standard: CJK unigram (description_ja), used by search_literal() default
+    - kuromoji_analyzer: search-mode segmentation + baseform, POS/stopword
+      filtering and stemming (description_ja.ja), used by search()
     - kuromoji_segmenter: morpheme segmentation (description_ja.morph), use_kuromoji=True
     - kuromoji_lemmatizer: segmentation + baseform (description_ja.lemma), use_lemmatize=True
 
-    Returns {"standard": [...], "kuromoji_segmenter": [...], "kuromoji_lemmatizer": [...]}
+    Returns {"standard": [...], "kuromoji_analyzer": [...],
+    "kuromoji_segmenter": [...], "kuromoji_lemmatizer": [...]}
     """
 
     def _tokens(field: str) -> list[str]:
@@ -1536,6 +1539,7 @@ def analyze_text(client: OpenSearch, text: str) -> dict:
 
     return {
         "standard": _tokens("description_ja"),
+        "kuromoji_analyzer": _tokens("description_ja.ja"),
         "kuromoji_segmenter": _tokens("description_ja.morph"),
         "kuromoji_lemmatizer": _tokens("description_ja.lemma"),
     }
@@ -1710,6 +1714,29 @@ def _precheck(source: str | None = None, *field_lists: list[str] | None) -> dict
     return None
 
 
+# One cap for every entity_type / source terms aggregation (#463). The 1.17 data
+# has ~40 entity types and 24-27 sources; a terms agg silently drops buckets past
+# its size, so _agg_truncation_warnings flags any agg that hit the cap.
+_CATALOG_AGG_SIZE = 100
+
+
+def _agg_truncation_warnings(aggs: dict) -> list[str]:
+    """One warning per terms aggregation that left buckets out, logged as well.
+
+    A terms agg counts the docs of the buckets past its size in
+    sum_other_doc_count, so a non-zero count means the listing is incomplete.
+    """
+    warnings = [
+        f"{name}: more values than the {_CATALOG_AGG_SIZE}-bucket cap; "
+        f"{agg['sum_other_doc_count']} docs are in unlisted buckets"
+        for name, agg in aggs.items()
+        if isinstance(agg, dict) and agg.get("sum_other_doc_count", 0) > 0
+    ]
+    for w in warnings:
+        logging.getLogger(__name__).warning("terms agg truncated: %s", w)
+    return warnings
+
+
 def _check_filter_values(
     client: OpenSearch,
     entity_type: str | None = None,
@@ -1728,13 +1755,16 @@ def _check_filter_values(
         body={
             "size": 0,
             "aggs": {
-                "entity_type": {"terms": {"field": "entity_type", "size": 50}},
-                "source": {"terms": {"field": "source", "size": 50}},
+                "entity_type": {
+                    "terms": {"field": "entity_type", "size": _CATALOG_AGG_SIZE}
+                },
+                "source": {"terms": {"field": "source", "size": _CATALOG_AGG_SIZE}},
                 "patch_version": {"terms": {"field": "patch_version", "size": 100}},
             },
         },
     )
     aggs = resp["aggregations"]
+    _agg_truncation_warnings(aggs)
 
     def _keys(name: str) -> list[str]:
         return [b["key"] for b in aggs[name]["buckets"]]
@@ -2575,6 +2605,14 @@ def search_literal(
         }
     if err := _precheck(source, fields, include_fields):
         return err
+    if sort_id_mod is not None and not (
+        sort_id_mod >= 1 and 0 <= sort_id_remainder < sort_id_mod
+    ):
+        return {
+            "error": f"sort_id_mod={sort_id_mod}, sort_id_remainder="
+            f"{sort_id_remainder}: need sort_id_mod >= 1 and "
+            "0 <= sort_id_remainder < sort_id_mod"
+        }
     if patterns and (n := len({p for p in [pattern, *patterns] if p})) > _MAX_PATTERNS:
         return {
             "error": f"patterns: {n} distinct patterns, at most {_MAX_PATTERNS} per "
@@ -3198,7 +3236,7 @@ def _menu_categories(
         "query": {"bool": {"filter": base_filters}},
         "aggs": {
             "by_type": {
-                "terms": {"field": "entity_type", "size": 50},
+                "terms": {"field": "entity_type", "size": _CATALOG_AGG_SIZE},
                 "aggs": {
                     "categories": {
                         "terms": {"field": "menu_category", "size": 200},
@@ -3209,6 +3247,7 @@ def _menu_categories(
         },
     }
     resp = client.search(index=INDEX, body=body)
+    _agg_truncation_warnings(resp["aggregations"])
     return {
         bucket["key"]: dict(
             sorted(
@@ -3225,9 +3264,12 @@ def list_entity_types(client: OpenSearch) -> list[str]:
         index=INDEX,
         body={
             "size": 0,
-            "aggs": {"types": {"terms": {"field": "entity_type", "size": 50}}},
+            "aggs": {
+                "types": {"terms": {"field": "entity_type", "size": _CATALOG_AGG_SIZE}}
+            },
         },
     )
+    _agg_truncation_warnings(resp["aggregations"])
     return [b["key"] for b in resp["aggregations"]["types"]["buckets"]]
 
 
@@ -5748,11 +5790,12 @@ def describe_index(client: OpenSearch) -> dict:
         body={
             "size": 0,
             "aggs": {
-                "types": {"terms": {"field": "entity_type", "size": 50}},
-                "sources": {"terms": {"field": "source", "size": 30}},
+                "types": {"terms": {"field": "entity_type", "size": _CATALOG_AGG_SIZE}},
+                "sources": {"terms": {"field": "source", "size": _CATALOG_AGG_SIZE}},
             },
         },
     )
+    warnings = _agg_truncation_warnings(resp["aggregations"])
     entity_types = {
         b["key"]: b["doc_count"] for b in resp["aggregations"]["types"]["buckets"]
     }
@@ -5773,4 +5816,7 @@ def describe_index(client: OpenSearch) -> dict:
             entry["note"] = _FIELD_NOTES[path]
         fields[path] = entry
 
-    return {"entity_types": entity_types, "sources": sources, "fields": fields}
+    out = {"entity_types": entity_types, "sources": sources, "fields": fields}
+    if warnings:
+        out["warnings"] = warnings
+    return out

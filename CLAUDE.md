@@ -168,5 +168,6 @@ Searches Elden Ring game data at every patch: items, enemies, NPCs, quests, loca
 
 - Use `uv` for all dependency and run management (`uv add --package <name> <dep>`, `uv run`).
 - All route handlers in FastAPI should be synchronous (`def`, not `async def`) so uvicorn dispatches them to a thread pool — blocking SDK/network calls work without async wrappers.
+- FastMCP tools are different: mcp calls a sync (`def`) tool directly on the event loop, not in a thread pool. Under local uvicorn (`main.py`), one slow tool such as elden-ring's `start_search_service` blocks every other request until it returns. Lambda is unaffected, since each invocation serves one request. Tools stay sync; don't add `anyio.to_thread` wrappers unless local concurrency starts to matter.
 - After adding a new package to the workspace, add it to `[tool.uv.workspace]` members in the root `pyproject.toml`.
 - Each package's `pyproject.toml` should declare `mangum`, `mcp`, and `fastapi` as dependencies; other packages in this workspace as `{ workspace = true }` sources.
