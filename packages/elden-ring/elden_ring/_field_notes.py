@@ -952,7 +952,8 @@ _FIELD_NOTES: dict[str, str] = {
     "frames (same fields as skill.frames). Absent when every class shares them. At "
     "1.17 only Parry: Dagger and Throwing Blade (parry 3-8, roll recovery 13; #497 "
     "Throwing Blades play the Dagger animation), Curved Sword (3-7, 15) and "
-    "Small Shield (4-10, 11), vs skill.frames (4-10, 17)",
+    "Small Shield (4-10, 11), vs skill.frames (4-10, 17). Entries carry their own "
+    "frames_by_hand (#503)",
     "skill.frames_by_class.weapon_classes": "the weapon classes (weapon_type names) "
     "whose skill frames are this entry's frames (#477)",
     "skill.frames": "frame data of the skill as a whole (#477), 30 frames per second "
@@ -972,8 +973,23 @@ _FIELD_NOTES: dict[str, str] = {
     "leave the animation for each follow-up action (dodge, right_hand_attack, "
     "left_hand_attack, skill, guard, quick_item, item, move; Quickstep 10/2/6/7/10/7/"
     "12/14 and Bloodhound's Step 9/1/5/7/8/6/11/13 as the wiki, Golden Parry dodge 15 "
-    "/ guard 14 / move 17). total: the animation's length. Current-patch "
+    "/ guard 14 / move 17). total: the animation's length. A shield art's frames "
+    "are those of the skill used one-handed from the right hand; other hands' are "
+    "in skill.frames_by_hand (#503). Current-patch "
     "animations, so older patches show today's timing",
+    "skill.frames_by_hand": "shield arts only (#503, like skill.attacks_by_hand): "
+    "the frames of the hands whose animation gives different frames from "
+    "skill.frames (the right hand's). Each entry has hands ('left hand' = "
+    "one-handed from the left hand, 'two-handed') and frames (same fields as "
+    "skill.frames). Absent when every hand has the same frames. At 1.17: Parry, "
+    "Golden Parry and Thops's Barrier from the left hand have no left_hand_attack "
+    "recovery (the wiki: left-hand attacks after a parry need the shield in the "
+    "right hand); Small Shield Parry recovers 2 frames later from the left hand or "
+    "two-handed (roll 13 vs 11); Throwing Blades play the default Parry animation "
+    "(4-10) from the left hand or two-handed. On an Ash of War, "
+    "skill.frames_by_class entries carry their own frames_by_hand",
+    "skill.frames_by_hand.hands": "the hands that play this entry's frames (#503): "
+    "'left hand' (one-handed from the left hand) or 'two-handed'",
     "skill.effects": "the buffs the skill itself applies (#326), decoded like item "
     "effects from the SpEffects its animations add (AddSpEffect_WeaponArts, enough-FP "
     "version): Barbaric Roar '+7.5% physical attack for 40s', Sacred Blade '+90 holy "

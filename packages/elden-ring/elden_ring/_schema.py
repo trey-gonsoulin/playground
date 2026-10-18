@@ -490,6 +490,15 @@ _SKILL_ATTACKS_BY_HAND_MAPPING = {
     }
 }
 
+# A shield art's other per-hand frames (#503): ``skill.frames_by_hand`` and
+# ``skill.frames_by_class.frames_by_hand``.
+_SKILL_FRAMES_BY_HAND_MAPPING = {
+    "properties": {
+        "hands": {"type": "keyword"},
+        "frames": _SKILL_FRAMES_MAPPING,
+    }
+}
+
 INDEX_MAPPING = {
     "settings": {
         "number_of_shards": 1,
@@ -1348,11 +1357,14 @@ INDEX_MAPPING = {
                     },
                     # Skill-level i-frames / parry window / recovery (#477).
                     "frames": _SKILL_FRAMES_MAPPING,
+                    # Shield arts' left-hand / two-handed frames (#503).
+                    "frames_by_hand": _SKILL_FRAMES_BY_HAND_MAPPING,
                     # Ash of War frames of the classes that differ (#477).
                     "frames_by_class": {
                         "properties": {
                             "weapon_classes": {"type": "keyword"},
                             "frames": _SKILL_FRAMES_MAPPING,
+                            "frames_by_hand": _SKILL_FRAMES_BY_HAND_MAPPING,
                         }
                     },
                     "effects": _EFFECTS_MAPPING,
