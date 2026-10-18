@@ -1506,6 +1506,16 @@ INDEX_MAPPING = {
                     "effect": {"type": "text"},
                     "effect_value": {"type": "float"},
                     "effect_duration": {"type": "float"},
+                    # Ash of War buffs of the classes whose variant differs (#482).
+                    "effects_by_class": {
+                        "properties": {
+                            "weapon_classes": {"type": "keyword"},
+                            "effects": _EFFECTS_MAPPING,
+                            "effect": {"type": "text"},
+                            "effect_value": {"type": "float"},
+                            "effect_duration": {"type": "float"},
+                        }
+                    },
                 }
             },
             # Ash of War affinities and the weapon classes it mounts on (#290).
@@ -4054,7 +4064,10 @@ _FIELD_NOTES: dict[str, str] = {
     "Black Flame Blade's burn, grease procs, thrown-item buildup, and HP loss carried by a "
     "damaging bullet (#378: Night Maiden's Mist's 19 HP every 0.2s, also listed on 'self' "
     "since that mist hits its caster too); 'ally' = allies only, "
-    "e.g. Lord's Aid's second cure set; 'torrent' for raisins / horse effects), "
+    "e.g. Lord's Aid's second cure set; a buff spread by a harmless projectile or "
+    "area that reaches allies is listed twice, on 'self' and on 'ally' (#483: Golden "
+    "Vow, Barrier of Gold, Warming Stone, Uplifting Aromatic, Holy Ground); 'torrent' "
+    "for raisins / horse effects), "
     "scales_with ('faith' / 'intelligence' for heals that scale). Stealth and stagger "
     "(#159): 'visibility to enemies' (how easily enemies spot you: Mimic's Veil -50%, "
     "Unseen Form -60%), 'sound heard by enemies' (Assassin's Approach -100%), and the "
@@ -4280,11 +4293,28 @@ _FIELD_NOTES: dict[str, str] = {
     "on a critical), Shriek of Sorrow's +10/15/20/25% by HP tier, Stamp's '-50% "
     "damage taken (during the skill)'. skill.effect / effect_value / effect_duration "
     "summarise them like item effect. Also the buffs a skill spreads through a "
-    "projectile or area that spares enemies (#430): Golden Vow '+11.5% attack for "
-    "45s; -7.5% damage taken for 45s', Holy Ground '-20% damage taken (while in the "
-    "area) for 35s; 5 HP restored (while in the area) every 0.3s for 35s' (an "
-    "area's buffs last as long as the area, conditioned 'while in the area'). "
-    "Seppuku '+30 physical attack power for 60s'",
+    "projectile or area that spares enemies (#430), on the user and, when it reaches "
+    "allies, on them too (#483): Golden Vow '+11.5% attack on self for 45s; -7.5% "
+    "damage taken on self for 45s; +11.5% attack on allies for 45s; -7.5% damage "
+    "taken on allies for 45s', Holy Ground '-20% damage taken (while in the area) on "
+    "self for 35s; ...; 5 HP restored (while in the area) on allies every 0.3s for "
+    "35s' (an area's buffs last as long as the area, conditioned 'while in the "
+    "area'). Seppuku '+30 physical attack power for 60s'. A skill some weapons play "
+    "as another animation applies that animation's buffs (#482): Endure on large "
+    "weapons '-45% damage taken for 3.5s' (SpEffect 1655), 3s elsewhere (1650); "
+    "see skill.effects_by_class",
+    "skill.effects_by_class": "Ashes of War only (#482): the buffs of the weapon "
+    "classes whose skill animation applies others than skill.effects (the set most "
+    "classes share), each with weapon_classes and effects / effect / effect_value / "
+    "effect_duration (same fields as skill.effects). Absent when every class shares "
+    "them. At 1.17 only Endure: Greatswords, Colossal Swords, Curved Greatswords, "
+    "Greataxes, Great Hammers, Colossal Weapons and Great Katanas play its "
+    "large-weapon animation (c0000.hks picks it by the weapon's idle stance, "
+    "EquipParamWeapon wepmotionOneHandId 2), '-45% damage taken for 3.5s; no "
+    "stagger ... for 3.5s' vs 3s (the wiki gives 3s for every weapon). Weapons whose "
+    "own skill is Endure carry their class's value in skill.effects",
+    "skill.effects_by_class.weapon_classes": "the weapon classes (weapon_type names) "
+    "whose skill buffs are this entry's effects (#482)",
     "default_affinity": "Ash of War: the affinity a weapon takes when it's applied "
     "(EquipParamGem defaultWepAttr; Golden Parry Sacred, Lion's Claw Heavy) (#290)",
     "affinities": "Ash of War: every affinity it allows (#290), named like weapon "
