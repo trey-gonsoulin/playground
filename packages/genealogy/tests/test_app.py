@@ -188,13 +188,14 @@ def test_request_body_limit_boundary():
         assert r.status_code == 413
 
 
-def test_max_request_body_fits_a_lambda_event():
+@pytest.mark.parametrize("line", ["1 SEX F\n", "1 CHR\r\n", "1 BIRT\r\n"])
+def test_max_request_body_fits_a_lambda_event(line):
     # API Gateway puts the body in the event as an escaped JSON string, so every
-    # newline grows again; GEDCOM made only of the shortest real lines
-    # ("1 SEX F", an escape every 8 characters) must still fit.
+    # newline grows again; GEDCOM made only of very short lines, CRLF ones
+    # included, must still fit, so an oversize body gets a 413 (#505).
     from genealogy.mcp_server import MAX_REQUEST_BODY_BYTES
 
-    body = _import_gedcom_body(MAX_REQUEST_BODY_BYTES, "1 SEX F\n")
+    body = _import_gedcom_body(MAX_REQUEST_BODY_BYTES, line)
     event = _http_api_v2_event("/mcp", {})
     event["body"] = body.decode()
     size = len(json.dumps(event).encode())
