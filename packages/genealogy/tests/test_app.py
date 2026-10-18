@@ -13,7 +13,6 @@ import json
 
 import pytest
 from fastapi.testclient import TestClient
-
 from genealogy import lambda_handler
 from genealogy.app import create_app
 
@@ -139,7 +138,6 @@ def test_session_manager_private_attrs_exist():
 
 def test_main_cli_runs_uvicorn(monkeypatch):
     import uvicorn
-
     from genealogy import main
 
     calls = []

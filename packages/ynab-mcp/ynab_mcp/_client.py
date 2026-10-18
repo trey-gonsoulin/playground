@@ -1,5 +1,6 @@
 """Thin httpx wrapper around the YNAB REST API (api.ynab.com/v1)."""
 
+import functools
 import os
 from datetime import date
 
@@ -7,19 +8,15 @@ import httpx
 
 _YNAB_BASE = "https://api.ynab.com/v1"
 
-_client: httpx.Client | None = None
 
-
+@functools.cache
 def _get_client() -> httpx.Client:
-    global _client
-    if _client is None:
-        api_key = os.environ.get("YNAB_API_KEY", "")
-        _client = httpx.Client(
-            base_url=_YNAB_BASE,
-            headers={"Authorization": f"Bearer {api_key}"},
-            timeout=15.0,
-        )
-    return _client
+    api_key = os.environ.get("YNAB_API_KEY", "")
+    return httpx.Client(
+        base_url=_YNAB_BASE,
+        headers={"Authorization": f"Bearer {api_key}"},
+        timeout=15.0,
+    )
 
 
 def _req(method: str, path: str, **kwargs) -> dict:

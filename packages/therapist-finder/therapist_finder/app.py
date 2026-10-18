@@ -1,7 +1,7 @@
 """FastAPI application factory."""
 
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -17,7 +17,7 @@ async def _normalize_mcp_path(request: Request, call_next):
 
 
 @asynccontextmanager
-async def _lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
+async def _lifespan(_app: FastAPI) -> AsyncGenerator[None]:
     sm = mcp.session_manager
     if sm._has_started and sm._task_group is None:
         sm._has_started = False
