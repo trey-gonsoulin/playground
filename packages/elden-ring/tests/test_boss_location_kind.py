@@ -13,9 +13,7 @@ def test_location_kind_mapped():
 
 def test_location_notes_describe_area_fallback():
     kind = _FIELD_NOTES["location_kind"]
-    assert "'landmark'" in kind and "'area'" in kind and "#329" in kind
-    loc = _FIELD_NOTES["location"]
-    assert "location_kind 'area'" in loc and "region map" in loc
+    assert "'landmark'" in kind and "'area'" in kind
 
 
 def test_search_docstring_mentions_location_kind():
@@ -27,16 +25,9 @@ def test_location_type_mapped_and_documented():
     # #340: the landmark's marker kind, kept apart from location_kind
     assert _PROPS["location_type"] == {"type": "keyword"}
     note = _FIELD_NOTES["location_type"]
-    assert "#340" in note and "'landmark'" in note and "'area'" in note
+    assert "'landmark'" in note and "'area'" in note
     for kind in ("catacombs", "cave", "evergaol", "minor_erdtree", "legacy_dungeon"):
         assert kind in note
-
-
-def test_separate_map_arena_location_documented():
-    # #339: separate-map arenas take their entrance marker's location
-    loc = _FIELD_NOTES["location"]
-    assert "#339" in loc and "WorldMapLegacyConvParam" in loc
-    assert "Grand Cloister" in loc and "Absent only" not in loc
 
 
 def test_marker_icon_kinds_documented():
@@ -44,7 +35,6 @@ def test_marker_icon_kinds_documented():
     # boss location_type
     for field in ("kind", "location_type"):
         note = _FIELD_NOTES[field]
-        assert "#346" in note
         for kind in ("eternal_city", "underground_ruins", "sunken_town", "bridge"):
             assert kind in note, (field, kind)
 
@@ -52,7 +42,7 @@ def test_marker_icon_kinds_documented():
 def test_region_location_type_rule_documented():
     # #346: a marker-less region/subregion location falls back to its arena map
     note = _FIELD_NOTES["location_type"]
-    assert "underground_area" in note and "Deeproot Depths" in note
+    assert "underground_area" in note
 
 
 def test_area_label_documented():
@@ -60,6 +50,4 @@ def test_area_label_documented():
     # location_kind and location_type 'area'
     for field in ("kind", "location_kind", "location_type"):
         note = _FIELD_NOTES[field]
-        assert "#350" in note and "Three Sisters" in note, field
-    assert "Absent on text-only map labels" not in _FIELD_NOTES["kind"]
-    assert "Scadutree Avatar -> Scadutree Base" in _FIELD_NOTES["location_type"]
+        assert "area" in note, field

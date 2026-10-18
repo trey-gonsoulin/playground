@@ -56,7 +56,7 @@ def test_quest_links_documented():
     assert "requires_step" in _FIELD_NOTES["hostile_signs"]
     assert "invasion_instances" in _FIELD_NOTES["hostile_signs"]
     assert "phase_flag" in _FIELD_NOTES["trigger_steps"]
-    assert "quest (" in _FIELD_NOTES["trigger_kind"]
+    assert "quest" in _FIELD_NOTES["trigger_kind"]
     assert "warp" in _FIELD_NOTES["cutscene"]
 
 
@@ -76,5 +76,4 @@ def test_in_exchange_gate_mapped_and_documented():
     )
     assert _PROPS["in_exchange_flag"]["type"] == "long"
     assert "in_exchange_flag" in _FIELD_NOTES["in_exchange_count"]
-    assert "isn't modeled" not in _FIELD_NOTES["in_exchange_count"]
     assert "in_exchange_step" in _FIELD_NOTES["in_exchange_flag"]

@@ -20,9 +20,6 @@ Then run:
     uv run --package elden-ring pytest packages/elden-ring/tests/test_integration.py -m live -v -s
 """
 
-import sys
-from pathlib import Path
-
 import pytest
 from _live_index import SKIP_REASON, live_enabled, throwaway_index
 
@@ -42,8 +39,7 @@ def client():
     endpoint = _os.start_instance(timeout_seconds=300)
     print(f"OpenSearch healthy at {endpoint}")
 
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-    import load_data  # noqa: PLC0415  # pyright: ignore[reportMissingImports]
+    import load_data
 
     c = _os.get_client()
     with throwaway_index(c, _os.INDEX_MAPPING, (_os, load_data)) as index:
@@ -322,7 +318,7 @@ def test_search_literal_sort_id_mod(client):
         "weapon::__test_sortid_nomatch__::test",
     ]
     try:
-        for doc, doc_id in zip(docs, ids):
+        for doc, doc_id in zip(docs, ids, strict=True):
             client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
 
         result = _os.search_literal(
@@ -371,7 +367,7 @@ def test_search_literal_sort_id_range(client):
         "weapon::__test_sortid_high__::test",
     ]
     try:
-        for doc, doc_id in zip(docs, ids):
+        for doc, doc_id in zip(docs, ids, strict=True):
             client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
 
         result = _os.search_literal(
@@ -436,7 +432,7 @@ def test_search_literal_patterns_single_element_equals_pattern(client):
         "weapon::__test_parity_c__::test",
     ]
     try:
-        for doc, doc_id in zip(docs, ids):
+        for doc, doc_id in zip(docs, ids, strict=True):
             client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
 
         for pat in ["呪具テスト固有", "護身具テスト固有", "描くテスト固有"]:
@@ -487,7 +483,7 @@ def test_search_literal_patterns_or_union_shared_token(client):
         "weapon::__test_or_shared_b__::test",
     ]
     try:
-        for doc, doc_id in zip(docs, ids):
+        for doc, doc_id in zip(docs, ids, strict=True):
             client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
 
         # Baseline: each pattern alone finds its document.
@@ -562,7 +558,7 @@ def test_search_literal_patterns_or_union_disjoint_token(client):
         "weapon::__test_or_disjoint_b__::test",
     ]
     try:
-        for doc, doc_id in zip(docs, ids):
+        for doc, doc_id in zip(docs, ids, strict=True):
             client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
 
         result = _os.search_literal(
@@ -681,7 +677,7 @@ def test_text_changed_between_count_only(client):
         "weapon::__test_tcb__::test-v2",
     ]
     try:
-        for doc, doc_id in zip(docs, ids):
+        for doc, doc_id in zip(docs, ids, strict=True):
             client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
 
         result = _os.text_changed_between(
@@ -715,11 +711,7 @@ def test_reload_prunes_stale_docs_in_scope(client):
     correct per-version rebuild. Pruning is scoped to the reloaded patch_version and
     to entity_types present in the dataset.
     """
-    import sys
-    from pathlib import Path
-
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-    from load_data import (  # pyright: ignore[reportMissingImports]
+    from load_data import (
         load_documents,
         prune_stale,
     )
@@ -814,7 +806,7 @@ def test_mcp_list_entity_types_returns_dict(client):
     block per item (concatenated string) instead of a single JSON response. The fix
     wraps the list in a dict; the underlying _client function still returns list[str].
     """
-    import elden_ring.mcp_server as mcp_server  # noqa: PLC0415
+    import elden_ring.mcp_server as mcp_server
 
     # Ensure at least one entity type is present so the result is non-trivial.
     doc = {
@@ -874,7 +866,7 @@ def test_get_entity_returns_newest_patch(client):
         "weapon::__test_newest__::0.0.2-test",
     ]
     try:
-        for doc, doc_id in zip(docs, ids):
+        for doc, doc_id in zip(docs, ids, strict=True):
             client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
 
         result = _os.get_entity(client, "__test_newest__", entity_type="weapon")
@@ -964,7 +956,7 @@ def test_mcp_list_patch_versions_returns_dict(client):
     return a dict wrapping the versions list. (The per-version 'sources' map was
     dropped when the erdb/fextralife layer was retired — all data is now native.)
     """
-    import elden_ring.mcp_server as mcp_server  # noqa: PLC0415
+    import elden_ring.mcp_server as mcp_server
 
     doc = {
         "entity_type": "weapon",
@@ -1047,7 +1039,7 @@ def test_diff_entities_no_source_guard(client):
         "weapon::__test_xsrc__::test-xsrc-b",
     ]
     try:
-        for doc, doc_id in zip(docs, ids):
+        for doc, doc_id in zip(docs, ids, strict=True):
             client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
 
         result = _os.diff_entities(
@@ -1073,7 +1065,7 @@ def test_list_patch_versions_semver_order(client):
     labels = ["9.2.0", "9.10.0", "9.9.0"]
     ids = [f"weapon::__test_semver__::{v}" for v in labels]
     try:
-        for v, doc_id in zip(labels, ids):
+        for v, doc_id in zip(labels, ids, strict=True):
             client.index(
                 index=_os.INDEX,
                 id=doc_id,
@@ -1175,7 +1167,7 @@ def test_search_collapse_returns_newest_patch(client):
         "weapon::__test_collapse_relevance__::0.0.2-test",
     ]
     try:
-        for doc, doc_id in zip(docs, ids):
+        for doc, doc_id in zip(docs, ids, strict=True):
             client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
 
         results = _os.search(client, "qwerty", entity_type="weapon")
@@ -1240,7 +1232,7 @@ def test_search_literal_patterns_include_fields_without_name(client):
         "weapon::__test_incl_b__::test",
     ]
     try:
-        for doc, doc_id in zip(docs, ids):
+        for doc, doc_id in zip(docs, ids, strict=True):
             client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
 
         result = _os.search_literal(
@@ -1294,7 +1286,7 @@ def test_search_excludes_cut_content_by_default(client):
     }
     ids = ["armor::__test_live_helm__::test", "armor::__test_cut_helm__::test"]
     try:
-        for doc, doc_id in zip((live, cut), ids):
+        for doc, doc_id in zip((live, cut), ids, strict=True):
             client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
 
         # search(): default hides cut, include_unavailable surfaces it
@@ -1429,7 +1421,7 @@ def test_search_excludes_unobtainable_content_by_default(client):
     }
     ids = ["armor::__test_live_rag__::test", "armor::__test_unob_rag__::test"]
     try:
-        for doc, doc_id in zip((live, unob), ids):
+        for doc, doc_id in zip((live, unob), ids, strict=True):
             client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
 
         default_names = {
@@ -1497,7 +1489,7 @@ def test_search_excludes_cut_enemies_by_default(client):
     cut = {**live, "name": "__test_cut_foe__", "availability": "cut"}
     ids = ["enemy::__test_live_foe__::test", "enemy::__test_cut_foe__::test"]
     try:
-        for doc, doc_id in zip((live, cut), ids):
+        for doc, doc_id in zip((live, cut), ids, strict=True):
             client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
 
         default_names = {
@@ -1574,7 +1566,7 @@ def test_diff_reports_acquisition_change_across_patches(client):
         "weapon::__test_acq_diff__::test-acq-b",
     ]
     try:
-        for doc, doc_id in zip(docs, ids):
+        for doc, doc_id in zip(docs, ids, strict=True):
             client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
 
         result = _os.diff_entities(

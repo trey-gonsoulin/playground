@@ -1,14 +1,9 @@
 """Unscoped search collapse (#442), per-(entity_type, name) keys (#443) and the
 capped patterns union (#447). No OpenSearch needed."""
 
-import sys
-from pathlib import Path
-
+import load_data
 from elden_ring import _client
 from elden_ring._client import INDEX_MAPPING
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-import load_data  # noqa: E402
 
 
 def _doc(name, version, entity_type="weapon", **kw):
@@ -34,7 +29,7 @@ def _hits(docs, score=1.0):
 def _collapsed(docs, scores=None):
     """A collapsed search response, one hit per doc."""
     hits = _hits(docs)
-    for h, sc in zip(hits, scores or []):
+    for h, sc in zip(hits, scores or [], strict=False):
         h["_score"] = sc
     return {
         "hits": {"hits": hits},
@@ -76,7 +71,7 @@ class _SearchClient:
             for d in newest.values()
         ]
         hits = _hits(docs)
-        for h, d in zip(hits, newest.values()):
+        for h, d in zip(hits, newest.values(), strict=True):
             h["fields"] = {"entity_key": [_key(d)]}
         return {"hits": {"hits": hits}}
 

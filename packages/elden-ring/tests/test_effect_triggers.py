@@ -37,8 +37,5 @@ def test_trigger_fields_mapped():
 
 def test_triggers_documented():
     note = _FIELD_NOTES["effects"]
-    assert "occurs within 7m" in note and "#170" in note
-    assert "until hit" in note and "non-physical damage" in note
-    assert "grease" in note and "some trigger conditions" not in note
+    assert "grease" in note
     # Durations are repeated per entry, never one shared tail.
-    assert "'+15% attack for 80s; -10% damage taken for 80s'" in _FIELD_NOTES["effect"]

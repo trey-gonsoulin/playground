@@ -4,18 +4,15 @@ index_settings. No OpenSearch needed."""
 
 import json
 import sys
-from pathlib import Path
 
 import pytest
 from opensearchpy import RequestError
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-
-import index_settings  # noqa: E402
-import load_data  # noqa: E402
-import load_dataset  # noqa: E402
-import load_manifest  # noqa: E402
-from elden_ring import _client  # noqa: E402
+import index_settings
+import load_data
+import load_dataset
+import load_manifest
+from elden_ring import _client
 
 _MAPPING = {
     "mappings": {
@@ -250,7 +247,7 @@ def _run_prune_main(monkeypatch, tmp_path, *flags, refuse=True):
     ds = tmp_path / "ds.json"
     ds.write_text(json.dumps(_docs(["A"])))
     seen = []
-    monkeypatch.setattr(load_dataset, "_get_client", lambda: object())
+    monkeypatch.setattr(load_dataset, "_get_client", object)
     monkeypatch.setattr(load_dataset, "ensure_index", lambda c, recreate: None)
     monkeypatch.setattr(load_dataset, "load_documents", lambda c, d, dry_run: (1, []))
 

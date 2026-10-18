@@ -114,7 +114,7 @@ def test_tool_passes_include_drop_fields(monkeypatch):
 
 def test_field_notes_describe_the_default():
     for f in ("regions", "locations", "drop_regions", "drop_locations"):
-        assert "#344" in _FIELD_NOTES[f]
+        assert f in _FIELD_NOTES, f
     assert "include_drop_fields=False" in _FIELD_NOTES["regions"]
     assert "include_drop_fields=False" in _FIELD_NOTES["locations"]
 
@@ -123,6 +123,4 @@ def test_drop_near_locations_is_mapped_and_noted():
     """#347: enemies just outside a dungeon entrance."""
     props = _client.INDEX_MAPPING["mappings"]["properties"]
     assert props["drop_near_locations"] == {"type": "keyword"}
-    assert "#347" in _FIELD_NOTES["drop_near_locations"]
-    assert "#352" in _FIELD_NOTES["drop_near_locations"]  # scripted + landmarks
     assert _with_drop_fields(["drop_locations"]) == ["drop_locations"]

@@ -187,7 +187,7 @@ class _Aggs(dict):
 class _ToolClient(_PagingClient):
     """Empty index that answers every query and agg shape the tools send."""
 
-    class indices:  # noqa: N801 — mirrors client.indices
+    class indices:
         @staticmethod
         def analyze(index, body):
             return {"tokens": []}
@@ -207,7 +207,7 @@ def _tools():
 def test_every_tool_returns_one_json_object(monkeypatch, tool):
     if tool == "start_search_service":
         monkeypatch.setattr(_client, "start_instance", lambda **_: "host")
-    monkeypatch.setattr(_client, "get_client", lambda: _ToolClient())
+    monkeypatch.setattr(_client, "get_client", _ToolClient)
     out = asyncio.run(mcp_server.mcp.call_tool(tool, _ARGS.get(tool, {})))
     blocks = out[0] if isinstance(out, tuple) else out
     assert len(blocks) == 1, blocks

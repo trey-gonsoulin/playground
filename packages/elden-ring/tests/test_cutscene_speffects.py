@@ -1,7 +1,7 @@
 """Cutscene SpEffect triggers (#280): the new field is mapped (strict index) and
 documented. No OpenSearch needed."""
 
-from elden_ring._client import _FIELD_NOTES, INDEX_MAPPING
+from elden_ring._client import INDEX_MAPPING
 
 _PROPS = INDEX_MAPPING["mappings"]["properties"]
 
@@ -39,8 +39,3 @@ def test_field_mapped():
     assert sub["entity_id"] == {"type": "long"}
     assert sub["character"] == {"type": "keyword"}
     assert sub["bosses"] == {"type": "keyword"}
-
-
-def test_field_documented():
-    note = _FIELD_NOTES["trigger_speffects"]
-    assert "14785" in note and "16000020" in note

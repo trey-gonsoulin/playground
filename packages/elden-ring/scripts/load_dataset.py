@@ -34,6 +34,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from pathlib import Path
 
 from elden_ring._client import unmapped_paths
 from load_data import (
@@ -93,7 +94,7 @@ def main() -> None:
     args = ap.parse_args()
     max_fraction = 1.0 if args.force_prune else args.prune_max_fraction
 
-    with open(args.dataset, encoding="utf-8") as f:
+    with Path(args.dataset).open(encoding="utf-8") as f:
         docs = json.load(f)
     if not isinstance(docs, list) or not docs:
         sys.exit("dataset is empty or not a list of documents")
@@ -110,7 +111,7 @@ def main() -> None:
     # A dry-run prune still needs a (read-only) client to find stale docs.
     client = None if args.dry_run and not args.prune else _get_client()
     # No recreate — additive load, preserves existing patch versions.
-    if not args.dry_run:
+    if client is not None and not args.dry_run:
         try:
             ensure_index(client, recreate=False)
         except IndexMissing as e:

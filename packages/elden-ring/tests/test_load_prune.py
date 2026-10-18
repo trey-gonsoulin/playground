@@ -1,11 +1,6 @@
 """Unit tests for stale-doc pruning on reload (#67). No OpenSearch needed."""
 
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-
-from load_data import _stale_ids  # noqa: E402
+from load_data import _stale_ids
 
 
 def _doc(entity_type, name, version="1.02"):
