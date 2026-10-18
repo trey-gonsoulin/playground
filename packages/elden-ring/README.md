@@ -103,7 +103,7 @@ aws cloudformation wait stack-update-complete --stack-name mcp-playground --prof
   docker image inspect eldenringmcpfunction:latest --format '{{.Id}}'   # first 12 hex chars after sha256:
   ```
 
-  "No changes to deploy" after a code change is a red flag. On the live MCP, `describe_fields` shows the newest field note. `get_entity` proves nothing, because docs come from OpenSearch whatever code is deployed.
+  "No changes to deploy" after a code change is a red flag. On the live MCP, `describe_fields(prefix=<field>)` shows the newest field note. `get_entity` proves nothing, because docs come from OpenSearch whatever code is deployed.
 - **Never run `sam delete`.** It targets the whole `mcp-playground` stack.
 
 `sam sync --code --resource-id EldenRingMcpFunction --stack-name mcp-playground` updates only the function code and skips CloudFormation. It's a quick path for code-only changes, but it never shows a change set.

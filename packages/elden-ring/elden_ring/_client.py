@@ -7,6 +7,7 @@ import functools
 import json
 import logging
 import os
+import re
 import ssl
 import time
 import unicodedata
@@ -6125,32 +6126,114 @@ _FIELD_NOTES.update(
 )
 
 
-# A repeated object subtree folds to one row when it has at least this many paths
-# under it; smaller repeats ({x, y, z} positions) stay listed (#452).
-_FOLD_MIN_PATHS = 4
+# Object paths that may fold onto each other in describe_fields (#452, #492): one
+# family per meaning, so only the same field repeated elsewhere folds (an NPC stat
+# fragment under summon_stats / variants / phases / ng_plus, a weapon stat at
+# max_level, a skill table per class, the PvP poise tables). Equal shapes alone
+# don't fold: resistances and status_buildup share keys but not a meaning. Objects
+# built on the shared condition dicts (_SET_WHEN, _QUEST_CONDITION) form their own
+# families (_fold_families).
+_FOLD_FAMILIES: tuple[tuple[str, ...], ...] = (
+    ("summon_stats", "max_level.summon_stats"),
+    ("stats_scaled", "variants.stats_scaled"),
+    (
+        "resistances",
+        "variants.resistances",
+        "phases.resistances",
+        "summon_stats.resistances",
+        "npc_param_values.resistances",
+        "stats_scaled.resistances",
+        "stats_scaled.ng_plus.resistances",
+        "phases.stats_scaled.resistances",
+        "phases.stats_scaled.ng_plus.resistances",
+    ),
+    (
+        "defense",
+        "variants.defense",
+        "phases.defense",
+        "summon_stats.defense",
+        "stats_scaled.defense",
+        "stats_scaled.ng_plus.defense",
+        "phases.stats_scaled.defense",
+        "phases.stats_scaled.ng_plus.defense",
+    ),
+    ("negation", "variants.negation", "phases.negation"),
+    (
+        "resistance_increase_per_proc",
+        "variants.resistance_increase_per_proc",
+        "phases.resistance_increase_per_proc",
+    ),
+    (
+        "resistance_multiplier_per_proc",
+        "variants.resistance_multiplier_per_proc",
+        "phases.resistance_multiplier_per_proc",
+    ),
+    (
+        "scripted_damage_taken",
+        "variants.scripted_damage_taken",
+        "phases.scripted_damage_taken",
+    ),
+    ("critical_hits", "phases.critical_hits"),
+    ("spell_attacks", "summon_stats.spell_attacks"),
+    ("weapon_attacks", "summon_stats.weapon_attacks"),
+    ("equipment", "summon_stats.equipment"),
+    ("attack_power", "max_level.attack_power", "variants.attack_power"),
+    ("scaling", "max_level.scaling", "variants.scaling"),
+    ("status_buildup", "max_level.status_buildup"),
+    ("guard", "max_level.guard"),
+    (
+        "poise_damage.one_handed",
+        "poise_damage.two_handed",
+        "poise_damage.pvp.one_handed",
+        "poise_damage.pvp.two_handed",
+    ),
+    ("skill.attacks", "skill.attacks_by_class.attacks"),
+    ("skill.effects", "skill.effects_by_class.effects"),
+    ("skill.frames", "skill.frames_by_class.frames"),
+)
+
+
+def _fold_families(props: dict) -> dict[str, int]:
+    """{object path: fold family} for describe_fields folding (#492).
+
+    The _FOLD_FAMILIES paths, plus one family per shared condition dict: every
+    object whose properties are _SET_WHEN (unlock_set_when, gate_set_when, ...) or
+    _QUEST_CONDITION (steps.when, outcomes.when, ...).
+    """
+    out = {p: i for i, fam in enumerate(_FOLD_FAMILIES) for p in fam}
+    for i, shared in enumerate((_SET_WHEN, _QUEST_CONDITION), len(_FOLD_FAMILIES)):
+        out.update(
+            {
+                path: i
+                for path, spec in _mapping_paths(props).items()
+                if spec.get("properties") is shared
+            }
+        )
+    return out
 
 
 def _folded_copies(props: dict) -> dict[str, tuple[str, int]]:
     """{copy root: (canonical root of the same shape, paths under it)} (#452).
 
-    Objects whose properties are equal (the shared _SET_WHEN dict, NPC stat
-    fragments under summon_stats / variants / phases) share a shape. Larger shapes
-    fold first, so a copy's own sub-objects aren't folded again; within a shape the
-    shallowest path, then the first in catalog order, is the canonical one listed
-    in full, and every other occurrence is a copy.
+    Objects of one fold family (_fold_families) whose properties are equal share
+    a shape. Larger shapes fold first, so a copy's own sub-objects aren't folded
+    again; within a shape the shallowest path, then the first in catalog order, is
+    the canonical one listed in full, and every other occurrence is a copy.
     """
-    shapes: dict[str, list[str]] = {}
-    sizes: dict[str, int] = {}
+    families = _fold_families(props)
+    shapes: dict[tuple[int, str], list[str]] = {}
+    sizes: dict[tuple[int, str], int] = {}
     for path, spec in _mapping_paths(props).items():
-        if "properties" not in spec:
+        if "properties" not in spec or path not in families:
             continue
-        shape = json.dumps(spec["properties"], sort_keys=True, default=str)
-        shapes.setdefault(shape, []).append(path)
-        sizes[shape] = len(_mapping_paths(spec["properties"]))
+        key = (
+            families[path],
+            json.dumps(spec["properties"], sort_keys=True, default=str),
+        )
+        shapes.setdefault(key, []).append(path)
+        sizes[key] = len(_mapping_paths(spec["properties"]))
     out: dict[str, tuple[str, int]] = {}
     for shape in sorted(shapes, key=lambda s: -sizes[s]):
-        if sizes[shape] < _FOLD_MIN_PATHS:
-            break
         live = [
             p
             for p in shapes[shape]
@@ -6161,6 +6244,48 @@ def _folded_copies(props: dict) -> dict[str, tuple[str, int]]:
         canon = min(live, key=lambda p: p.count("."))
         out.update({p: (canon, sizes[shape]) for p in live if p != canon})
     return out
+
+
+# The default describe_fields listing (#492): top-level fields only, notes cut to
+# a first clause of at most this many characters.
+_SHORT_NOTE_CHARS = 100
+_TOP_LEVEL_HINT = (
+    "top-level fields only; note is the first clause of the field's note and "
+    "nested_fields counts the dotted paths under an object. "
+    "describe_fields(prefix=<field>) lists a field with its full note and every "
+    "path under it (a list of prefixes works too); full=True lists every path "
+    "(~2,500 rows, ~360 KB)"
+)
+
+
+def _short_note(note: str) -> str:
+    """The note's first clause (up to a '. ' or '; '), capped at _SHORT_NOTE_CHARS.
+
+    A leading "not searchable; returned by get_entity." is skipped: the entry's
+    searchable: false already says so.
+    """
+    note = note.removeprefix("not searchable; returned by get_entity. ")
+    clause = re.split(r"(?<!e\.g)(?<!i\.e)(?<=[\w)])[.;] ", note, maxsplit=1)[0]
+    if len(clause) <= _SHORT_NOTE_CHARS:
+        return clause
+    return clause[: _SHORT_NOTE_CHARS - 3].rstrip(" ,") + "..."
+
+
+def _top_level_fields(props: dict) -> dict[str, dict]:
+    """{top-level field: {type, nested_fields?, subfields?, searchable?, note?}}."""
+    fields: dict[str, dict] = {}
+    for name, spec in props.items():
+        entry: dict = {"type": spec.get("type", "object")}
+        if "properties" in spec:
+            entry["nested_fields"] = len(_mapping_paths(spec["properties"]))
+        if spec.get("fields"):
+            entry["subfields"] = list(spec["fields"])
+        if spec.get("enabled") is False:
+            entry["searchable"] = False
+        if name in _FIELD_NOTES:
+            entry["note"] = _short_note(_FIELD_NOTES[name])
+        fields[name] = entry
+    return fields
 
 
 def describe_index(
@@ -6174,13 +6299,15 @@ def describe_index(
     Lets a caller discover what is queryable without guessing. Field types come
     from the index mapping; entity_types and sources are counted live.
 
-    By default a repeated object subtree is folded into one row on its root,
-    {"type": "object", "same_shape_as": <first path of that shape>,
-    "folded_paths": N}; a path under it keeps its own row only where its note
-    differs from the one at the same place under same_shape_as. ``prefix`` (a
-    dotted path or a list of them; a trailing ".*" is ignored) keeps only those
-    paths and the ones under them, and unfolds a copy it names or reaches into.
-    ``full`` lists every path unfolded (#452).
+    Without ``prefix`` or ``full`` only the top-level fields are listed, each with
+    its type, a short note and nested_fields (#492). ``prefix`` (a dotted path or a
+    list of them; a trailing ".*" is ignored) lists only those paths and the ones
+    under them with full notes; there a repeated object of one fold family
+    (_fold_families) is folded into one row on its root, {"type": "object",
+    "same_shape_as": <first path of that shape>, "folded_paths": N}, and a path
+    under it keeps its own row only where its note differs from the one at the
+    same place under same_shape_as. A copy the prefix names or reaches into is
+    unfolded. ``full`` lists every path unfolded (#452).
     """
     resp = client.search(
         index=INDEX,
@@ -6204,6 +6331,16 @@ def describe_index(
     raw = [prefix] if isinstance(prefix, str) else list(prefix or [])
     prefixes = [p.strip().removesuffix(".*").strip(".") for p in raw]
     prefixes = [p for p in prefixes if p]
+    if not prefixes and not full:
+        out = {
+            "entity_types": entity_types,
+            "sources": sources,
+            "fields": _top_level_fields(props),
+            "listing": _TOP_LEVEL_HINT,
+        }
+        if warnings:
+            out["warnings"] = warnings
+        return out
     folds = {
         root: canon
         for root, canon in ({} if full else _folded_copies(props)).items()
