@@ -5,7 +5,6 @@ from urllib.parse import parse_qs, urlparse
 
 import httpx
 import pytest
-
 from genealogy import _newspapers as newspapers
 
 IIIF = (

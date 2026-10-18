@@ -8,3 +8,26 @@ dependencies = []
 
 [tool.uv.workspace]
 members = ["packages/*"]
+
+# Shared ruff settings for the repo root and the packages without their own config
+# (genealogy, therapist-finder, ynab-mcp). elden-ring keeps its own [tool.ruff] in
+# packages/elden-ring/pyproject.toml (#457); ruff uses the closest config per file.
+[tool.ruff]
+target-version = "py313"
+# Markdown is prose with hand-aligned code samples (CLAUDE.md, READMEs).
+extend-exclude = ["*.md"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4", "PTH", "PLW", "S", "RUF", "ERA", "EXE"]
+# `ruff format` owns line length; the remaining long lines are strings and comments.
+ignore = ["E501"]
+# En dashes in ranges ("1836–1922", "4–50 s") are intended.
+allowed-confusables = ["–", "×"]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests assert and use dummy hosts and secrets.
+"packages/*/tests/**" = ["S101", "S104", "S105", "S106"]
+# host="0.0.0.0" is intentional: the FastMCP DNS-rebinding guard and the local uvicorn
+# server must accept non-localhost Host headers (see CLAUDE.md).
+"packages/*/*/mcp_server.py" = ["S104"]
+"packages/*/*/main.py" = ["S104"]
