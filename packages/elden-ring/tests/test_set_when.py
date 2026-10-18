@@ -1,7 +1,8 @@
 """World-state gate flags described by what sets them (#228): every leaf the builder
 emits is in the strict mapping and the notes document it. No OpenSearch needed."""
 
-from elden_ring._client import _FIELD_NOTES, INDEX_MAPPING
+from elden_ring._field_notes import _FIELD_NOTES
+from elden_ring._schema import INDEX_MAPPING
 
 _PROPS = INDEX_MAPPING["mappings"]["properties"]
 

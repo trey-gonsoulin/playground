@@ -137,11 +137,11 @@ Searches Elden Ring game data at every patch: items, enemies, NPCs, quests, loca
   - `~/code/erdb-tools` extracts the game files. `er_native/build_dataset.py` writes one `dataset.json` per patch, and `er_native/reindex_all.sh` builds and loads every patch.
   - `scripts/load_dataset.py` in this package bulk-loads a dataset.
   - Docs are keyed `entity_type::name::patch_version`, so loads are additive. `--prune` deletes the docs at that patch which the dataset no longer produces.
-- **`_client.py`**, in order:
-  - the EC2/SSM connection (`get_client`, `start_instance`);
-  - `INDEX_MAPPING` and `KUROMOJI_USER_DICTIONARY`;
-  - the query layer behind the tools (`search`, `get_entity`, the diff and literal-search helpers).
-  - `mcp_server.py` holds the tool docstrings and `_FIELD_NOTES`, which `describe_fields` serves.
+- **Modules:**
+  - `_client.py` has the EC2/SSM connection (`get_client`, `start_instance`), then the query layer behind the tools (`search`, `get_entity`, the diff and literal-search helpers).
+  - `_schema.py` has `INDEX`, `INDEX_MAPPING` and `KUROMOJI_USER_DICTIONARY`.
+  - `_field_notes.py` has `_FIELD_NOTES`, which `describe_fields` serves.
+  - `mcp_server.py` holds the tool docstrings.
 - **Index:**
   - `elden-ring-entities` is an alias to a concrete index (currently `-v4`).
   - The mapping is `dynamic: strict`. A new field needs an `INDEX_MAPPING` entry and a field note before any load, or the load fails.

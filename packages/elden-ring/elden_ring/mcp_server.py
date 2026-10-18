@@ -21,7 +21,9 @@ mcp = _SearchMCP(
     stateless_http=True,
     json_response=True,
     streamable_http_path="/",
-    host="0.0.0.0",
+    # A non-localhost host keeps FastMCP's DNS-rebinding guard off, which would
+    # reject API Gateway's Host header (see CLAUDE.md). This binds no socket.
+    host="0.0.0.0",  # noqa: S104 -- intentional, see above
 )
 
 

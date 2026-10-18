@@ -1,7 +1,7 @@
 """Cutscene HP-ratio and death triggers (#394): the new fields are mapped (strict
 index) and documented. No OpenSearch needed."""
 
-from elden_ring._client import INDEX_MAPPING
+from elden_ring._schema import INDEX_MAPPING
 
 _PROPS = INDEX_MAPPING["mappings"]["properties"]
 

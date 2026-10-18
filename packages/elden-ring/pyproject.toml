@@ -62,19 +62,10 @@ allowed-confusables = ["–", "×"]
 [tool.ruff.lint.per-file-ignores]
 # Tests assert, use dummy hosts and passwords, and quote JP game text (fullwidth punctuation).
 "tests/**" = ["S101", "S104", "S105", "RUF001"]
-# Backlog in the two query-layer modules, left for a follow-up so the concurrent
-# batch branches that edit them don't conflict (#457). Remove codes as they're fixed.
-"elden_ring/_client.py" = ["B905", "C416", "C420", "PLW0603", "PTH100", "PTH118", "PTH120", "UP037"]
-# The FastMCP host="0.0.0.0" is intentional (DNS-rebinding guard; see CLAUDE.md).
-"elden_ring/mcp_server.py" = ["S104"]
 
 [tool.pyright]
 # Tests are mock-heavy and left out; type-check the package and the loader scripts.
 include = ["elden_ring", "scripts"]
-# The two query-layer modules carry 7 basic-mode errors, left for a follow-up so the
-# concurrent batch branches that edit them don't conflict (#457). Their diagnostics
-# are hidden here; they are still analyzed as imports. Drop this once they're fixed.
-exclude = ["elden_ring/_client.py", "elden_ring/mcp_server.py"]
 extraPaths = ["scripts"]
 pythonVersion = "3.13"
 typeCheckingMode = "basic"

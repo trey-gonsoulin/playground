@@ -365,8 +365,8 @@ class _Health:
     def cluster(self):
         return self
 
-    def health(self, request_timeout):
-        self.timeouts.append(request_timeout)
+    def health(self, params):
+        self.timeouts.append(params["request_timeout"])
         answer = self.answers.pop(0) if len(self.answers) > 1 else self.answers[0]
         if isinstance(answer, Exception):
             raise answer
@@ -378,8 +378,8 @@ def instance(monkeypatch):
     monkeypatch.setenv("EC2_INSTANCE_ID", "i-123")
     clock = _Clock()
     monkeypatch.setattr(_client, "time", clock)
-    _client._cached_endpoint = "stale-host"
-    _client._cached_client = object()
+    _client._cache.endpoint = "stale-host"
+    _client._cache.client = object()
     yield monkeypatch, clock
     _client.reset_cache()
 
@@ -407,7 +407,7 @@ def test_start_instance_boots_then_waits_out_read_timeouts(instance):
     assert len(health.timeouts) == 4
     assert max(health.timeouts) <= 5
     # The stale client is dropped and the new hostname cached.
-    assert _client._cached_endpoint == "host-new"
+    assert _client._cache.endpoint == "host-new"
 
 
 def test_start_instance_returns_starting_within_budget(instance):
@@ -420,7 +420,7 @@ def test_start_instance_returns_starting_within_budget(instance):
     assert ec2.started == [["i-123"]]
     assert clock.now <= 20
     # The stop invalidated the old hostname (#456).
-    assert _client._cached_endpoint is None and _client._cached_client is None
+    assert _client._cache.endpoint is None and _client._cache.client is None
 
 
 def test_start_instance_returns_starting_while_opensearch_initialises(instance):
@@ -448,10 +448,10 @@ def test_start_instance_already_running_keeps_cached_client(instance):
     ec2 = _EC2([("running", "stale-host")])
     health = _Health(["green"])
     _wire(monkeypatch, ec2, health)
-    cached = _client._cached_client
+    cached = _client._cache.client
     assert _client.start_instance() == {"status": "ready"}
     assert ec2.started == []
-    assert _client._cached_client is cached
+    assert _client._cache.client is cached
     assert clock.now == 0
 
 

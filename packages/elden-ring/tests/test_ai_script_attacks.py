@@ -4,7 +4,8 @@ Wording is not pinned (#460): these check that the affected notes exist and name
 the field they cross-reference.
 """
 
-from elden_ring._client import _FIELD_NOTES, _queryable_paths
+from elden_ring._client import _queryable_paths
+from elden_ring._field_notes import _FIELD_NOTES
 
 
 def test_ai_narrowed_attack_fields_are_documented():

@@ -8,9 +8,10 @@ The repo-level summary is the elden-ring section of the root `CLAUDE.md`. This f
 
 - `elden_ring/_client.py`, top to bottom:
   - the connection: `get_client` (EC2 public DNS plus the SSM password) and `start_instance`;
-  - the schema: `INDEX` (`ELDEN_RING_INDEX`, default alias `elden-ring-entities`), `INDEX_MAPPING` (`dynamic: strict`) and `KUROMOJI_USER_DICTIONARY`;
-  - the query layer behind the tools: `search`, `get_entity`, the literal-search and patch-diff helpers.
-- `elden_ring/mcp_server.py`: the twelve tools, their docstrings and `_FIELD_NOTES` (served by `describe_fields`).
+  - the query layer behind the tools: `search`, `get_entity`, the literal-search and patch-diff helpers, and `describe_index`.
+- `elden_ring/_schema.py`: the schema, `INDEX` (`ELDEN_RING_INDEX`, default alias `elden-ring-entities`), `INDEX_MAPPING` (`dynamic: strict`) and `KUROMOJI_USER_DICTIONARY`, plus the mapping walkers `_mapping_paths` and `_disabled_paths`.
+- `elden_ring/_field_notes.py`: `_FIELD_NOTES` (served by `describe_fields`).
+- `elden_ring/mcp_server.py`: the twelve tools and their docstrings.
 - `elden_ring/_calc.py`: the attack-rating math behind `calculate_attack_rating`.
 - `scripts/load_dataset.py`: loads one `dataset.json` into OpenSearch. `scripts/opensearch_load.py` holds the shared client, `ensure_index` and bulk helpers (the retired erdb loader that shared `load_data.py` with them was deleted in #444). `load_manifest.py` and `index_settings.py` support incremental loads and the load-time settings.
 - `tests/`: offline unit tests, plus the opt-in live suite (see Tests).
@@ -44,7 +45,7 @@ uv run --package elden-ring python packages/elden-ring/scripts/load_dataset.py d
 
 - **The alias.** `elden-ring-entities` is an alias to one concrete index (currently `elden-ring-entities-v4`). The Lambda and the loaders use the alias unless `ELDEN_RING_INDEX` says otherwise.
 - **Map new fields first.** The mapping is `dynamic: strict`, so a doc with an unmapped leaf (nested ones included) is rejected and the load fails.
-  - Add every new field to `INDEX_MAPPING`, and add a `_FIELD_NOTES` entry for it, before loading.
+  - Add every new field to `INDEX_MAPPING` (`_schema.py`), and add a `_FIELD_NOTES` entry for it (`_field_notes.py`), before loading.
   - `ensure_index` runs `put_mapping` on every load, so new fields reach the live index by themselves.
   - `mapping.total_fields.limit` is 3000. Renamed fields keep their old leaves in the live mapping until the index is rebuilt.
 - **Type and analyzer changes need a new concrete index.** That covers a field's type, an analyzer, or `KUROMOJI_USER_DICTIONARY`. The procedure:

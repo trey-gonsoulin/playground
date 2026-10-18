@@ -5,7 +5,7 @@ ER_LIVE_TESTS=1, #445)."""
 import pytest
 from _live_index import SKIP_REASON, live_enabled
 
-from elden_ring._client import INDEX_MAPPING, KUROMOJI_USER_DICTIONARY
+from elden_ring._schema import INDEX_MAPPING, KUROMOJI_USER_DICTIONARY
 
 _ANALYSIS = INDEX_MAPPING["settings"]["analysis"]
 

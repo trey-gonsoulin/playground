@@ -8,14 +8,10 @@ under the index's field limit.
 
 import re
 
-from elden_ring import _client
-from elden_ring._client import (
-    _FIELD_NOTES,
-    INDEX_MAPPING,
-    _mapping_paths,
-    _queryable_paths,
-    describe_index,
-)
+from elden_ring import _client, _field_notes, _schema
+from elden_ring._client import _queryable_paths, describe_index
+from elden_ring._field_notes import _FIELD_NOTES
+from elden_ring._schema import INDEX_MAPPING, _mapping_paths
 
 _PATHS = _mapping_paths(INDEX_MAPPING["mappings"]["properties"])
 
@@ -44,13 +40,13 @@ def test_every_mapped_leaf_has_an_own_or_ancestor_note():
 def test_every_disabled_object_has_its_own_note():
     # #469: an enabled: false object is a leaf of the mapping whose inner shape
     # describe_fields can't show, so its note sits on the path itself.
-    missing = sorted(p for p in _client._disabled_paths() if p not in _FIELD_NOTES)
+    missing = sorted(p for p in _schema._disabled_paths() if p not in _FIELD_NOTES)
     assert not missing, missing
 
 
 def test_every_shared_disabled_note_names_a_disabled_leaf():
-    leaves = {p.rsplit(".", 1)[-1] for p in _client._disabled_paths()}
-    stale = sorted(set(_client._DISABLED_LEAF_NOTES) - leaves)
+    leaves = {p.rsplit(".", 1)[-1] for p in _schema._disabled_paths()}
+    stale = sorted(set(_field_notes._DISABLED_LEAF_NOTES) - leaves)
     assert not stale, stale
 
 

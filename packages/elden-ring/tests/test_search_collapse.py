@@ -2,8 +2,8 @@
 capped patterns union (#447). No OpenSearch needed."""
 
 import opensearch_load
-from elden_ring import _client
-from elden_ring._client import INDEX_MAPPING
+from elden_ring import _client, _field_notes
+from elden_ring._schema import INDEX_MAPPING
 
 
 def _doc(name, version, entity_type="weapon", **kw):
@@ -82,7 +82,7 @@ def _unscoped(monkeypatch):
 
 def test_entity_key_mapped_and_noted():
     assert INDEX_MAPPING["mappings"]["properties"]["entity_key"] == {"type": "keyword"}
-    assert "entity_key" in _client._FIELD_NOTES
+    assert "entity_key" in _field_notes._FIELD_NOTES
 
 
 def test_bulk_actions_stamp_entity_key():
