@@ -252,7 +252,7 @@ def test_search_literal_match_all(client):
 
 def test_search_literal_collapse_variants(client):
     """collapse_variants keeps each family's base and everything outside a family, and
-    drops the variant docs naming a base_item (#111; collapse_affinity is an alias)."""
+    drops the variant docs naming a base_item (#111)."""
     marker = "zqxaffinitymarker"
     docs = {
         "weapon::__test_aff_std__::test": ("weapon", "__test_aff_std__", None),
@@ -283,17 +283,12 @@ def test_search_literal_collapse_variants(client):
 
         full = _os.search_literal(client, pattern=marker, patch_version="test")
         assert full["total"] == 4, full
-        for collapsed in (
-            _os.search_literal(
-                client, pattern=marker, patch_version="test", collapse_variants=True
-            ),
-            _os.search_literal(
-                client, pattern=marker, patch_version="test", collapse_affinity=True
-            ),
-        ):
-            assert collapsed["total"] == 2, collapsed
-            names = {r["name"] for r in collapsed["results"]}
-            assert names == {"__test_aff_std__", "__test_aff_talisman__"}, names
+        collapsed = _os.search_literal(
+            client, pattern=marker, patch_version="test", collapse_variants=True
+        )
+        assert collapsed["total"] == 2, collapsed
+        names = {r["name"] for r in collapsed["results"]}
+        assert names == {"__test_aff_std__", "__test_aff_talisman__"}, names
     finally:
         for doc_id in docs:
             client.delete(index=_os.INDEX, id=doc_id, ignore=[404])

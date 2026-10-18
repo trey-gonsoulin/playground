@@ -53,7 +53,6 @@ def search_entities(
     count_only: bool = False,
     source: str | None = None,
     include_unavailable: bool = False,
-    collapse_affinity: bool = False,
     collapse_variants: bool = False,
     is_dlc: bool | None = None,
 ) -> dict:
@@ -338,7 +337,6 @@ def search_entities(
             talisman ranks +1/+2/+3, flask +N, altered armor), which are separate docs
             with their own names and often copies of the base text. Everything outside
             a family is unaffected. Use it to count distinct items.
-        collapse_affinity: Deprecated alias for collapse_variants.
         is_dlc: True keeps only Shadow of the Erdtree content, False only base-game
             content; None (default) keeps both. Every doc carries is_dlc (#297); see
             describe_fields() for how each entity type is decided.
@@ -466,16 +464,15 @@ def search_entities(
     out = _os.search(
         _os.get_client(),
         query,
-        entity_type,
-        patch_version,
-        min(limit, 100),
-        include_fields,
-        count_only,
-        source,
-        include_unavailable,
-        collapse_affinity,
-        collapse_variants,
-        is_dlc,
+        entity_type=entity_type,
+        patch_version=patch_version,
+        limit=min(limit, 100),
+        include_fields=include_fields,
+        count_only=count_only,
+        source=source,
+        include_unavailable=include_unavailable,
+        collapse_variants=collapse_variants,
+        is_dlc=is_dlc,
     )
     # A dict, never a bare list: FastMCP sends a list as one block per element, and
     # an empty one as no content at all (#441).
@@ -523,7 +520,9 @@ def get_entity(
     its own stats and HP, and the HP ratio its phase ends at. A boss and its enemy
     share a name ("Godrick the Grafted"): pass entity_type="boss" for the encounter
     doc (arena, runes, banner), "enemy" for the character's stats, and
-    "site_of_grace" for a grace named after its boss.
+    "site_of_grace" for a grace named after its boss. Without entity_type the
+    newest doc wins (the alphabetically first type on a tie at that patch), and
+    other_entity_types lists the other types carrying the name.
 
     Historical names resolve too: an item renamed across patches is indexed under
     its current name, with the per-patch name kept in display_name. Looking one up
@@ -541,7 +540,11 @@ def get_entity(
     index or the entity_type isn't loaded.
     """
     doc = _os.get_entity(
-        _os.get_client(), name, entity_type, include_variants, patch_version
+        _os.get_client(),
+        name,
+        entity_type=entity_type,
+        include_variants=include_variants,
+        patch_version=patch_version,
     )
     if doc is None:  # a null result reaches the client as no content at all (#441)
         return {"error": f"'{name}' not found in any loaded version"}
@@ -632,11 +635,11 @@ def calculate_attack_rating(
         _os.get_client(),
         weapon,
         {"str": str, "dex": dex, "int": int, "fai": fai, "arc": arc},
-        level,
-        two_handed,
-        affinity,
-        patch_version,
-        spell,
+        level=level,
+        two_handed=two_handed,
+        affinity=affinity,
+        patch_version=patch_version,
+        spell=spell,
     )
 
 
@@ -669,7 +672,9 @@ def list_menu_categories(
     Returns:
         dict[str, int] when entity_type is given; dict[str, dict[str, int]] otherwise.
     """
-    return _os.list_menu_categories(_os.get_client(), entity_type, source)
+    return _os.list_menu_categories(
+        _os.get_client(), entity_type=entity_type, source=source
+    )
 
 
 @mcp.tool(annotations=_READ_ONLY)
@@ -803,7 +808,6 @@ def search_entities_literal(
     source: str | None = None,
     use_lemmatize: bool = False,
     include_unavailable: bool = False,
-    collapse_affinity: bool = False,
     collapse_variants: bool = False,
     is_dlc: bool | None = None,
     include_drop_fields: bool = True,
@@ -939,7 +943,6 @@ def search_entities_literal(
             (drop docs with a base_item: weapon affinities, talisman ranks, flask +N,
             altered armor). Everything outside a family is unaffected. Also applies to
             total.
-        collapse_affinity: Deprecated alias for collapse_variants.
         is_dlc: True keeps only Shadow of the Erdtree content, False only base-game
             content; None (default) keeps both (#297). Also applies to total.
         include_drop_fields: With fields naming "regions" or "locations", item docs
@@ -967,26 +970,25 @@ def search_entities_literal(
     """
     return _os.search_literal(
         _os.get_client(),
-        pattern,
-        fields,
-        entity_type,
-        patch_version,
-        min(limit, 500),
-        include_fields,
-        count_only,
-        sort_id_gte,
-        sort_id_lte,
-        sort_id_mod,
-        sort_id_remainder,
-        use_kuromoji,
-        patterns,
-        source,
-        use_lemmatize,
-        include_unavailable,
-        collapse_affinity,
-        collapse_variants,
-        is_dlc,
-        include_drop_fields,
+        pattern=pattern,
+        fields=fields,
+        entity_type=entity_type,
+        patch_version=patch_version,
+        limit=min(limit, 500),
+        include_fields=include_fields,
+        count_only=count_only,
+        sort_id_gte=sort_id_gte,
+        sort_id_lte=sort_id_lte,
+        sort_id_mod=sort_id_mod,
+        sort_id_remainder=sort_id_remainder,
+        use_kuromoji=use_kuromoji,
+        patterns=patterns,
+        source=source,
+        use_lemmatize=use_lemmatize,
+        include_unavailable=include_unavailable,
+        collapse_variants=collapse_variants,
+        is_dlc=is_dlc,
+        include_drop_fields=include_drop_fields,
     )
 
 
@@ -1056,7 +1058,7 @@ def text_changed_between(
     stored value per entity.
     """
     return _os.text_changed_between(
-        _os.get_client(), entity_type, field, v1, v2, count_only
+        _os.get_client(), entity_type, field, v1, v2, count_only=count_only
     )
 
 
@@ -1087,13 +1089,16 @@ def diff_entities(
         entity_type: Optional type hint to disambiguate if two entities share a name
             (a boss and its enemy, "Lightning Spear" the spell and the weapon).
             Without it, both versions come from the type the name resolves to (its
-            newest doc), as get_entity does, and resolve as-of that type's loaded
-            versions, so npc_dialogue works at any patch.
+            newest doc, the alphabetically first type on a tie), as get_entity
+            does, and resolve as-of that type's loaded versions, so npc_dialogue
+            works at any patch.
 
     Returns a dict with:
         name: the entity's current (canonical) name
         entity_type: the type both versions were read from
         queried_name: your input, only when it differed from name
+        other_entity_types: the other types carrying the name, only when
+            entity_type was omitted and the name is shared
         changed: bool — whether any fields differ
         changed_fields: {field: {v1: old_value, v2: new_value}} for each changed field;
             grouped stats are compared per leaf by dotted path (attack_power.physical)
@@ -1112,4 +1117,4 @@ def diff_entities(
         'Name' not present in X         → version loaded but entity absent from it
         'Name' not found in any loaded version → entity not in the index at all
     """
-    return _os.diff_entities(_os.get_client(), name, v1, v2, entity_type)
+    return _os.diff_entities(_os.get_client(), name, v1, v2, entity_type=entity_type)

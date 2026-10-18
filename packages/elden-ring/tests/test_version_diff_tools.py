@@ -154,7 +154,7 @@ def test_text_changed_sparse_type_reports_resolution():
 
 def test_attack_rating_rejects_unloaded_version():
     out = _client.calculate_attack_rating(
-        _Client(_DAGGERS), "Dagger", {}, None, False, None, "1.99"
+        _Client(_DAGGERS), "Dagger", {}, patch_version="1.99"
     )
     assert out["error"].startswith("patch version '1.99' is not loaded")
 
