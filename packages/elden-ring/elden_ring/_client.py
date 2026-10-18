@@ -5778,6 +5778,42 @@ _FIELD_NOTES: dict[str, str] = {
     "condition shaped as steps.when. The NPC's own block flags are left out",
 }
 
+# #469: a stored-only (enabled: false) object repeated under many parents gets its
+# shape note on every path that has none of its own, keyed by the last path part.
+_DISABLED_LEAF_NOTES = {
+    "set_when": "not searchable; returned by get_entity. On a condition of kind flag "
+    "(#314): what turns that flag on, read from the event scripts that set it: a list "
+    "of conditions shaped as quest steps.when, all required (an any_of entry holds "
+    "alternatives). Filled on quest steps.when / outcomes.when conditions: Castellan "
+    "Edgar's flag 1045342719 = Leonine Misbegotten defeated + a talk with Edgar + his "
+    "phase 1045349256 off + in own world",
+    "also_set_when": "not searchable; returned by get_entity. On a condition of kind "
+    "quest_flag (#348): conditions shaped as quest steps.when, any one of which also "
+    "turns the flag on through a common close-out that names no NPC: Redmane "
+    "Freyja's 4897 = Moore's quest_phase 4928 or the invasion flag 7625",
+    "poise_damage_by_attack": "not searchable; returned by get_entity. Each attack's "
+    "first-hit poise damage by hand, {one_handed | two_handed: {attack: poise}} in "
+    "stats.poise units (PvE, #119); attacks are light, heavy, charged_heavy, "
+    "guard_counter, running_*, rolling_light, crouch_light, jumping_*, "
+    "off_hand_light, powerstance_* and mounted_* (White Mask Varré one_handed light "
+    "6.5, heavy 13). Its largest value is poise_damage",
+    "status_buildup": "not searchable; returned by get_entity. {status: the largest "
+    "per-hit buildup} of the spell's hits, under charged / uncharged for that cast "
+    "(Ranni's Dark Moon frostbite 270; Zamor Ice Storm frostbite 80)",
+    "position": "not searchable; returned by get_entity. {x, y, z} in the map's local "
+    "coordinates, on a warp end outside the open world (dungeons, legacy maps)",
+    "world_position": "not searchable; returned by get_entity. {x, y, z} in world "
+    "coordinates (tile x 256 + local; m60 and m61 are separate frames), on a warp "
+    "end on an open-world tile, so it compares with grace and boss world_position",
+}
+_FIELD_NOTES.update(
+    {
+        path: _DISABLED_LEAF_NOTES[path.rsplit(".", 1)[-1]]
+        for path in sorted(_disabled_paths() - _FIELD_NOTES.keys())
+        if path.rsplit(".", 1)[-1] in _DISABLED_LEAF_NOTES
+    }
+)
+
 
 def describe_index(client: OpenSearch) -> dict:
     """Introspect the index: entity types, internal sources, and the field catalog.
