@@ -16,3 +16,11 @@ def test_near_locations_is_mapped_and_noted():
 def test_near_locations_is_not_a_locations_twin():
     # a pickup merely near a landmark isn't in it: locations stays precise
     assert "near_locations" not in _with_drop_fields(["locations"])
+
+
+def test_near_items_is_mapped_and_noted():
+    # #476: a location's near pickups (contract facts only, #471)
+    props = _client.INDEX_MAPPING["mappings"]["properties"]
+    assert props["near_items"] == {"type": "keyword"}
+    assert "near_items" in _FIELD_NOTES
+    assert "near_items" not in _with_drop_fields(["items"])
