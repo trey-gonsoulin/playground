@@ -454,6 +454,7 @@ version = "0.1.0"
 source = { editable = "packages/elden-ring" }
 dependencies = [
     { name = "boto3" },
+    { name = "botocore" },
     { name = "fastapi" },
     { name = "mangum" },
     { name = "mcp" },
@@ -475,6 +476,7 @@ lint = [
 [package.metadata]
 requires-dist = [
     { name = "boto3", specifier = ">=1.35" },
+    { name = "botocore", specifier = ">=1.35" },
     { name = "fastapi", specifier = ">=0.115" },
     { name = "mangum", specifier = ">=0.21.0" },
     { name = "mcp", specifier = ">=1.28,<2" },
