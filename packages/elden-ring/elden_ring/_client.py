@@ -6011,7 +6011,11 @@ _FIELD_NOTES: dict[str, str] = {
     "under that number who shares only the generic humanoid body (Lightseeker Hyetta / "
     "Irina of Morne) is kept",
     "steps": "on a quest doc: one entry per scripted phase transition (a phase set "
-    "under different conditions has several entries), from the event scripts read "
+    "under different conditions has several entries, each with the phase's "
+    "locations and placements. #499: Ranni the Witch's 3747 is entered from 3746 "
+    "on Renna's talk flags, and separately on either of two other flags while at "
+    "3745 or 3746; that range test isn't parsed, so the second entry has no "
+    "entered_from), from the event scripts read "
     "control-flow aware (skips, gotos and returns on every path to the set) with each "
     "shared template read once per call site, its args substituted (so the Church of "
     "Vows absolution resets are gated on the absolution flag). The absolution also "
