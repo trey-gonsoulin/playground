@@ -21,6 +21,30 @@ _DOC = {
     "steps": [
         {"phase_flag": 3945, "order": 1, "locations": ["Limgrave"]},
         {
+            "phase_flag": 3947,
+            "order": 3,
+            # #485: a placement event's gate besides the phase
+            "placements": [
+                {
+                    "locations": ["Leyndell, Royal Capital"],
+                    "when": [
+                        {"kind": "flag", "flag": 71102},
+                        {
+                            "kind": "flag",
+                            "flag": 12059261,
+                            "set_when": [
+                                {
+                                    "kind": "boss_defeated",
+                                    "flag": 9112,
+                                    "bosses": ["Mohg, Lord of Blood"],
+                                }
+                            ],
+                        },
+                    ],
+                }
+            ],
+        },
+        {
             "phase_flag": 3948,
             "entered_from": 3947,
             "order": 4,
@@ -154,6 +178,7 @@ def test_quest_flags_are_long():
         "outcomes.waited_for.entity_ids",
         "steps.when.entity_ids",
         "steps.when.conditions.entity_ids",
+        "steps.placements.when.flag",  # #485
     ):
         assert _mapped(path)["type"] == "long", path
 
@@ -166,6 +191,7 @@ def test_quest_fields_documented():
         "related_npcs",
         "steps",
         "steps.when",
+        "steps.placements",
         "outcomes",
         "outcomes.trigger",
         "outcomes.waited_for",
