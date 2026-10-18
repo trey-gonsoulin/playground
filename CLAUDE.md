@@ -13,42 +13,47 @@ Each MCP package follows this layout (see `~/code/hoshi/packages/hoshi-api/` as 
 ```
 packages/<name>/
   <name>/
-    mcp_server.py      # FastMCP tools — the main thing to write
+    mcp_server.py      # MCPServer tools — the main thing to write
     app.py             # FastAPI factory that mounts the MCP at /mcp
     lambda_handler.py  # Mangum(app) entry point for Lambda
     main.py            # uvicorn CLI entry for local dev
   Dockerfile           # multi-stage: builder (uv sync) → final Lambda image
-  pyproject.toml       # hatchling build, mangum + mcp + fastapi deps
+  pyproject.toml       # hatchling build, mangum + mcp + fastapi + mcp-lambda deps
 ```
+
+`packages/mcp-lambda` (module `mcp_lambda`) is the shared FastAPI + Lambda wiring every server uses (#504). It is a library package, not an MCP server.
 
 ### MCP server setup
 
-```python
-from mcp.server.fastmcp import FastMCP
+mcp 2.x (`mcp>=2.3,<3`). The server object takes only its name; the transport settings go to `streamable_http_app()`, which `mcp_lambda` calls for you:
 
-mcp = FastMCP(
-    "my-mcp-name",
-    stateless_http=True,   # each Lambda invocation is independent
-    json_response=True,    # plain JSON, not SSE — required behind API Gateway
-    streamable_http_path="/",
-    host="0.0.0.0",        # avoids DNS-rebinding protection rejecting non-localhost Host headers
+```python
+from mcp.server.mcpserver import MCPServer
+
+mcp = MCPServer("my-mcp-name")
+```
+
+`app.py` builds the FastAPI app with the shared helper:
+
+```python
+from mcp_lambda import create_mcp_app
+from <pkg>.mcp_server import mcp
+
+app = create_mcp_app(
+    mcp,
+    title="My MCP",
+    description="...",
+    auth_env="MY_MCP_SECRET",  # optional: require Authorization: Bearer $MY_MCP_SECRET when set
 )
 ```
 
-Mount into FastAPI at `/mcp`:
+`create_mcp_app` mounts the server at `/mcp` and:
 
-```python
-application.mount("/mcp", mcp.streamable_http_app())
-```
+- fixes the transport settings: `stateless_http=True` (each Lambda invocation is independent), `json_response=True` (plain JSON, not SSE, which API Gateway needs), `streamable_http_path="/"`, and `host="0.0.0.0"` (mcp's default `127.0.0.1` turns on DNS-rebinding protection, which answers API Gateway's Host header with a 421). Other `streamable_http_app()` settings pass through as keyword arguments, e.g. genealogy's `max_request_body_size` (mcp's default is 4 MiB).
+- serves `/mcp` as `/mcp/`, so Starlette doesn't redirect.
+- makes the lifespan re-enterable (`ReentrantMCP`). Mangum runs the whole lifespan on every invocation, and the session manager's `run()` is single-use, so each lifespan entry builds a fresh one with `streamable_http_app()`.
 
-Add a path-normalization middleware to avoid a Starlette redirect on `/mcp` → `/mcp/`:
-
-```python
-async def _normalize_mcp_path(request, call_next):
-    if request.url.path == "/mcp":
-        request.scope["path"] = "/mcp/"
-    return await call_next(request)
-```
+Each Dockerfile copies `packages/mcp-lambda/mcp_lambda` next to the package, because `uv export --no-emit-workspace` leaves workspace members out of the requirements.
 
 ### Lambda entry point
 
@@ -127,6 +132,7 @@ A personal family tree built up through MCP tools and exported as GEDCOM. It is 
   - With `TREE_BUCKET` set, files go to `s3://$TREE_BUCKET/trees/<name>/{tree.json,tree.ged,exports/,resources/}`. Otherwise they go to `$TREE_DIR` (default `~/.genealogy-mcp/trees`).
   - Saves are conditional, so overlapping invocations raise `ConcurrentModification` instead of losing writes.
   - Resources are content-addressed (`resources/<sha256[:16]>-<name>`). The bucket is versioned and retained.
+- **Request size:** `MAX_REQUEST_BODY_BYTES` (5 MiB) is passed to mcp as `max_request_body_size`; larger bodies get a 413. It keeps the Lambda event, which wraps the body as an escaped JSON string, under Lambda's 6 MB cap (#505). Only inline arguments such as `tree_import_gedcom`'s `gedcom_text` count; `tree_attach_resource_from_url` downloads in the Lambda (25 MiB cap).
 - **Auth:** none when deployed, like elden-ring, because claude.ai connectors can't send a static bearer header. The app still requires `Authorization: Bearer <secret>` if `GENEALOGY_MCP_SECRET` is set (same pattern as ynab-mcp), but `template.yaml` leaves it unset.
 
 ### elden-ring (`packages/elden-ring/`)
@@ -155,6 +161,6 @@ Searches Elden Ring game data at every patch: items, enemies, NPCs, quests, loca
 
 - Use `uv` for all dependency and run management (`uv add --package <name> <dep>`, `uv run`).
 - All route handlers in FastAPI should be synchronous (`def`, not `async def`) so uvicorn dispatches them to a thread pool — blocking SDK/network calls work without async wrappers.
-- FastMCP tools are different: mcp calls a sync (`def`) tool directly on the event loop, not in a thread pool. Under local uvicorn (`main.py`), one slow tool such as elden-ring's `start_search_service` blocks every other request until it returns. Lambda is unaffected, since each invocation serves one request. Tools stay sync; don't add `anyio.to_thread` wrappers unless local concurrency starts to matter.
+- MCP tools can be sync too: since mcp 2.x, a sync (`def`) tool runs on a worker thread, so a slow tool such as elden-ring's `start_search_service` no longer blocks other requests under local uvicorn (`main.py`). Lambda serves one request per invocation either way. Under local uvicorn, concurrent first calls can race to initialise lazy module-level clients (e.g. elden-ring's cached OpenSearch client); that's harmless, since the loser's client is just dropped.
 - After adding a new package to the workspace, add it to `[tool.uv.workspace]` members in the root `pyproject.toml`.
 - Each package's `pyproject.toml` should declare `mangum`, `mcp`, and `fastapi` as dependencies; other packages in this workspace as `{ workspace = true }` sources.

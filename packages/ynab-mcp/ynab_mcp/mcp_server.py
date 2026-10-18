@@ -1,16 +1,11 @@
 """MCP server exposing YNAB budget tools via Streamable HTTP transport."""
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 
 from ynab_mcp import _client as ynab
 
-mcp = FastMCP(
-    "ynab",
-    stateless_http=True,
-    json_response=True,
-    streamable_http_path="/",
-    host="0.0.0.0",
-)
+# Transport settings (JSON, stateless, host) are fixed by mcp_lambda (see app.py).
+mcp = MCPServer("ynab")
 
 
 @mcp.tool()

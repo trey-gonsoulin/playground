@@ -27,7 +27,6 @@ allowed-confusables = ["–", "×"]
 [tool.ruff.lint.per-file-ignores]
 # Tests assert and use dummy hosts and secrets.
 "packages/*/tests/**" = ["S101", "S104", "S105", "S106"]
-# host="0.0.0.0" is intentional: the FastMCP DNS-rebinding guard and the local uvicorn
-# server must accept non-localhost Host headers (see CLAUDE.md).
-"packages/*/*/mcp_server.py" = ["S104"]
+# host="0.0.0.0" is intentional: the local uvicorn server must accept non-localhost
+# Host headers (see CLAUDE.md; mcp_lambda carries its own noqa for the MCP guard).
 "packages/*/*/main.py" = ["S104"]

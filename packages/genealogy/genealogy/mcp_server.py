@@ -20,7 +20,7 @@ from datetime import UTC, datetime
 from urllib.parse import urlparse
 
 import httpx
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 
 from genealogy import _newspapers as newspapers
 from genealogy import _wikitree as wikitree
@@ -28,14 +28,19 @@ from genealogy._gedcom import from_gedcom, to_gedcom
 from genealogy._models import Citation, Event, Person, Tree
 from genealogy._storage import get_store
 
-mcp = FastMCP(
-    "genealogy",
-    stateless_http=True,
-    json_response=True,
-    streamable_http_path="/",
-    host="0.0.0.0",
-)
+# Transport settings (JSON, stateless, host) are fixed by mcp_lambda (see app.py).
+mcp = MCPServer("genealogy")
 
+# Largest JSON-RPC request body the app accepts (mcp 2.x answers 413 above it; its
+# default is 4 MiB). Lambda refuses invocation events over 6 MB (6 MiB), and the
+# event wraps the body as an escaped JSON string next to the headers, so each
+# newline or quote in a tool argument grows again. 5 MiB keeps the event under the
+# cap for GEDCOM text even when every line is as short as "1 SEX F" (#505). Only
+# inline arguments travel in the body, e.g. tree_import_gedcom's gedcom_text.
+MAX_REQUEST_BODY_BYTES = 5 * 1024 * 1024
+
+# Download cap for tree_attach_resource_from_url. The file is fetched by the
+# Lambda, not sent in the request, so the body limit above doesn't apply.
 _MAX_RESOURCE_BYTES = 25 * 1024 * 1024
 
 
@@ -451,7 +456,8 @@ def tree_import_gedcom(
 
     Provide either gedcom_text (the file contents) or stored_path (a file already
     in the tree's storage, e.g. 'uploads/ancestry.ged' — large files are best
-    uploaded there directly).
+    uploaded there directly). gedcom_text is sent inline in the request, which
+    is capped at 5 MB in total, so use stored_path for bigger files.
 
     Args:
         source: Which app made the file, e.g. 'ancestry' or 'rootsmagic'. Set it

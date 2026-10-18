@@ -6,7 +6,8 @@ requires-python = ">=3.13"
 dependencies = [
     "fastapi>=0.115",
     "mangum>=0.21.0",
-    "mcp>=1.28,<2",
+    "mcp>=2.3,<3",
+    "mcp-lambda",
     "opensearch-py>=3.0",
     "boto3>=1.35",
     "botocore>=1.35",
@@ -14,6 +15,9 @@ dependencies = [
 
 [project.scripts]
 elden-ring = "elden_ring.main:cli"
+
+[tool.uv.sources]
+mcp-lambda = { workspace = true }
 
 [build-system]
 requires = ["hatchling"]
@@ -25,6 +29,8 @@ packages = ["elden_ring"]
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",
+    # TestClient (tests/test_app.py); mcp 2.x no longer pulls httpx in.
+    "httpx>=0.28",
     # Local `main.py` only; Lambda runs through Mangum (mcp pulls in plain uvicorn).
     "uvicorn[standard]>=0.30",
 ]

@@ -25,9 +25,12 @@ RUN uv export --package elden-ring --no-dev --no-emit-workspace --frozen \
 FROM ${BASE_IMAGE}
 
 COPY --from=builder /deps "${LAMBDA_TASK_ROOT}/"
+# --no-emit-workspace leaves workspace members out of requirements.txt, so the
+# shared helper package is copied in like the server itself (#504).
+COPY packages/mcp-lambda/mcp_lambda "${LAMBDA_TASK_ROOT}/mcp_lambda"
 COPY packages/elden-ring/elden_ring "${LAMBDA_TASK_ROOT}/elden_ring"
 # /var/task is read-only at runtime and .dockerignore drops __pycache__, so
 # compile here; otherwise every cold start compiles the package from source.
-RUN python -m compileall -q "${LAMBDA_TASK_ROOT}/elden_ring"
+RUN python -m compileall -q "${LAMBDA_TASK_ROOT}/elden_ring" "${LAMBDA_TASK_ROOT}/mcp_lambda"
 
 CMD ["elden_ring.lambda_handler.handler"]
