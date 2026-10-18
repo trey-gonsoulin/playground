@@ -99,7 +99,7 @@ def test_search_returns_newest_doc_when_only_old_text_matches(monkeypatch):
     old = _doc("Talisman", "1.02", "item", description="old text")
     new = _doc("Talisman", "1.10.0", "item", description="new text", effect="x")
     client = _SearchClient([old], [old, new], scores=[7.5])
-    (hit,) = _client.search(client, "old text", is_dlc=False)
+    (hit,) = _client.search(client, "old text", is_dlc=False)["results"]
     assert hit == {"score": 7.5, **new}
     first, follow = client.bodies
     assert first["sort"][0] == {"_score": "desc"}
@@ -121,7 +121,7 @@ def test_search_newest_takes_include_fields(monkeypatch):
     new = _doc("x", "1.17.0", "item", description="b")
     client = _SearchClient([old], [old, new])
     out = _client.search(client, "x", include_fields=["name", "patch_version"])
-    assert out == [{"score": 1.0, "name": "x", "patch_version": "1.17.0"}]
+    assert out == {"results": [{"score": 1.0, "name": "x", "patch_version": "1.17.0"}]}
     assert client.bodies[1]["_source"] == ["name", "patch_version"]
 
 
@@ -129,7 +129,7 @@ def test_search_keeps_matched_doc_when_newest_missing(monkeypatch):
     _unscoped(monkeypatch)
     old = _doc("x", "1.02", "item")
     client = _SearchClient([old], [])
-    assert _client.search(client, "x") == [{"score": 1.0, **old}]
+    assert _client.search(client, "x") == {"results": [{"score": 1.0, **old}]}
 
 
 def test_search_same_name_two_types_are_two_results(monkeypatch):
@@ -137,7 +137,7 @@ def test_search_same_name_two_types_are_two_results(monkeypatch):
     spell = _doc("Lightning Spear", "1.17.0", "spell")
     weapon = _doc("Lightning Spear", "1.17.0", "weapon")
     client = _SearchClient([spell, weapon], [spell, weapon], scores=[3.0, 2.0])
-    out = _client.search(client, "Lightning Spear")
+    out = _client.search(client, "Lightning Spear")["results"]
     assert [d["entity_type"] for d in out] == ["spell", "weapon"]
     assert [d["score"] for d in out] == [3.0, 2.0]
 
@@ -154,9 +154,9 @@ def test_search_count_counts_entity_keys(monkeypatch):
 def test_search_scoped_has_no_collapse(monkeypatch):
     _unscoped(monkeypatch)
     client = _Recorder({"hits": {"hits": [{"_score": 1.0, "_source": {"name": "x"}}]}})
-    assert _client.search(client, "x", patch_version="1.17.0") == [
-        {"score": 1.0, "name": "x"}
-    ]
+    assert _client.search(client, "x", patch_version="1.17.0") == {
+        "results": [{"score": 1.0, "name": "x"}]
+    }
     assert "collapse" not in client.bodies[0]
 
 

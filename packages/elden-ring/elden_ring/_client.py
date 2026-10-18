@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import fnmatch
 import functools
+import json
 import logging
 import os
 import ssl
@@ -1885,7 +1886,12 @@ def search(
     include_unavailable: bool = False,
     collapse_variants: bool = False,
     is_dlc: bool | None = None,
-) -> list[dict] | dict:
+) -> dict:
+    """Relevance search: {"results": [doc, ...]}, {"total": N} or {"error": ...}.
+
+    Always a dict, never a bare list: FastMCP sends a list as one block per
+    element, and an empty one as no content at all (#441, #478).
+    """
     if err := _precheck(source, include_fields):
         return err
     patch_version = _request_version(client, patch_version)
@@ -1968,17 +1974,19 @@ def search(
 
     if count_only:
         if not patch_version:
-            out: list[dict] | dict = {
-                "total": resp["aggregations"]["distinct_entities"]["value"]
-            }
+            out: dict = {"total": resp["aggregations"]["distinct_entities"]["value"]}
         else:
             out = {"total": resp["hits"]["total"]["value"]}
     else:
         hits = resp["hits"]["hits"]
         if not patch_version:
             hits = _swap_newest(client, hits, filters, include_fields)
-        out = [{"score": hit["_score"], **hit.get("_source", {})} for hit in hits]
-    if not out or out == {"total": 0}:
+        out = {
+            "results": [
+                {"score": hit["_score"], **hit.get("_source", {})} for hit in hits
+            ]
+        }
+    if out in ({"results": []}, {"total": 0}):
         return _check_filter_values(client, entity_type, source, patch_version) or out
     return out
 
@@ -3241,6 +3249,9 @@ def list_menu_categories(
     client: OpenSearch,
     entity_type: str | None = None,
     source: str | None = None,
+    *,
+    include_unavailable: bool = False,
+    collapse_variants: bool = True,
 ) -> dict[str, int] | dict[str, dict[str, int]]:
     """Return distinct menu_category values with distinct entity counts.
 
@@ -3249,13 +3260,23 @@ def list_menu_categories(
     every type that has at least one doc with menu_category set.
 
     Counts are distinct-entity counts (cardinality on name.keyword), not raw
-    doc counts, so multi-patch duplication doesn't inflate the numbers.
+    doc counts, so multi-patch duplication doesn't inflate the numbers. As in
+    the search tools, cut / unobtainable docs are left out unless
+    include_unavailable, and variant docs (weapon affinities, talisman ranks,
+    altered armor) unless collapse_variants=False, so the counts match
+    search(count_only=True, collapse_variants=True) (#465).
 
     An unknown or retired entity_type / source returns {"error": ...} (#205).
     """
     if err := _precheck(source):
         return err
-    out = _menu_categories(client, entity_type, source)
+    out = _menu_categories(
+        client,
+        entity_type,
+        source,
+        include_unavailable=include_unavailable,
+        collapse_variants=collapse_variants,
+    )
     if not out:
         return _check_filter_values(client, entity_type, source) or out
     return out
@@ -3265,11 +3286,18 @@ def _menu_categories(
     client: OpenSearch,
     entity_type: str | None = None,
     source: str | None = None,
+    *,
+    include_unavailable: bool = False,
+    collapse_variants: bool = True,
 ) -> dict[str, int] | dict[str, dict[str, int]]:
+    shared = _availability_filter(include_unavailable) + _variant_filter(
+        collapse_variants
+    )
     if entity_type:
         filters: list[dict] = [{"term": {"entity_type": entity_type}}]
         if source:
             filters.append({"term": {"source": source}})
+        filters += shared
         body: dict = {
             "size": 0,
             "query": {"bool": {"filter": filters}},
@@ -3292,6 +3320,7 @@ def _menu_categories(
     base_filters: list[dict] = [{"exists": {"field": "menu_category"}}]
     if source:
         base_filters.append({"term": {"source": source}})
+    base_filters += shared
     body = {
         "size": 0,
         "query": {"bool": {"filter": base_filters}},
@@ -5982,11 +6011,62 @@ _FIELD_NOTES.update(
 )
 
 
-def describe_index(client: OpenSearch) -> dict:
+# A repeated object subtree folds to one row when it has at least this many paths
+# under it; smaller repeats ({x, y, z} positions) stay listed (#452).
+_FOLD_MIN_PATHS = 4
+
+
+def _folded_copies(props: dict) -> dict[str, tuple[str, int]]:
+    """{copy root: (canonical root of the same shape, paths under it)} (#452).
+
+    Objects whose properties are equal (the shared _SET_WHEN dict, NPC stat
+    fragments under summon_stats / variants / phases) share a shape. Larger shapes
+    fold first, so a copy's own sub-objects aren't folded again; within a shape the
+    shallowest path, then the first in catalog order, is the canonical one listed
+    in full, and every other occurrence is a copy.
+    """
+    shapes: dict[str, list[str]] = {}
+    sizes: dict[str, int] = {}
+    for path, spec in _mapping_paths(props).items():
+        if "properties" not in spec:
+            continue
+        shape = json.dumps(spec["properties"], sort_keys=True, default=str)
+        shapes.setdefault(shape, []).append(path)
+        sizes[shape] = len(_mapping_paths(spec["properties"]))
+    out: dict[str, tuple[str, int]] = {}
+    for shape in sorted(shapes, key=lambda s: -sizes[s]):
+        if sizes[shape] < _FOLD_MIN_PATHS:
+            break
+        live = [
+            p
+            for p in shapes[shape]
+            if not any(p.startswith(root + ".") for root in out)
+        ]
+        if len(live) < 2:
+            continue
+        canon = min(live, key=lambda p: p.count("."))
+        out.update({p: (canon, sizes[shape]) for p in live if p != canon})
+    return out
+
+
+def describe_index(
+    client: OpenSearch,
+    *,
+    prefix: str | list[str] | None = None,
+    full: bool = False,
+) -> dict:
     """Introspect the index: entity types, internal sources, and the field catalog.
 
     Lets a caller discover what is queryable without guessing. Field types come
     from the index mapping; entity_types and sources are counted live.
+
+    By default a repeated object subtree is folded into one row on its root,
+    {"type": "object", "same_shape_as": <first path of that shape>,
+    "folded_paths": N}; a path under it keeps its own row only where its note
+    differs from the one at the same place under same_shape_as. ``prefix`` (a
+    dotted path or a list of them; a trailing ".*" is ignored) keeps only those
+    paths and the ones under them, and unfolds a copy it names or reaches into.
+    ``full`` lists every path unfolded (#452).
     """
     resp = client.search(
         index=INDEX,
@@ -6006,9 +6086,37 @@ def describe_index(client: OpenSearch) -> dict:
         b["key"]: b["doc_count"] for b in resp["aggregations"]["sources"]["buckets"]
     }
 
+    props = INDEX_MAPPING["mappings"]["properties"]
+    raw = [prefix] if isinstance(prefix, str) else list(prefix or [])
+    prefixes = [p.strip().removesuffix(".*").strip(".") for p in raw]
+    prefixes = [p for p in prefixes if p]
+    folds = {
+        root: canon
+        for root, canon in ({} if full else _folded_copies(props)).items()
+        if not any(p == root or p.startswith(root + ".") for p in prefixes)
+    }
+
+    def _folded_under(path: str) -> str | None:
+        """The canonical path matching ``path`` when it lies under a fold."""
+        for root, (canon, _) in folds.items():
+            if path.startswith(root + "."):
+                return canon + path[len(root) :]
+        return None
+
     fields: dict[str, dict] = {}
-    for path, spec in _mapping_paths(INDEX_MAPPING["mappings"]["properties"]).items():
+    for path, spec in _mapping_paths(props).items():
+        if prefixes and not any(
+            path == p or path.startswith(p + ".") for p in prefixes
+        ):
+            continue
+        twin = _folded_under(path)
+        if twin is not None and (
+            path not in _FIELD_NOTES or _FIELD_NOTES[path] == _FIELD_NOTES.get(twin)
+        ):
+            continue
         entry: dict = {"type": spec.get("type", "object")}
+        if path in folds:
+            entry["same_shape_as"], entry["folded_paths"] = folds[path]
         subs = [s for s in spec.get("fields", {})]
         if subs:
             entry["subfields"] = subs
@@ -6019,7 +6127,17 @@ def describe_index(client: OpenSearch) -> dict:
             entry["note"] = _FIELD_NOTES[path]
         fields[path] = entry
 
+    for p in prefixes:
+        if not any(f == p or f.startswith(p + ".") for f in fields):
+            warnings.append(f"no mapped field matches prefix {p!r}")
     out = {"entity_types": entity_types, "sources": sources, "fields": fields}
+    if any("same_shape_as" in e for e in fields.values()):
+        out["folded"] = (
+            "a row with same_shape_as stands for an object with the same fields "
+            "as that path (folded_paths of them, listed there); "
+            "describe_fields(prefix=<its path>) lists them under it, full=True "
+            "lists every path"
+        )
     if warnings:
         out["warnings"] = warnings
     return out

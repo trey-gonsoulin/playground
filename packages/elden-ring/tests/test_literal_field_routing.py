@@ -89,7 +89,7 @@ def test_describe_index_marks_unsearchable():
                 "aggregations": {"types": {"buckets": []}, "sources": {"buckets": []}}
             }
 
-    fields = _client.describe_index(_C())["fields"]
+    fields = _client.describe_index(_C(), full=True)["fields"]
     assert list(fields) == list(_PATHS)
     flagged = {p for p, e in fields.items() if e.get("searchable") is False}
     assert flagged == _disabled_paths()
