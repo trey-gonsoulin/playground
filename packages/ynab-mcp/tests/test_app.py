@@ -13,7 +13,6 @@ import json
 
 import pytest
 from fastapi.testclient import TestClient
-
 from ynab_mcp import lambda_handler
 from ynab_mcp.app import create_app
 
@@ -136,7 +135,6 @@ def test_session_manager_private_attrs_exist():
 
 def test_main_cli_runs_uvicorn(monkeypatch):
     import uvicorn
-
     from ynab_mcp import main
 
     calls = []

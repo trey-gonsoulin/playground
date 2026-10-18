@@ -295,7 +295,7 @@ class Tree(BaseModel):
                 created += 1
             else:
                 person = self._merge_person(existing, fresh, overwrite)
-            index.update({k: person for k in person.external_ids.items()})
+            index.update(dict.fromkeys(person.external_ids.items(), person))
             id_map[incoming_id] = person.id
 
         links = 0
@@ -303,7 +303,7 @@ class Tree(BaseModel):
             partners = [id_map[p] for p in fam.partner_ids if p in id_map][:2]
             if not partners:
                 continue
-            a, b = (partners + [None])[:2]
+            a, b = [*partners, None][:2]
             children = [id_map[c] for c in fam.child_ids if c in id_map]
             targets = [self.add_child(c, a, b) for c in children]
             if not children:
