@@ -25,9 +25,12 @@ RUN uv export --package genealogy --no-dev --no-emit-workspace --frozen \
 FROM ${BASE_IMAGE}
 
 COPY --from=builder /deps "${LAMBDA_TASK_ROOT}/"
+# --no-emit-workspace leaves workspace members out of requirements.txt, so the
+# shared helper package is copied in like the server itself (#504).
+COPY packages/mcp-lambda/mcp_lambda "${LAMBDA_TASK_ROOT}/mcp_lambda"
 COPY packages/genealogy/genealogy "${LAMBDA_TASK_ROOT}/genealogy"
 # /var/task is read-only at runtime and .dockerignore drops __pycache__, so
 # compile here; otherwise every cold start compiles the package from source.
-RUN python -m compileall -q "${LAMBDA_TASK_ROOT}/genealogy"
+RUN python -m compileall -q "${LAMBDA_TASK_ROOT}/genealogy" "${LAMBDA_TASK_ROOT}/mcp_lambda"
 
 CMD ["genealogy.lambda_handler.handler"]

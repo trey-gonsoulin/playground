@@ -1,9 +1,9 @@
 """Offline tests for the HTTP request path: FastAPI app, lifespan and Lambda handler.
 
-``app._lifespan`` resets private ``mcp.session_manager`` state so that a warm
-Lambda container (Mangum runs the lifespan on every invocation) can re-enter
-``run()``. These tests run the lifespan more than once, so an mcp upgrade that
-renames those attributes fails here instead of on the second live invocation.
+Mangum runs the whole lifespan on every invocation, so a warm Lambda container
+re-enters it each time; ``mcp_lambda.ReentrantMCP`` rebuilds the session manager
+per entry (#504). These tests cycle the lifespan 20 times, so an mcp upgrade that
+breaks re-entry fails here instead of on the second live invocation.
 No network access: ``initialize`` and ``tools/list`` never call a tool.
 """
 
@@ -56,7 +56,7 @@ def _check_tools(status: int, body: dict) -> None:
 
 def test_lifespan_reentry_via_testclient():
     app = create_app()
-    for _ in range(2):  # second block = warm container re-entering the lifespan
+    for _ in range(20):  # later blocks = warm container re-entering the lifespan
         with TestClient(app) as client:
             for path in ("/mcp", "/mcp/"):
                 r = client.post(path, json=_INITIALIZE, headers=_HEADERS)
@@ -111,26 +111,20 @@ def _invoke(path: str, payload: dict) -> tuple[int, dict]:
     body = resp["body"]
     if resp.get("isBase64Encoded"):
         body = base64.b64decode(body).decode()
+    # Plain JSON, not SSE: API Gateway needs json_response (fixed by mcp_lambda).
+    assert resp["headers"]["content-type"].startswith("application/json"), resp
     return resp["statusCode"], json.loads(body)
 
 
 def test_lambda_handler_warm_invocations():
-    # Each Mangum call runs the full lifespan; four calls = one cold + three warm.
+    # Each Mangum call runs the full lifespan; 20 calls = one cold + 19 warm.
     # Mangum uses the thread's current loop, which an earlier asyncio.run() in the
     # same pytest process may have cleared (a Lambda process starts with one).
     asyncio.set_event_loop(asyncio.new_event_loop())
-    for path in ("/mcp", "/mcp/"):
-        _check_initialize(*_invoke(path, _INITIALIZE))
-        _check_tools(*_invoke(path, _TOOLS_LIST))
-
-
-def test_session_manager_private_attrs_exist():
-    """Guard the private attributes the lifespan hack relies on."""
-    from ynab_mcp.mcp_server import mcp
-
-    sm = mcp.session_manager
-    assert hasattr(sm, "_has_started")
-    assert hasattr(sm, "_task_group")
+    for _ in range(5):
+        for path in ("/mcp", "/mcp/"):
+            _check_initialize(*_invoke(path, _INITIALIZE))
+            _check_tools(*_invoke(path, _TOOLS_LIST))
 
 
 def test_main_cli_runs_uvicorn(monkeypatch):

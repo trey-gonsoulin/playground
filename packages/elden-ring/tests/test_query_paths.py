@@ -503,7 +503,7 @@ def test_start_search_service_wraps_client_error(instance):
         _wire(monkeypatch, ec2)
         out = asyncio.run(mcp_server.mcp.call_tool("start_search_service", {}))
         stub.assert_no_pending_responses()
-    blocks = out[0] if isinstance(out, tuple) else out
+    blocks = out.content
     result = json.loads(blocks[0].text)
     assert result["status"] == "error"
     assert "IncorrectInstanceState" in result["message"]
@@ -513,7 +513,7 @@ def test_start_search_service_annotations():
     tool = mcp_server.mcp._tool_manager.get_tool("start_search_service")
     assert tool is not None and tool.annotations is not None
     ann = tool.annotations
-    assert (ann.readOnlyHint, ann.destructiveHint, ann.idempotentHint) == (
+    assert (ann.read_only_hint, ann.destructive_hint, ann.idempotent_hint) == (
         False,
         False,
         True,

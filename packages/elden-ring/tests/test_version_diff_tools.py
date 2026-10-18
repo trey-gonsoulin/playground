@@ -209,7 +209,7 @@ def test_every_tool_returns_one_json_object(monkeypatch, tool):
         monkeypatch.setattr(_client, "start_instance", lambda **_: {"status": "ready"})
     monkeypatch.setattr(_client, "get_client", _ToolClient)
     out = asyncio.run(mcp_server.mcp.call_tool(tool, _ARGS.get(tool, {})))
-    blocks = out[0] if isinstance(out, tuple) else out
+    blocks = out.content
     assert len(blocks) == 1, blocks
     assert isinstance(json.loads(blocks[0].text), dict)
 

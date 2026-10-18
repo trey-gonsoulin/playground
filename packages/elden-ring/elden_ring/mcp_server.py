@@ -1,35 +1,28 @@
 """MCP server exposing Elden Ring build and lore search tools."""
 
 from botocore.exceptions import ClientError
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 from mcp.types import ToolAnnotations
 
 import elden_ring._client as _os
 
-_READ_ONLY = ToolAnnotations(readOnlyHint=True)
+_READ_ONLY = ToolAnnotations(read_only_hint=True)
 
 
-class _SearchMCP(FastMCP):
-    """FastMCP whose tools answer {"error": ...} for a dead search node (#456)."""
+class _SearchMCP(MCPServer):
+    """MCPServer whose tools answer {"error": ...} for a dead search node (#456)."""
 
     def add_tool(self, fn, *args, **kwargs) -> None:
         super().add_tool(_os.unreachable_as_error(fn), *args, **kwargs)
 
 
-mcp = _SearchMCP(
-    "elden-ring",
-    stateless_http=True,
-    json_response=True,
-    streamable_http_path="/",
-    # A non-localhost host keeps FastMCP's DNS-rebinding guard off, which would
-    # reject API Gateway's Host header (see CLAUDE.md). This binds no socket.
-    host="0.0.0.0",  # noqa: S104 -- intentional, see above
-)
+# Transport settings (JSON, stateless, host) are fixed by mcp_lambda (see app.py).
+mcp = _SearchMCP("elden-ring")
 
 
 @mcp.tool(
     annotations=ToolAnnotations(
-        readOnlyHint=False, destructiveHint=False, idempotentHint=True
+        read_only_hint=False, destructive_hint=False, idempotent_hint=True
     )
 )
 def start_search_service() -> dict:

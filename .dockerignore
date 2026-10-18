@@ -7,4 +7,5 @@
 !packages/elden-ring/elden_ring
 !packages/genealogy/genealogy
 !packages/ynab-mcp/ynab_mcp
+!packages/mcp-lambda/mcp_lambda
 **/__pycache__
