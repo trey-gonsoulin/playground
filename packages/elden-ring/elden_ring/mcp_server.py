@@ -1,5 +1,6 @@
 """MCP server exposing Elden Ring build and lore search tools."""
 
+from botocore.exceptions import ClientError
 from mcp.server.fastmcp import FastMCP
 from mcp.types import ToolAnnotations
 
@@ -24,23 +25,28 @@ mcp = _SearchMCP(
 )
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        readOnlyHint=False, destructiveHint=False, idempotentHint=True
+    )
+)
 def start_search_service() -> dict:
     """Start the Elden Ring search service if it's not running.
 
-    The search backend runs on a stopped EC2 instance to save cost. Call this
-    tool first whenever search tools return connection errors. It starts the
-    instance and blocks until OpenSearch is healthy (typically 2-3 minutes on
-    a cold start). Returns immediately if the service is already running.
+    The search backend runs on an EC2 instance that stops itself after about an
+    hour idle, to save cost. Call this tool first whenever search tools return
+    connection errors. It starts the instance and waits at most ~20 s, so it
+    never blocks for the whole boot (2-3 minutes on a cold start).
 
-    Returns {"status": "ready"} on success or {"status": "timeout", "message": "..."}
-    if the instance did not become healthy within 4 minutes.
+    Returns {"status": "ready"} once search works. While the instance boots
+    it returns {"status": "starting", "state": "...", "message": "..."}: call it
+    again in ~30 s until it says ready. {"status": "error", "message": "..."}
+    means AWS refused the request.
     """
     try:
-        endpoint = _os.start_instance(timeout_seconds=240)
-        return {"status": "ready", "endpoint": endpoint}
-    except TimeoutError as e:
-        return {"status": "timeout", "message": str(e)}
+        return _os.start_instance(budget_seconds=20)
+    except ClientError as e:
+        return {"status": "error", "message": str(e)}
 
 
 @mcp.tool(annotations=_READ_ONLY)

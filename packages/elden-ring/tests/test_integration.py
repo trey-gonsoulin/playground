@@ -36,8 +36,13 @@ def client():
     """Start the EC2 instance once for the module and yield a client whose queries
     and loads all target a throwaway index (deleted at teardown)."""
     print("\nStarting search service (may take ~2-3 min on cold start)…")
-    endpoint = _os.start_instance(timeout_seconds=300)
-    print(f"OpenSearch healthy at {endpoint}")
+    # start_instance returns within ~20 s (#440), so keep calling it for ~5 min.
+    for _ in range(15):
+        status = _os.start_instance()
+        if status["status"] != "starting":
+            break
+    assert status == {"status": "ready"}, status
+    print(f"OpenSearch healthy at {_os._get_current_endpoint()}")
 
     import load_data
 
