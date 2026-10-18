@@ -480,7 +480,7 @@ def search_entities(
     or retired entity_type / source / patch_version or an unmapped include_fields
     name (not an empty result).
     """
-    out = _os.search(
+    return _os.search(
         _os.get_client(),
         query,
         entity_type=entity_type,
@@ -493,9 +493,6 @@ def search_entities(
         collapse_variants=collapse_variants,
         is_dlc=is_dlc,
     )
-    # A dict, never a bare list: FastMCP sends a list as one block per element, and
-    # an empty one as no content at all (#441).
-    return {"results": out} if isinstance(out, list) else out
 
 
 @mcp.tool(annotations=_READ_ONLY)
@@ -668,18 +665,24 @@ def calculate_attack_rating(
 def list_menu_categories(
     entity_type: str | None = None,
     source: str | None = None,
+    include_unavailable: bool = False,
+    collapse_variants: bool = True,
 ) -> dict:
     """List the distinct menu_category values in the index with entity counts.
 
     menu_category reflects the in-game equipment menu grouping (e.g. "Straight Sword",
     "Reaper", "Head", "Consumables"). Counts are distinct-entity counts (not raw
-    document counts), so multi-patch duplication does not inflate the numbers.
+    document counts), so multi-patch duplication does not inflate the numbers. By
+    default they count distinct obtainable items, the same as
+    search_entities(count_only=True, collapse_variants=True) with that entity_type
+    (#465).
 
     If this tool returns a connection error, call start_search_service() first.
 
     Args:
         entity_type: If provided, return {category: entity_count} for that type
-            (e.g. entity_type="weapon" → {"Straight Sword": 26, "Reaper": 4, ...}).
+            (e.g. entity_type="weapon" → {"Katana": 10, "Reaper": 5,
+            "Straight Sword": 23, ...}).
             If omitted, return {entity_type: {category: entity_count}} for every
             type that has menu_category set — all data in one call.
         source: If provided, restrict counts to documents extracted from one game
@@ -689,12 +692,24 @@ def list_menu_categories(
             better filter. An unrecognized or retired value returns {"error": ...}
             listing the live sources (also in describe_fields()). There is no patch filter:
             counts are distinct names across every loaded patch, DLC included.
+        include_unavailable: By default, unavailable content (availability="cut" or
+            "unobtainable", e.g. Millicent's set / the Ragged set) is not counted, as
+            in the search tools. Pass True to count it too.
+        collapse_variants: True (default) counts only the base of each item variant
+            family (drops docs with a base_item: weapon affinities, talisman ranks,
+            flask +N, altered armor), so an infusable weapon counts once rather than
+            once per affinity. Pass False to count every variant name
+            (entity_type="weapon" → {"Katana": 34, ...}).
 
     Returns:
         dict[str, int] when entity_type is given; dict[str, dict[str, int]] otherwise.
     """
     return _os.list_menu_categories(
-        _os.get_client(), entity_type=entity_type, source=source
+        _os.get_client(),
+        entity_type=entity_type,
+        source=source,
+        include_unavailable=include_unavailable,
+        collapse_variants=collapse_variants,
     )
 
 
@@ -711,7 +726,10 @@ def list_entity_types() -> dict:
 
 
 @mcp.tool(annotations=_READ_ONLY)
-def describe_fields() -> dict:
+def describe_fields(
+    prefix: str | list[str] | None = None,
+    full: bool = False,
+) -> dict:
     """Describe what is queryable in the index: entity types, sources, and fields.
 
     Use this to discover the schema instead of guessing field names. Every field
@@ -749,17 +767,35 @@ def describe_fields() -> dict:
     the max per-hit poise damage as attacks.poise_damage (#253); on
     summon_stats.attacks it includes every spirit's x0.05.
 
+    Repeated object subtrees are folded by default (#452): an object with the same
+    fields as another path is one row, {"type": "object", "same_shape_as":
+    "summon_stats", "folded_paths": 156} on max_level.summon_stats, and its fields
+    are read off the same_shape_as path (a field whose note differs keeps its own
+    row). The set_when gates, NPC stat fragments under summon_stats / variants /
+    phases and the PvP poise tables fold this way.
+
     If this tool returns a connection error, call start_search_service() first.
+
+    Args:
+        prefix: A dotted field path, or a list of them, to list only those fields
+            and the ones under them (prefix="gate_set_when" or
+            ["skill_shots", "summon_stats.stats"]); a folded object named or
+            reached into is listed in full. Omit for the whole catalog. A prefix
+            matching nothing adds a warning.
+        full: True lists every dotted path unfolded (about 2,400 rows, ~345 KB);
+            the default folded catalog is about 1,000 rows.
 
     Returns:
         entity_types: {type: doc_count} — loaded categories with document counts
         sources:      {source: doc_count} — internal game-data origins (param/FMG
                       names the docs were extracted from)
-        fields:       {field: {type, subfields?, note?}} — the queryable field catalog
-        warnings:     only when entity_types or sources hit the listing cap and
-                      some values are missing
+        fields:       {field: {type, subfields?, searchable?, note?,
+                      same_shape_as?, folded_paths?}} — the queryable field catalog
+        folded:       only when some rows are folded: how to read same_shape_as
+        warnings:     when entity_types or sources hit the listing cap and some
+                      values are missing, or a prefix matches no field
     """
-    return _os.describe_index(_os.get_client())
+    return _os.describe_index(_os.get_client(), prefix=prefix, full=full)
 
 
 @mcp.tool(annotations=_READ_ONLY)

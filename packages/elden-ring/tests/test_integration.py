@@ -64,15 +64,14 @@ def test_index_exists(client):
     assert client.indices.exists(index=_os.INDEX)
 
 
-def test_search_empty_returns_list(client):
-    """Search with no matching documents returns an empty list (not an error).
+def test_search_empty_returns_empty_results(client):
+    """Search with no matching documents returns {"results": []} (not an error).
 
     Uses a nonsense token so the invariant holds against the populated production
     index too (the original 'bleed katana' matched real weapons).
     """
     results = _os.search(client, "zzq_no_such_search_token_qzz")
-    assert isinstance(results, list)
-    assert results == []
+    assert results == {"results": []}
 
 
 def test_get_entity_missing_returns_none(client):
@@ -121,7 +120,7 @@ def test_index_and_retrieve(client):
         # Search
         results = _os.search(
             client, "integration test placeholder", entity_type="weapon"
-        )
+        )["results"]
         names = [r["name"] for r in results]
         assert "__test_sword__" in names, f"Expected test doc in results, got: {names}"
 
@@ -187,7 +186,7 @@ def test_search_include_fields(client):
             "fields test placeholder",
             entity_type="weapon",
             include_fields=["name"],
-        )
+        )["results"]
         assert results, "Expected at least one result"
         for hit in results:
             # score is added by the client layer, not from _source
@@ -1175,7 +1174,7 @@ def test_search_collapse_returns_newest_patch(client):
         for doc, doc_id in zip(docs, ids, strict=True):
             client.index(index=_os.INDEX, id=doc_id, body=doc, refresh="wait_for")
 
-        results = _os.search(client, "qwerty", entity_type="weapon")
+        results = _os.search(client, "qwerty", entity_type="weapon")["results"]
         by_name = {r["name"]: r for r in results}
         assert "__test_collapse_newest__" in by_name, (
             f"Expected collapsed entity in results, got: {list(by_name)}"
@@ -1299,7 +1298,7 @@ def test_search_excludes_cut_content_by_default(client):
             r["name"]
             for r in _os.search(
                 client, "availability regression zqx", entity_type="armor"
-            )
+            )["results"]
         }
         assert "__test_live_helm__" in default_names
         assert "__test_cut_helm__" not in default_names, (
@@ -1312,7 +1311,7 @@ def test_search_excludes_cut_content_by_default(client):
                 "availability regression zqx",
                 entity_type="armor",
                 include_unavailable=True,
-            )
+            )["results"]
         }
         assert {"__test_live_helm__", "__test_cut_helm__"} <= incl_names, (
             "include_unavailable=True must surface cut content"
@@ -1379,7 +1378,7 @@ def test_new_goods_entity_types_are_searchable(client):
             r["name"]
             for r in _os.search(
                 client, "coverage expansion wqz", entity_type="consumable"
-            )
+            )["results"]
         }
         assert "__test_grease__" in cons
         assert "__test_bell__" not in cons, "entity_type filter must exclude key_item"
@@ -1389,7 +1388,7 @@ def test_new_goods_entity_types_are_searchable(client):
             r["name"]
             for r in _os.search(
                 client, "coverage expansion wqz", entity_type="key_item"
-            )
+            )["results"]
         }
         assert "__test_bell__" in keys
 
@@ -1433,7 +1432,7 @@ def test_search_excludes_unobtainable_content_by_default(client):
             r["name"]
             for r in _os.search(
                 client, "unobtainable regression jvx", entity_type="armor"
-            )
+            )["results"]
         }
         assert "__test_live_rag__" in default_names
         assert "__test_unob_rag__" not in default_names, (
@@ -1446,7 +1445,7 @@ def test_search_excludes_unobtainable_content_by_default(client):
                 "unobtainable regression jvx",
                 entity_type="armor",
                 include_unavailable=True,
-            )
+            )["results"]
         }
         assert {"__test_live_rag__", "__test_unob_rag__"} <= incl_names, (
             "include_unavailable=True must surface unobtainable content"
@@ -1499,7 +1498,9 @@ def test_search_excludes_cut_enemies_by_default(client):
 
         default_names = {
             r["name"]
-            for r in _os.search(client, "cut enemy regression qvw", entity_type="enemy")
+            for r in _os.search(
+                client, "cut enemy regression qvw", entity_type="enemy"
+            )["results"]
         }
         assert "__test_live_foe__" in default_names
         assert "__test_cut_foe__" not in default_names, (
@@ -1512,7 +1513,7 @@ def test_search_excludes_cut_enemies_by_default(client):
                 "cut enemy regression qvw",
                 entity_type="enemy",
                 include_unavailable=True,
-            )
+            )["results"]
         }
         assert {"__test_live_foe__", "__test_cut_foe__"} <= incl_names
 
@@ -1661,7 +1662,9 @@ def test_enemy_entity_searchable(client):
 
         names = {
             r["name"]
-            for r in _os.search(client, "__test_boss_zqx__", entity_type="enemy")
+            for r in _os.search(client, "__test_boss_zqx__", entity_type="enemy")[
+                "results"
+            ]
         }
         assert "__test_boss_zqx__" in names, "enemy must be full-text searchable"
 

@@ -281,12 +281,35 @@ def test_menu_categories_by_type_without_entity_type():
     assert c.bodies[0]["query"]["bool"]["filter"] == [
         {"exists": {"field": "menu_category"}},
         {"term": {"source": "EquipParamWeapon"}},
+        *_client._availability_filter(False),
+        *_client._variant_filter(True),
     ]
 
 
 def test_menu_categories_for_one_type():
-    out = _client.list_menu_categories(_AggClient(_MENU), "weapon")
+    c = _AggClient(_MENU)
+    out = _client.list_menu_categories(c, "weapon")
     assert list(out.items()) == [("Dagger", 20), ("Katana", 12)]
+    # Same default filters as search(collapse_variants=True) (#465).
+    assert c.bodies[0]["query"]["bool"]["filter"] == [
+        {"term": {"entity_type": "weapon"}},
+        *_client._availability_filter(False),
+        *_client._variant_filter(True),
+    ]
+
+
+def test_menu_categories_can_count_unavailable_and_variants():
+    c = _AggClient(_MENU)
+    _client.list_menu_categories(
+        c, "weapon", include_unavailable=True, collapse_variants=False
+    )
+    _client.list_menu_categories(c, include_unavailable=True, collapse_variants=False)
+    assert c.bodies[0]["query"]["bool"]["filter"] == [
+        {"term": {"entity_type": "weapon"}}
+    ]
+    assert c.bodies[1]["query"]["bool"]["filter"] == [
+        {"exists": {"field": "menu_category"}}
+    ]
 
 
 def test_menu_categories_empty_checks_filter_values():
