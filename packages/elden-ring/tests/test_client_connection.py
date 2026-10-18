@@ -2,6 +2,7 @@
 OpenSearch needed."""
 
 import ssl
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -24,7 +25,7 @@ def _assert_pinned(client):
     ctx = conn.pool.conn_kw["ssl_context"]
     assert ctx.verify_mode == ssl.CERT_REQUIRED
     assert [c["serialNumber"] for c in ctx.get_ca_certs()] == [_ca()["serialNumber"]]
-    assert not ctx.verify_flags & ssl.VERIFY_X509_STRICT  # CA lacks keyUsage
+    assert ctx.verify_flags & ssl.VERIFY_X509_STRICT  # the CA has keyUsage (#473)
     assert ctx.check_hostname is False
     assert conn.pool.assert_hostname is False  # node SANs lack the EC2 DNS name
     conn.close()  # a recreated pool keeps the override
@@ -45,6 +46,18 @@ def test_pinned_ca_is_a_ca_certificate_in_the_package():
     assert text.count("BEGIN CERTIFICATE") == 1 and "PRIVATE" not in text
     subject = dict(x[0] for x in _ca()["subject"])
     assert subject["commonName"] == "elden-ring-search-ca"
+
+
+def test_pinned_ca_passes_strict_x509():
+    # #473: strict mode needs keyUsage keyCertSign on the CA, else every handshake
+    # fails with "CA cert does not include key usage extension"
+    ctx = ssl.create_default_context(cafile=_client.CA_CERTS)
+    assert ctx.verify_flags & ssl.VERIFY_X509_STRICT
+    text = subprocess.run(
+        ["openssl", "x509", "-in", _client.CA_CERTS, "-noout", "-ext", "keyUsage"],
+        capture_output=True, text=True, check=True,
+    ).stdout
+    assert "critical" in text and "Certificate Sign" in text and "CRL Sign" in text
 
 
 @pytest.fixture
