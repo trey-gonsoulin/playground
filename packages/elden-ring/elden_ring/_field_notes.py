@@ -2634,14 +2634,20 @@ _FIELD_NOTES: dict[str, str] = {
     "a talk condition",
     "steps.order": "1-based depth of the phase in the transition chain (the longest "
     "entered_from path); sibling branches share an order (Millicent 4191 help vs 4194 "
-    "betray)",
+    "betray). #502: a list entered_from counts at its earliest phase, since any one "
+    "of them is enough (Blaidd the Half-Wolf's Redmane Castle festival 3611, from any "
+    "of 3605-3610, is order 2, not after 3610)",
     "steps.entered_from": "the same NPC's phase the transition requires. #502: a "
     "list when the script tests 'any of these flags on' over the NPC's own block; "
     "the transition needs any one of them (Ranni the Witch's ring ceremony 3750 "
     "from any of 3745-3749). The list keeps only the block's phases that have "
     "steps: no life-state slots and not the phase being set. A test like that over "
     "another NPC's block, or one that only some of the either-or branches make, "
-    "adds nothing",
+    "adds nothing. With one such phase left it is a plain number, and a step that "
+    "already needs another phase of its own (or a map step) ignores the test "
+    "(Iji 3768 keeps 1034499242). A phase can have both a single-phase entry and a "
+    "list entry that includes that phase (Fia, Deathbed Companion's 4127: from "
+    "4125, from 4126, and from [4125, 4126]): one entry per scripted transition",
     "steps.locations": "where the phase plays out: the dungeon location docs, else the "
     "landmarks whose MSB footprint is centred on the open-world tile (#190) followed "
     "by the region of the grace nearest the tile's centre, of every map whose event "
