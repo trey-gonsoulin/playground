@@ -245,7 +245,8 @@ def search_entities(
                            Search a quote to find the scene it's spoken in.
             ending       — one doc per Erdtree ending (#425): Age of Fracture, Age
                            of the Stars, Lord of Frenzied Flame, Age of Order, Age
-                           of the Duskborn, Blessing of Despair. ending_flags
+                           of the Duskborn, Blessing of Despair; name_ja is the
+                           title its JP subtitles speak (律の時代, #487). ending_flags
                            (9400-9407), choices (Fractured Marika's option or the
                            prompt: 'Summon Ranni'), trigger_options / npcs,
                            trigger_items (the Mending Rune it needs),
