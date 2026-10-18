@@ -1,7 +1,8 @@
 """Unit tests for the is_dlc field and search filter (#297). No OpenSearch needed."""
 
-from elden_ring import _client
-from elden_ring._client import INDEX_MAPPING, _dlc_filter
+from elden_ring import _client, _field_notes
+from elden_ring._client import _dlc_filter
+from elden_ring._schema import INDEX_MAPPING
 
 
 def test_dlc_filter_none_adds_nothing():
@@ -15,7 +16,7 @@ def test_dlc_filter_true_and_false_are_terms():
 
 def test_is_dlc_mapped_boolean_with_field_note():
     assert INDEX_MAPPING["mappings"]["properties"]["is_dlc"] == {"type": "boolean"}
-    assert "is_dlc" in _client._FIELD_NOTES
+    assert "is_dlc" in _field_notes._FIELD_NOTES
 
 
 class _Client:

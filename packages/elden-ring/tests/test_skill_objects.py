@@ -1,7 +1,8 @@
 """Weapon / Ash of War skill objects (#289) and Ash of War affinities and weapon
 classes (#290): mapped and documented. No OpenSearch needed."""
 
-from elden_ring._client import _FIELD_NOTES, INDEX_MAPPING
+from elden_ring._field_notes import _FIELD_NOTES
+from elden_ring._schema import INDEX_MAPPING
 
 _PROPS = INDEX_MAPPING["mappings"]["properties"]
 

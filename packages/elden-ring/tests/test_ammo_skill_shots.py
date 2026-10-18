@@ -1,6 +1,7 @@
 """Ammo bow-skill shots (#151): mapped and documented. No OpenSearch needed."""
 
-from elden_ring._client import _FIELD_NOTES, INDEX_MAPPING
+from elden_ring._field_notes import _FIELD_NOTES
+from elden_ring._schema import INDEX_MAPPING
 
 _SHOTS = INDEX_MAPPING["mappings"]["properties"]["skill_shots"]["properties"]
 

@@ -1,7 +1,8 @@
 """Ammo follow-up hit motion values (#152): mapped under projectile and documented.
 No OpenSearch needed."""
 
-from elden_ring._client import _FIELD_NOTES, INDEX_MAPPING
+from elden_ring._field_notes import _FIELD_NOTES
+from elden_ring._schema import INDEX_MAPPING
 
 _PROJECTILE = INDEX_MAPPING["mappings"]["properties"]["projectile"]["properties"]
 

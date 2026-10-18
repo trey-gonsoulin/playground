@@ -1,7 +1,8 @@
 """Weapon passive effects (#163): weapons reuse the shared effect / effects mapping and
 the notes document them. No OpenSearch needed."""
 
-from elden_ring._client import _FIELD_NOTES, INDEX_MAPPING
+from elden_ring._field_notes import _FIELD_NOTES
+from elden_ring._schema import INDEX_MAPPING
 
 _PROPS = INDEX_MAPPING["mappings"]["properties"]
 

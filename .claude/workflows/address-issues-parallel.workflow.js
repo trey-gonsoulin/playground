@@ -35,7 +35,7 @@ const siblings = g => GROUPS.filter(o => o.key !== g.key).map(o => `${refs(o)} (
 
 const COMMON = `
 ## Repos and worktrees
-- **playground** (${PLAYGROUND}): the MCP server. You already run in an isolated git worktree of it; make all playground edits there. Relevant: packages/elden-ring/elden_ring/_client.py (INDEX_MAPPING is dynamic: strict, so every new field needs a mapping entry, plus the _FIELD_NOTES used by describe_fields), mcp_server.py, and packages/elden-ring/tests/.
+- **playground** (${PLAYGROUND}): the MCP server. You already run in an isolated git worktree of it; make all playground edits there. Relevant: packages/elden-ring/elden_ring/_schema.py (INDEX_MAPPING is dynamic: strict, so every new field needs a mapping entry), _field_notes.py (the _FIELD_NOTES used by describe_fields; every new field needs a note too), _client.py (the query layer), mcp_server.py, and packages/elden-ring/tests/.
 - **erdb-tools** (${ERDB}): the extraction code (er_native/extract.py etc.). NEVER edit its main checkout, because other agents share it. Create your own worktree (see Rules for the branch name) and edit only there. Gitignored data (datalake/, unpack/, regulation*.decrypted, ss-venv/) exists only in the main checkout: read it by absolute path, never write to it.
 
 ## How to test and build

@@ -1,7 +1,8 @@
 """Skill-level frames (#477; per class: frames_by_class) and Ash of War per-class hit
 lists (#432): mapped and documented. No OpenSearch needed."""
 
-from elden_ring._client import _FIELD_NOTES, INDEX_MAPPING
+from elden_ring._field_notes import _FIELD_NOTES
+from elden_ring._schema import INDEX_MAPPING
 
 _SKILL = INDEX_MAPPING["mappings"]["properties"]["skill"]["properties"]
 
