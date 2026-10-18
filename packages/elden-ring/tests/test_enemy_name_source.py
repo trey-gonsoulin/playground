@@ -1,6 +1,7 @@
 """Mapping checks for spirit-ash enemy labels (#104). No OpenSearch needed."""
 
-from elden_ring._client import _FIELD_NOTES, INDEX_MAPPING
+from elden_ring._field_notes import _FIELD_NOTES
+from elden_ring._schema import INDEX_MAPPING
 
 
 def test_name_source_fields_mapped_as_keyword():

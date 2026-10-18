@@ -4,12 +4,10 @@ from elden_ring import _client
 from elden_ring._client import (
     _JP_BASE_FIELDS,
     _LITERAL_FIELDS,
-    INDEX_MAPPING,
-    _disabled_paths,
-    _mapping_paths,
     _route_literal_fields,
     _unsearchable_fields,
 )
+from elden_ring._schema import INDEX_MAPPING, _disabled_paths, _mapping_paths
 
 _PATHS = _mapping_paths(INDEX_MAPPING["mappings"]["properties"])
 

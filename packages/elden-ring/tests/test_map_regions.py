@@ -1,7 +1,9 @@
 """Region map / landmark footprints (#80) and NPC-invasion instances (#96): the new
 doc shapes are covered by the strict mapping and documented. No OpenSearch needed."""
 
-from elden_ring._client import _FIELD_NOTES, INDEX_MAPPING, _flatten
+from elden_ring._client import _flatten
+from elden_ring._field_notes import _FIELD_NOTES
+from elden_ring._schema import INDEX_MAPPING
 
 _PROPS = INDEX_MAPPING["mappings"]["properties"]
 

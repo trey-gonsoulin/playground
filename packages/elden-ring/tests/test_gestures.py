@@ -2,7 +2,8 @@
 the type is documented. No OpenSearch needed."""
 
 from elden_ring import mcp_server
-from elden_ring._client import INDEX_MAPPING, _flatten
+from elden_ring._client import _flatten
+from elden_ring._schema import INDEX_MAPPING
 
 _PROPS = INDEX_MAPPING["mappings"]["properties"]
 

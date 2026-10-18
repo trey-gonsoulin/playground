@@ -3,8 +3,9 @@
 No OpenSearch needed.
 """
 
-from elden_ring import _client, mcp_server
-from elden_ring._client import _FIELD_NOTES, _with_drop_fields
+from elden_ring import _client, _schema, mcp_server
+from elden_ring._client import _with_drop_fields
+from elden_ring._field_notes import _FIELD_NOTES
 
 
 def test_with_drop_fields_adds_twins_after_their_field():
@@ -121,6 +122,6 @@ def test_field_notes_describe_the_default():
 
 def test_drop_near_locations_is_mapped_and_noted():
     """#347: enemies just outside a dungeon entrance."""
-    props = _client.INDEX_MAPPING["mappings"]["properties"]
+    props = _schema.INDEX_MAPPING["mappings"]["properties"]
     assert props["drop_near_locations"] == {"type": "keyword"}
     assert _with_drop_fields(["drop_locations"]) == ["drop_locations"]

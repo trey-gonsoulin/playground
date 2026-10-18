@@ -65,6 +65,8 @@ allowed-confusables = ["–", "×"]
 # Backlog in the two query-layer modules, left for a follow-up so the concurrent
 # batch branches that edit them don't conflict (#457). Remove codes as they're fixed.
 "elden_ring/_client.py" = ["B905", "C416", "C420", "PLW0603", "PTH100", "PTH118", "PTH120", "UP037"]
+# The mapping moved out of _client.py with its backlog (#470).
+"elden_ring/_schema.py" = ["C420"]
 # The FastMCP host="0.0.0.0" is intentional (DNS-rebinding guard; see CLAUDE.md).
 "elden_ring/mcp_server.py" = ["S104"]
 
