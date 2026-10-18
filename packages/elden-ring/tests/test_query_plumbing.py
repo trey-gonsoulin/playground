@@ -198,6 +198,7 @@ _TOOLS = {
     "diff_entities": ("diff_entities", ()),
     "text_changed_between": ("text_changed_between", ()),
     "list_menu_categories": ("list_menu_categories", ()),
+    "describe_fields": ("describe_index", ()),
 }
 _ORIG = {fn: getattr(_client, fn) for fn, _ in _TOOLS.values()}
 
@@ -242,6 +243,7 @@ def test_wrappers_pass_optional_params_by_keyword(monkeypatch):
         "diff_entities",
         "text_changed_between",
         "calculate_attack_rating",
+        "describe_index",
     ):
         for name, p in inspect.signature(getattr(_client, fn)).parameters.items():
             if p.default is not p.empty and (fn, name) != ("search_literal", "pattern"):

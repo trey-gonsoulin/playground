@@ -104,14 +104,14 @@ def test_valid_empty_results_stay_empty():
         "total": 0,
         "results": [],
     }
-    assert _client.search(c, "x", entity_type="weapon") == []
+    assert _client.search(c, "x", entity_type="weapon") == {"results": []}
     assert _client.list_menu_categories(c, "weapon", "EquipParamWeapon") == {}
 
 
 def test_non_empty_result_skips_the_value_check():
     c = _Client([_doc("Dagger", "1.17.0")])
     out = _client.search(c, "x", entity_type="weapon")
-    assert [d["name"] for d in out] == ["Dagger"]
+    assert [d["name"] for d in out["results"]] == ["Dagger"]
     assert len(c.bodies) == 1
 
 
@@ -236,7 +236,7 @@ def test_tools_accept_version_aliases():
     out = _client.get_entity(c, "Dagger", patch_version="1.10")
     assert (out["patch_version"], out["requested_patch_version"]) == ("1.10.0", "1.10")
     out = _client.search(c, "x", patch_version="1.02.0")
-    assert [d["patch_version"] for d in out] == ["1.02"]
+    assert [d["patch_version"] for d in out["results"]] == ["1.02"]
     out = _client.diff_entities(c, "Dagger", "1.02.0", "1.10")
     assert out["requested_patch_versions"] == {"1.02.0": "1.02", "1.10": "1.10.0"}
     assert "error" not in out

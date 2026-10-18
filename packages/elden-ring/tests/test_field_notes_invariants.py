@@ -98,7 +98,7 @@ class _StubClient:
 
 def test_describe_index_reports_types_subfields_and_notes():
     stub = _StubClient()
-    out = describe_index(stub)
+    out = describe_index(stub, full=True)
     assert stub.calls and stub.calls[0][0] == _client.INDEX
     assert out["entity_types"] == {"weapon": 7, "spell": 3}
     assert out["sources"] == {"Magic": 3}
