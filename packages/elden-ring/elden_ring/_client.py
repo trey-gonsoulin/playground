@@ -98,11 +98,9 @@ CA_CERTS = str(Path(__file__).absolute().parent / "er-root-ca.pem")
 def pinned_ssl_context() -> ssl.SSLContext:
     """Verify the chain against CA_CERTS only, without the hostname check.
 
-    Python 3.13's strict X.509 mode (which urllib3 also turns on) rejects the
-    #437 CA because it has no keyUsage extension, so strict mode is off.
+    Python 3.13's strict X.509 mode stays on: the CA carries keyUsage (#473).
     """
     ctx = ssl.create_default_context(cafile=CA_CERTS)
-    ctx.verify_flags &= ~ssl.VERIFY_X509_STRICT
     ctx.check_hostname = False
     return ctx
 

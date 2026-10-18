@@ -127,7 +127,7 @@ Resources:
           D=/etc/opensearch
           W=$(mktemp -d)
           (umask 077; openssl genrsa -out /root/er-ca-key.pem 3072)
-          openssl req -new -x509 -sha256 -key /root/er-ca-key.pem -subj "/CN=elden-ring-search-ca" -days 3650 -out $D/er-root-ca.pem
+          openssl req -new -x509 -sha256 -key /root/er-ca-key.pem -subj "/CN=elden-ring-search-ca" -addext "keyUsage=critical,keyCertSign,cRLSign" -days 3650 -out $D/er-root-ca.pem
           mkcert() {
               openssl genrsa -out $W/$1-rsa.pem 2048
               openssl pkcs8 -topk8 -nocrypt -in $W/$1-rsa.pem -out $D/$1-key.pem
