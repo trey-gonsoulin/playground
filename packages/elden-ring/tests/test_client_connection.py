@@ -70,9 +70,9 @@ def test_loader_client_verifies(monkeypatch):
 
 
 def _prime_caches():
-    _client._cached_endpoint = "old-host"
-    _client._cached_password = "old-pw"
-    _client._cached_client = object()
+    _client._cache.endpoint = "old-host"
+    _client._cache.password = "old-pw"
+    _client._cache.client = object()
 
 
 @pytest.mark.parametrize(
@@ -90,9 +90,9 @@ def test_unreachable_clears_caches_and_returns_error(exc):
 
     _prime_caches()
     assert _client.unreachable_as_error(tool)() == {"error": _client.UNREACHABLE}
-    assert _client._cached_endpoint is None
-    assert _client._cached_password is None
-    assert _client._cached_client is None
+    assert _client._cache.endpoint is None
+    assert _client._cache.password is None
+    assert _client._cache.client is None
 
 
 def test_other_errors_still_raise_and_keep_caches():
@@ -102,7 +102,7 @@ def test_other_errors_still_raise_and_keep_caches():
     _prime_caches()
     with pytest.raises(NotFoundError):
         _client.unreachable_as_error(tool)()
-    assert _client._cached_endpoint == "old-host"
+    assert _client._cache.endpoint == "old-host"
     _client.reset_cache()
 
 

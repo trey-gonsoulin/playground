@@ -163,8 +163,8 @@ _MIN_MAX = {"properties": _props("integer", ("min", "max"))}
 _STAT_RANGES = {
     "stamina": _MIN_MAX,
     "runes": _MIN_MAX,
-    "defense": {"properties": {k: _MIN_MAX for k in _DAMAGE_TYPES[1:]}},
-    "resistances": {"properties": {k: _MIN_MAX for k in _STATUSES}},
+    "defense": {"properties": dict.fromkeys(_DAMAGE_TYPES[1:], _MIN_MAX)},
+    "resistances": {"properties": dict.fromkeys(_STATUSES, _MIN_MAX)},
 }
 _NPC_SCALED_RANGES = {
     "stats_scaled": {
