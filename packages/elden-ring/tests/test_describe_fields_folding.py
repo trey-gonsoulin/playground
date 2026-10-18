@@ -3,7 +3,8 @@
 import json
 
 from elden_ring import _client
-from elden_ring._client import _FIELD_NOTES, INDEX_MAPPING, _mapping_paths
+from elden_ring._field_notes import _FIELD_NOTES
+from elden_ring._schema import INDEX_MAPPING, _mapping_paths
 
 _PROPS = INDEX_MAPPING["mappings"]["properties"]
 _PATHS = _mapping_paths(_PROPS)

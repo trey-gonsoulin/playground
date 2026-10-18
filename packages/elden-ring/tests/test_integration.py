@@ -24,6 +24,7 @@ import pytest
 from _live_index import SKIP_REASON, live_enabled, throwaway_index
 
 import elden_ring._client as _os
+import elden_ring._schema as _schema
 
 pytestmark = [
     pytest.mark.live,
@@ -47,7 +48,7 @@ def client():
     import opensearch_load
 
     c = _os.get_client()
-    with throwaway_index(c, _os.INDEX_MAPPING, (_os, opensearch_load)) as index:
+    with throwaway_index(c, _schema.INDEX_MAPPING, (_os, opensearch_load)) as index:
         print(f"Using throwaway index {index}")
         yield c
 

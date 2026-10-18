@@ -1,14 +1,14 @@
 """Item effect / info FMG text fields (#90): mapping, search routing, field notes."""
 
 from elden_ring._client import (
-    _FIELD_NOTES,
     _JP_BASE_FIELDS,
     _LITERAL_FIELDS,
     _LITERAL_FIELDS_LEMMA,
     _LITERAL_FIELDS_MORPH,
-    INDEX_MAPPING,
     _route_literal_fields,
 )
+from elden_ring._field_notes import _FIELD_NOTES
+from elden_ring._schema import INDEX_MAPPING
 
 _PROPS = INDEX_MAPPING["mappings"]["properties"]
 _NEW = ("effect_text", "info_text")

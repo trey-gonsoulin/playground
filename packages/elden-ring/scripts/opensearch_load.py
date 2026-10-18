@@ -18,11 +18,8 @@ from typing import Any
 from opensearchpy import OpenSearch, RequestError
 from opensearchpy.helpers import bulk, scan
 
-from elden_ring._client import (  # reuse index name + mapping
-    INDEX,
-    INDEX_MAPPING,
-    tls_options,  # pinned node CA (#467)
-)
+from elden_ring._client import tls_options  # pinned node CA (#467)
+from elden_ring._schema import INDEX, INDEX_MAPPING  # reuse index name + mapping
 
 # ---------------------------------------------------------------------------
 # OpenSearch client
