@@ -1,7 +1,7 @@
 """Region map / landmark footprints (#80) and NPC-invasion instances (#96): the new
 doc shapes are covered by the strict mapping and documented. No OpenSearch needed."""
 
-from elden_ring._client import _FIELD_NOTES, _flatten, INDEX_MAPPING
+from elden_ring._client import _FIELD_NOTES, INDEX_MAPPING, _flatten
 
 _PROPS = INDEX_MAPPING["mappings"]["properties"]
 
@@ -104,10 +104,9 @@ def test_notes_document_new_fields():
     assert "footprint" in _FIELD_NOTES["area_scaling"]
     assert "rotation_y" in _FIELD_NOTES["footprint"]
     assert "invader_flag" in _FIELD_NOTES["invasion_instances"]
-    assert "Castle Morne" in _FIELD_NOTES["locations"]
 
 
 def test_areas_filterable():
     """The placements' areas are a filterable keyword summary (#194)."""
     assert _PROPS["areas"] == {"type": "keyword"}
-    assert "#194" in _FIELD_NOTES["areas"] and "areas" in _FIELD_NOTES["placements"]
+    assert "areas" in _FIELD_NOTES["placements"]

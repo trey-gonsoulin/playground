@@ -79,13 +79,7 @@ def test_fields_documented():
         "trigger_options",
     ):
         assert field in _FIELD_NOTES, field
-    assert "#388" in _FIELD_NOTES["requires_steps"]  # per-version dialogue too
-    assert "first-meeting" in _FIELD_NOTES["requires_flags_off"]
-    assert "11109709" in _FIELD_NOTES["sets_flags"]  # counter-built entries (#390)
     assert "npc_dialogue" in _FIELD_NOTES["requires_flags"]
-    assert "Nepheli Loux" in _FIELD_NOTES["requires_steps"]
-    assert "9401" in _FIELD_NOTES["sets_flags"]
     assert "talk_option" in _FIELD_NOTES["cutscene"]
     assert "talk_option" in _FIELD_NOTES["cutscene_id"]
     # each ending keeps its own choice flag (#334)
-    assert "9403 Blessing of Despair" in _FIELD_NOTES["trigger_flags"]

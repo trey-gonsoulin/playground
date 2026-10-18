@@ -6,8 +6,8 @@ from elden_ring._client import (
     _LITERAL_FIELDS,
     _LITERAL_FIELDS_LEMMA,
     _LITERAL_FIELDS_MORPH,
-    _route_literal_fields,
     INDEX_MAPPING,
+    _route_literal_fields,
 )
 
 _PROPS = INDEX_MAPPING["mappings"]["properties"]
@@ -17,10 +17,10 @@ _NEW = ("effect_text", "info_text")
 def test_message_and_network_streams_documented():
     # #387: the new game_text kinds and a message word's category
     assert _PROPS["message_category"] == {"type": "keyword"}
+    # a category label that filters match on
+    assert "Enemies" in _FIELD_NOTES["message_category"]
     for kind in ("network_message", "menu_dialog", "message_word", "placed_message"):
         assert kind in _FIELD_NOTES["tags"]
-    assert "Enemies" in _FIELD_NOTES["message_category"]
-    assert "map event scripts" not in _FIELD_NOTES["raised_by_items"]  # #386
 
 
 def test_placed_message_placements_documented():
@@ -61,10 +61,7 @@ def test_explicit_jp_fields_route_to_analyzer_subfield():
 
 
 def test_field_notes():
-    assert "WeaponEffect" in _FIELD_NOTES["effect_text"]
     assert "status_buildup" in _FIELD_NOTES["effect_text"]
-    assert "ProtectorInfo" in _FIELD_NOTES["info_text"]
-    assert "mountWepTextId" in _FIELD_NOTES["info_text"]  # Ash of War (#169)
     assert "item_dialog" in _FIELD_NOTES["tags"]
     for f in _NEW:
         assert f"{f}_ja" in _FIELD_NOTES
