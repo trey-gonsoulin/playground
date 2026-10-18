@@ -740,8 +740,8 @@ def describe_fields(
     infusable, default_ash_of_war, damage_types, is_legendary, depicts_weapon, and the
     .ja/.morph/.lemma Japanese subfields. An object with "searchable": false is
     stored but not indexed: get_entity / include_fields return it and
-    text_changed_between diffs it, but search fields= rejects it. Stats are grouped objects listed by dotted
-    path (attack_power.fire, attack_power.critical, scaling.str.grade,
+    text_changed_between diffs it, but search fields= rejects it. Stats are grouped objects whose fields
+    prefix= lists by dotted path (attack_power.fire, attack_power.critical, scaling.str.grade,
     scaling.str.value, requirements.dex, guard.physical, guard.resistances.bleed,
     status_buildup.bleed, max_level.attack_power.physical, max_level.scaling.str.grade, negation.slash,
     stats.hp, defense.fire, resistances.bleed, summon_stats.stats.hp). Weapons at max
@@ -768,30 +768,40 @@ def describe_fields(
     the max per-hit poise damage as attacks.poise_damage (#253); on
     summon_stats.attacks it includes every spirit's x0.05.
 
-    Repeated object subtrees are folded by default (#452): an object with the same
-    fields as another path is one row, {"type": "object", "same_shape_as":
-    "summon_stats", "folded_paths": 156} on max_level.summon_stats, and its fields
-    are read off the same_shape_as path (a field whose note differs keeps its own
-    row). The set_when gates, NPC stat fragments under summon_stats / variants /
-    phases and the PvP poise tables fold this way.
+    With no arguments only the ~250 top-level fields are listed (~37 KB, #492):
+    each with its type, the first clause of its note, and nested_fields (how many
+    dotted paths lie under an object). Then call prefix= for a subtree with full
+    notes, or full=True for everything.
+
+    Under prefix=, an object repeated elsewhere with the same meaning folds to one
+    row (#452): {"type": "object", "same_shape_as": "summon_stats",
+    "folded_paths": 156} on max_level.summon_stats, and its fields are read off
+    the same_shape_as path (a field whose note differs keeps its own row). Only
+    the same field repeated folds: the set_when / quest-condition copies, NPC stat
+    fragments under summon_stats / variants / phases / ng_plus, weapon stats at
+    max_level, per-class skill tables and the PvP poise tables. Fields that merely
+    share keys (resistances, status_buildup) stay separate.
 
     If this tool returns a connection error, call start_search_service() first.
 
     Args:
         prefix: A dotted field path, or a list of them, to list only those fields
-            and the ones under them (prefix="gate_set_when" or
+            and the ones under them with full notes (prefix="gate_set_when" or
             ["skill_shots", "summon_stats.stats"]); a folded object named or
-            reached into is listed in full. Omit for the whole catalog. A prefix
-            matching nothing adds a warning.
-        full: True lists every dotted path unfolded (about 2,400 rows, ~345 KB);
-            the default folded catalog is about 1,000 rows.
+            reached into is listed in full. A prefix matching nothing adds a
+            warning.
+        full: True lists every dotted path unfolded, with full notes (about
+            2,500 rows, ~360 KB).
 
     Returns:
         entity_types: {type: doc_count} — loaded categories with document counts
         sources:      {source: doc_count} — internal game-data origins (param/FMG
                       names the docs were extracted from)
         fields:       {field: {type, subfields?, searchable?, note?,
-                      same_shape_as?, folded_paths?}} — the queryable field catalog
+                      nested_fields?, same_shape_as?, folded_paths?}} — the
+                      queryable field catalog (top-level only by default)
+        listing:      only on the default top-level listing: how to read it and
+                      how to get the rest
         folded:       only when some rows are folded: how to read same_shape_as
         warnings:     when entity_types or sources hit the listing cap and some
                       values are missing, or a prefix matches no field
