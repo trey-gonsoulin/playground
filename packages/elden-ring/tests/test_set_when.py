@@ -56,6 +56,15 @@ _PROGRESS = [
         "last_flag": 76199,
         "range_state": "any_on",
     },
+    # #486: common Event_730 sets 181 once a Great Rune flag (170–179) is on
+    {
+        "kind": "flag_count",
+        "first_flag": 170,
+        "last_flag": 179,
+        "comparison": ">=",
+        "count": 1,
+        "counted": "Great Runes obtained",
+    },
     {"kind": "in_own_world"},
     {"kind": "armor_equipped", "items": ["Head"]},
     {"kind": "armor_equipped", "item_id": 10000},
@@ -221,6 +230,10 @@ def test_set_when_progress_and_all_of_documented():
         "all_off",
         "any_on",
         "any_off",
+        "flag_count",  # #486
+        "comparison",
+        "counted",
+        "Great Runes obtained",
         "in_own_world",
         "armor_equipped",
         "item_id",
