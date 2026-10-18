@@ -12,7 +12,6 @@ import base64
 import json
 
 from fastapi.testclient import TestClient
-
 from therapist_finder import lambda_handler
 from therapist_finder.app import create_app
 
@@ -120,7 +119,6 @@ def test_session_manager_private_attrs_exist():
 
 def test_main_cli_runs_uvicorn(monkeypatch):
     import uvicorn
-
     from therapist_finder import main
 
     calls = []

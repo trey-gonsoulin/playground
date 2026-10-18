@@ -2,7 +2,6 @@ import contextlib
 
 import httpx
 import pytest
-
 from genealogy import mcp_server as srv
 from genealogy._models import Person, Tree
 from genealogy._storage import ConcurrentModification, LocalStore

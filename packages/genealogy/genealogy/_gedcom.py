@@ -140,7 +140,9 @@ def _family_lines(tree: Tree, fam: Family) -> list[str]:
     roles = (
         ["WIFE"] if len(partners) == 1 and partners[0].sex == "F" else ["HUSB", "WIFE"]
     )
-    lines += [f"1 {role} {_xref(p.id)}" for role, p in zip(roles, partners)]
+    lines += [
+        f"1 {role} {_xref(p.id)}" for role, p in zip(roles, partners, strict=False)
+    ]
     for child in fam.child_ids:
         lines.append(f"1 CHIL {_xref(child)}")
     for event in fam.events:
