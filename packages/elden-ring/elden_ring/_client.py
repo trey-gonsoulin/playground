@@ -518,14 +518,22 @@ _QUEST_CONDITION = {
     # stored, not indexed (the field limit)
     "set_when": {"type": "object", "enabled": False},
 }
+_QUEST_CONDITION_LEAF = _QUEST_CONDITION
 # kind any_of (#203): at least one of the nested conditions holds; a member is a
-# leaf or kind all_of (#484: every one of its own leaf conditions holds)
+# leaf or kind all_of (#484: every one of its own conditions holds). An all_of
+# member may be an any_of of leaves (#494, the third level), stored, not indexed:
+# no 1.17 quest step or outcome holds one, and the field limit
 _QUEST_CONDITION = {
     **_QUEST_CONDITION,
     "conditions": {
         "properties": {
             **_QUEST_CONDITION,
-            "conditions": {"properties": _QUEST_CONDITION},
+            "conditions": {
+                "properties": {
+                    **_QUEST_CONDITION,
+                    "conditions": {"type": "object", "enabled": False},
+                }
+            },
         }
     },
 }
@@ -1334,6 +1342,8 @@ INDEX_MAPPING = {
                         "properties": {
                             "locations": {"type": "keyword"},
                             "when": {"properties": _QUEST_CONDITION},
+                            # #495: placed until one of these (leaves) holds
+                            "until": {"properties": _QUEST_CONDITION_LEAF},
                         }
                     },
                 }
@@ -6059,16 +6069,20 @@ _FIELD_NOTES: dict[str, str] = {
     "of these nested conditions holds, each shaped as above, or #484 all_of "
     "(conditions: every one of its own holds), when the test is an OR of ANDs that "
     "share nothing: Gideon's 3967 = any_of(flag 110, all_of(phase 3966, talk "
-    "11109358, talk 11109660), all_of(flag 181, talk 11109659))). negated = the "
-    "condition must be off",
+    "11109358, talk 11109660), all_of(flag 181, talk 11109659)); #494: an all_of "
+    "may hold an any_of of leaves, the third level, stored but not searchable). "
+    "negated = the condition must be off",
     "steps.placements": "#485: what a map event that brings the NPC's character in "
     "during this phase needs on besides the phase, one entry per distinct gate: "
     "locations (the event's map, as steps.locations) + when (as steps.when, all "
     "required; the NPC's own flag_block flags left out). Needle Knight Leda's 4445 at "
     "Mohgwyn Palace needs flag 12059261, whose set_when is Mohg, Lord of Blood and "
     "Starscourge Radahn defeated; Demi-Human Boc's 3947 needs each spot's Site of "
-    "Grace flag. Tests that a flag is off (the NPC having moved on already) are left "
-    "out, so a step without placements may still be placed conditionally",
+    "Grace flag. #495: until (leaf conditions, said on): the event's tests that "
+    "another flag is off, usually the NPC having moved on already, so the NPC is "
+    "placed there until any one of them holds. Redmane Freyja's 4425 at Gravesite "
+    "Plain until her quest_flag 4897; Sorceress Sellen's 3465 at Waypoint Ruins "
+    "until talk 1044369231. An entry may have until and no when",
     "outcomes": "on a quest doc: life-state changes: flag + slot (0-4) + life_state "
     "(hostile for +1/+2, dead for +3: labelled from the death / SetTeamType events "
     "that set them; +0/+4 unlabelled), with when (as steps.when) or trigger (death / "
@@ -6102,6 +6116,11 @@ _DISABLED_LEAF_NOTES = {
     "quest_flag (#348): conditions shaped as quest steps.when, any one of which also "
     "turns the flag on through a common close-out that names no NPC: Redmane "
     "Freyja's 4897 = Moore's quest_phase 4928 or the invasion flag 7625",
+    "conditions": "not searchable; returned by get_entity. The third level of a "
+    "quest condition (#494): on an any_of member inside an all_of, the leaf "
+    "conditions (shaped as quest steps.when) at least one of which holds, so an "
+    "OR inside an AND inside an OR, e.g. any_of(flag 3106, all_of(flag 3105, "
+    "any_of(flag 16009206, flag 16009208)))",
     "poise_damage_by_attack": "not searchable; returned by get_entity. Each attack's "
     "first-hit poise damage by hand, {one_handed | two_handed: {attack: poise}} in "
     "stats.poise units (PvE, #119); attacks are light, heavy, charged_heavy, "
