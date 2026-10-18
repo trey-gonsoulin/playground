@@ -132,7 +132,7 @@ A personal family tree built up through MCP tools and exported as GEDCOM. It is 
   - With `TREE_BUCKET` set, files go to `s3://$TREE_BUCKET/trees/<name>/{tree.json,tree.ged,exports/,resources/}`. Otherwise they go to `$TREE_DIR` (default `~/.genealogy-mcp/trees`).
   - Saves are conditional, so overlapping invocations raise `ConcurrentModification` instead of losing writes.
   - Resources are content-addressed (`resources/<sha256[:16]>-<name>`). The bucket is versioned and retained.
-- **Request size:** `MAX_REQUEST_BODY_BYTES` (5 MiB) is passed to mcp as `max_request_body_size`; larger bodies get a 413. It keeps the Lambda event, which wraps the body as an escaped JSON string, under Lambda's 6 MB cap (#505). Only inline arguments such as `tree_import_gedcom`'s `gedcom_text` count; `tree_attach_resource_from_url` downloads in the Lambda (25 MiB cap).
+- **Request size:** `MAX_REQUEST_BODY_BYTES` (4 MiB, mcp's default, set explicitly) is passed to mcp as `max_request_body_size`; larger bodies get a 413. It keeps the Lambda event, which wraps the body as an escaped JSON string, under Lambda's 6 MB cap (#505). Only inline arguments such as `tree_import_gedcom`'s `gedcom_text` count; `tree_attach_resource_from_url` downloads in the Lambda (25 MiB cap).
 - **Auth:** none when deployed, like elden-ring, because claude.ai connectors can't send a static bearer header. The app still requires `Authorization: Bearer <secret>` if `GENEALOGY_MCP_SECRET` is set (same pattern as ynab-mcp), but `template.yaml` leaves it unset.
 
 ### elden-ring (`packages/elden-ring/`)
