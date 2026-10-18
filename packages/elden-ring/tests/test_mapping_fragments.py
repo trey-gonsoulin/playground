@@ -8,7 +8,7 @@ import elden_ring._client as _client
 
 # sha256 of json.dumps(INDEX_MAPPING, sort_keys=True) before the #459 dedupe
 # (main @ a3cd4e8). The refactor must not change a byte of the mapping. If you
-_MAPPING_SHA256 = "caa61637458d7e2274a5682fda5be342dda88de5429de14ee9a6d53b8dff5f47"
+_MAPPING_SHA256 = "4f56a2059fcb98e42d36fe7b2ef9cb0d9df21857cf5da622064b6f014433ee9a"
 
 _PROPS = _client.INDEX_MAPPING["mappings"]["properties"]
 
@@ -32,6 +32,16 @@ def test_ja_text_fragment():
     assert set(analyzers.values()) <= set(
         _client.INDEX_MAPPING["settings"]["analysis"]["analyzer"]
     )
+
+
+def test_skill_attacks_by_hand_fragment():
+    # #500: shield arts' per-hand hit lists, on the skill and per class
+    skill = _PROPS["skill"]["properties"]
+    by_hand = _client._SKILL_ATTACKS_BY_HAND_MAPPING
+    assert skill["attacks_by_hand"] is by_hand
+    assert skill["attacks_by_class"]["properties"]["attacks_by_hand"] is by_hand
+    assert by_hand["properties"]["hands"] == {"type": "keyword"}
+    assert by_hand["properties"]["attacks"] is _client._SKILL_ATTACKS_MAPPING
 
 
 def test_vocabulary_from_calc():
