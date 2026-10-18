@@ -705,6 +705,15 @@ _SKILL_ATTACKS_MAPPING = {
     }
 }
 
+# A shield art's other per-hand hit lists (#500): ``skill.attacks_by_hand`` and
+# ``skill.attacks_by_class.attacks_by_hand``.
+_SKILL_ATTACKS_BY_HAND_MAPPING = {
+    "properties": {
+        "hands": {"type": "keyword"},
+        "attacks": _SKILL_ATTACKS_MAPPING,
+    }
+}
+
 INDEX_MAPPING = {
     "settings": {
         "number_of_shards": 1,
@@ -1551,11 +1560,14 @@ INDEX_MAPPING = {
                     "chargeable": {"type": "boolean"},
                     # Per-hit motion values, stamina, frames; the buff (#326).
                     "attacks": _SKILL_ATTACKS_MAPPING,
+                    # Shield arts' left-hand / two-handed hit lists (#500).
+                    "attacks_by_hand": _SKILL_ATTACKS_BY_HAND_MAPPING,
                     # Ash of War hit lists of the classes that differ (#432).
                     "attacks_by_class": {
                         "properties": {
                             "weapon_classes": {"type": "keyword"},
                             "attacks": _SKILL_ATTACKS_MAPPING,
+                            "attacks_by_hand": _SKILL_ATTACKS_BY_HAND_MAPPING,
                         }
                     },
                     # Skill-level i-frames / parry window / recovery (#477).
@@ -4310,7 +4322,9 @@ _FIELD_NOTES: dict[str, str] = {
     "skill.attacks_by_class). Hits come from the animation the weapon's class plays "
     "(#498): Spinning Slash is a quicker 6-hit version on light weapons and "
     "separate slower ones on large weapons, polearms and twinblades, not all 24 "
-    "together. "
+    "together. A shield art lists the hits it does one-handed from the right "
+    "hand; other hands' hits are in skill.attacks_by_hand (#500), so Shield Bash "
+    "is one FP and one no-FP hit, not each twice. "
     "Uchigatana Unsheathe: FP light 190 / no FP light 115 / FP heavy 245 / no FP heavy "
     "135 with stamina 24 / 40, matching the wikis",
     "skill.attacks.motion_values": "% of the weapon's attack rating per damage type "
@@ -4363,6 +4377,21 @@ _FIELD_NOTES: dict[str, str] = {
     "two weapon bases (Great Hammer, Claw, Colossal Weapon) can be in two lists",
     "skill.attacks_by_class.weapon_classes": "the weapon classes (weapon_type names) "
     "whose skill hits are this entry's attacks (#432)",
+    "skill.attacks_by_hand": "shield arts only (#500: Shield Bash, Parry, Shield "
+    "Crash, Torch Attack, Viper Bite... the skills the game plays from the hand "
+    "holding the weapon): the hit lists of the hands whose animation differs from "
+    "skill.attacks, which is the skill used one-handed from the right hand. Each "
+    "entry has hands ('left hand' = one-handed from the left hand, 'two-handed') "
+    "and attacks (same fields as skill.attacks). Absent when every hand has the "
+    "same hits. At 1.17 the hands only differ in frames and labels: Torch Attack "
+    "(left hand 'FP' / 'FP early release' instead of the right hand's 'FP "
+    "follow-up'), Shield Crash, Viper Bite and Sleep Evermore recovery, Feeble "
+    "Lord's Frenzied Flame two-handed hit_count. On an Ash of War, "
+    "skill.attacks_by_class entries carry their own attacks_by_hand. Thrusting "
+    "Shields play their own animation of Shield Bash, Shield Crash, Vow of the "
+    "Indomitable and Holy Ground only two-handed",
+    "skill.attacks_by_hand.hands": "the hands that play this entry's attacks "
+    "(#500): 'left hand' (one-handed from the left hand) or 'two-handed'",
     "skill.frames_by_class": "Ashes of War only (#477): skill.frames of the weapon "
     "classes whose own animation gives different frames, each with weapon_classes and "
     "frames (same fields as skill.frames). Absent when every class shares them. At "
@@ -6216,7 +6245,13 @@ _FOLD_FAMILIES: tuple[tuple[str, ...], ...] = (
         "poise_damage.pvp.one_handed",
         "poise_damage.pvp.two_handed",
     ),
-    ("skill.attacks", "skill.attacks_by_class.attacks"),
+    (
+        "skill.attacks",
+        "skill.attacks_by_class.attacks",
+        "skill.attacks_by_hand.attacks",
+        "skill.attacks_by_class.attacks_by_hand.attacks",
+    ),
+    ("skill.attacks_by_hand", "skill.attacks_by_class.attacks_by_hand"),
     ("skill.effects", "skill.effects_by_class.effects"),
     ("skill.frames", "skill.frames_by_class.frames"),
 )
