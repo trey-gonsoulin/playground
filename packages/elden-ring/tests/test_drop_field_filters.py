@@ -3,8 +3,6 @@
 No OpenSearch needed.
 """
 
-import inspect
-
 from elden_ring import _client, mcp_server
 from elden_ring._client import _FIELD_NOTES, _with_drop_fields
 
@@ -34,7 +32,7 @@ def test_with_drop_fields_leaves_other_fields_alone():
 
 
 def _capture(monkeypatch):
-    monkeypatch.setattr(_client, "_canonical_version", lambda c, v: "1.17.1")
+    monkeypatch.setattr(_client, "_request_version", lambda c, v: "1.17.1")
     seen = {}
 
     def fake(client, **kw):
@@ -67,7 +65,7 @@ def test_search_literal_default_fields_untouched(monkeypatch):
 
 def test_empty_result_warns_only_about_named_fields(monkeypatch):
     """The drop twins are searched but never warned about (#344 review)."""
-    monkeypatch.setattr(_client, "_canonical_version", lambda c, v: v)
+    monkeypatch.setattr(_client, "_request_version", lambda c, v: v)
     monkeypatch.setattr(
         _client, "_search_literal", lambda client, **kw: {"total": 0, "results": []}
     )
@@ -88,7 +86,7 @@ def test_empty_result_warns_only_about_named_fields(monkeypatch):
 
 def test_expanded_fields_reach_one_multi_match(monkeypatch):
     """Both fields sit in one multi_match under must, filters beside it (no should)."""
-    monkeypatch.setattr(_client, "_canonical_version", lambda c, v: "1.17.1")
+    monkeypatch.setattr(_client, "_request_version", lambda c, v: "1.17.1")
     bodies = []
 
     class _C:
@@ -105,14 +103,13 @@ def test_expanded_fields_reach_one_multi_match(monkeypatch):
 
 
 def test_tool_passes_include_drop_fields(monkeypatch):
-    params = list(inspect.signature(_client.search_literal).parameters)[1:]
     seen = {}
     monkeypatch.setattr(_client, "get_client", lambda: None)
     monkeypatch.setattr(
-        _client, "search_literal", lambda *a: seen.setdefault("args", a)
+        _client, "search_literal", lambda *a, **kw: seen.setdefault("kw", kw)
     )
     mcp_server.search_entities_literal(fields=["regions"], include_drop_fields=False)
-    assert seen["args"][1 + params.index("include_drop_fields")] is False
+    assert seen["kw"]["include_drop_fields"] is False
 
 
 def test_field_notes_describe_the_default():
