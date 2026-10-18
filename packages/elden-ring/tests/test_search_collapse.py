@@ -1,7 +1,7 @@
 """Unscoped search collapse (#442), per-(entity_type, name) keys (#443) and the
 capped patterns union (#447). No OpenSearch needed."""
 
-import load_data
+import opensearch_load
 from elden_ring import _client
 from elden_ring._client import INDEX_MAPPING
 
@@ -86,7 +86,9 @@ def test_entity_key_mapped_and_noted():
 
 
 def test_bulk_actions_stamp_entity_key():
-    (a,) = load_data._to_bulk_actions([_doc("Lightning Spear", "1.17.0", "spell")])
+    (a,) = opensearch_load._to_bulk_actions(
+        [_doc("Lightning Spear", "1.17.0", "spell")]
+    )
     assert a["_source"]["entity_key"] == "spell::Lightning Spear"
     assert a["_id"] == "spell::Lightning Spear::1.17.0"
 

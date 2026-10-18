@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import argparse
 
-from load_data import _get_client, pause_refresh, restore_refresh
+from opensearch_load import _get_client, pause_refresh, restore_refresh
 
 
 def main() -> None:

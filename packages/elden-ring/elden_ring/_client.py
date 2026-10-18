@@ -2541,7 +2541,7 @@ _UNION_FETCH_SIZE = 10000
 _MAX_PATTERNS = 20
 
 # The union pass's sub-query source: the dedupe key plus the patch, which with
-# them makes the doc's bulk _id (load_data._to_bulk_actions) for the full fetch.
+# them makes the doc's bulk _id (opensearch_load._to_bulk_actions) for the full fetch.
 _UNION_KEY_FIELDS = ["name", "entity_type", "patch_version"]
 
 # Default literal-search fields: text only, by design. The acquisition keyword

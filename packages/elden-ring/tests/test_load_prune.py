@@ -1,6 +1,6 @@
 """Unit tests for stale-doc pruning on reload (#67). No OpenSearch needed."""
 
-from load_data import _stale_ids
+from opensearch_load import _stale_ids
 
 
 def _doc(entity_type, name, version="1.02"):

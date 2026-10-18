@@ -5,7 +5,7 @@ pytest ``addopts`` (``-m 'not live'``) deselects by default, and the module also
 skips unless ``ER_LIVE_TESTS=1`` and the stack env vars are set. The suite never
 touches the production alias: the module fixture creates a throwaway
 ``elden-ring-it-<uuid>`` index from ``INDEX_MAPPING``, points ``_client.INDEX`` and
-``load_data.INDEX`` at it, and deletes it at teardown (see ``_live_index.py``).
+``opensearch_load.INDEX`` at it, and deletes it at teardown (see ``_live_index.py``).
 
 Requires real AWS credentials and a running (or stopped) EC2 instance:
 
@@ -44,10 +44,10 @@ def client():
     assert status == {"status": "ready"}, status
     print(f"OpenSearch healthy at {_os._get_current_endpoint()}")
 
-    import load_data
+    import opensearch_load
 
     c = _os.get_client()
-    with throwaway_index(c, _os.INDEX_MAPPING, (_os, load_data)) as index:
+    with throwaway_index(c, _os.INDEX_MAPPING, (_os, opensearch_load)) as index:
         print(f"Using throwaway index {index}")
         yield c
 
@@ -715,7 +715,7 @@ def test_reload_prunes_stale_docs_in_scope(client):
     correct per-version rebuild. Pruning is scoped to the reloaded patch_version and
     to entity_types present in the dataset.
     """
-    from load_data import (
+    from opensearch_load import (
         load_documents,
         prune_stale,
     )
