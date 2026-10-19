@@ -1338,6 +1338,7 @@ INDEX_MAPPING = {
             "effects": _EFFECTS_MAPPING,
             "effect_duration": {"type": "float"},
             "infusable": {"type": "boolean"},
+            "accepts_ash_of_war": {"type": "boolean"},  # #513
             # Weapon flags / rates, trait multipliers, guard pierce and the staff /
             # seal scaling at its requirements (#309).
             **_props("boolean", ("buffable", "can_guard")),

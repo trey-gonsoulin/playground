@@ -9,7 +9,7 @@ import elden_ring._schema as _schema
 
 # sha256 of json.dumps(INDEX_MAPPING, sort_keys=True) before the #459 dedupe
 # (main @ a3cd4e8). The refactor must not change a byte of the mapping. If you
-_MAPPING_SHA256 = "d886349c86d11f5339eabc74a7807c5b548b6a0576b0418676619f44433817c5"
+_MAPPING_SHA256 = "c84c8f5f40743ed16963ae2dcf0536a9662fc97a5e8a0546c3d048340fa17039"
 
 _PROPS = _schema.INDEX_MAPPING["mappings"]["properties"]
 

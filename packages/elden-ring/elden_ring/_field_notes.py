@@ -833,7 +833,14 @@ _FIELD_NOTES: dict[str, str] = {
     "dropped for other players in multiplayer (the Drop menu option and not "
     "multiplayer-share disabled): weapons, armor, Golden Runes, meats yes; Smithing "
     "Stones, Remembrances, spirit ashes and key items no",
-    "infusable": "weapon can take an affinity/ash-of-war infusion",
+    "infusable": "weapon has affinity variants (Heavy, Keen, … Occult), each indexed as "
+    "its own doc with base_item (#513). False for weapons whose affinity flag is set but "
+    "which have no affinity rows (Gargoyle's Black Blades / Axe / Halberd, Icerind "
+    "Hatchet, Forked-Tongue Hatchet, Bonny Butchering Knife, Crucible Hornshield, "
+    "Dragonclaw Shield). Whether an Ash of War fits is accepts_ash_of_war",
+    "accepts_ash_of_war": "weapon has an Ash of War slot (EquipParamWeapon gemMountType "
+    "2, #513), independent of affinity: staves, bows, torches and perfume bottles take "
+    "ashes without affinity variants; unique-skill weapons are false",
     "buffable": "weapon can take greases and weapon-buff spells (EquipParamWeapon "
     "isEnhance, #309). False on Star-Lined Sword, Black Knife, Sword of Night and Flame "
     "and most unique weapons, and on elemental affinities; staves, seals, bows and "
