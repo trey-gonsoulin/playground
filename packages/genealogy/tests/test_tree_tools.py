@@ -41,7 +41,7 @@ def test_build_tree_and_export(local_store):
     assert "0 @F1@ FAM" in out["gedcom"]
     paths = {f["path"] for f in srv.tree_list_files()["files"]}
     assert {"tree.json", "tree.ged"} <= paths
-    assert any(p.startswith("exports/tree-") for p in paths)
+    assert out["path"] in paths and out["path"].startswith("exports/tree-")
 
     # GEDCOM import into a fresh tree name reproduces the shape.
     imported = srv.tree_import_gedcom(gedcom_text=out["gedcom"], tree="copy")
