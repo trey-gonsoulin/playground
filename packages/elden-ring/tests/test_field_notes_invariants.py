@@ -16,8 +16,8 @@ from elden_ring._schema import INDEX_MAPPING, _mapping_paths
 _PATHS = _mapping_paths(INDEX_MAPPING["mappings"]["properties"])
 
 # Mapper budget: total_fields.limit is 3000, and each _SET_WHEN mount costs ~92,
-# so stop well short of it (2299 at #460).
-_MAPPER_BUDGET = 2700
+# so stop well short of it (2299 at #460, 2700 at #510/#512).
+_MAPPER_BUDGET = 2800
 
 
 def _has_note(path: str) -> bool:
