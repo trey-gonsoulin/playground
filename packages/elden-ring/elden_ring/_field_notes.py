@@ -973,7 +973,10 @@ _FIELD_NOTES: dict[str, str] = {
     "leave the animation for each follow-up action (dodge, right_hand_attack, "
     "left_hand_attack, skill, guard, quick_item, item, move; Quickstep 10/2/6/7/10/7/"
     "12/14 and Bloodhound's Step 9/1/5/7/8/6/11/13 as the wiki, Golden Parry dodge 15 "
-    "/ guard 14 / move 17). total: the animation's length. A shield art's frames "
+    "/ guard 14 / move 17; #508 Small Shield Parry 4-10, dodge 11 and Buckler Parry "
+    "3-9, dodge 12, as Eldenpedia's 4/6/11 and 3/6/12 and a 1.17.1 frame guide's "
+    "8/12 and 6/12 at 60 fps; Fextralife's 5 parry frames, roll 15 and 4 + 5, roll 16 "
+    "are older counts). total: the animation's length. A shield art's frames "
     "are those of the skill used one-handed from the right hand; other hands' are "
     "in skill.frames_by_hand (#503). Current-patch "
     "animations, so older patches show today's timing",
