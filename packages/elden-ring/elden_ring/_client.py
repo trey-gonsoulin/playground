@@ -2115,7 +2115,8 @@ def _fold_families(props: dict) -> dict[str, int]:
 
     The _FOLD_FAMILIES paths, plus one family per shared condition dict: every
     object whose properties are _SET_WHEN (unlock_set_when, gate_set_when, ...) or
-    _QUEST_CONDITION (steps.when, outcomes.when, ...).
+    _QUEST_CONDITION (outcomes.when, steps.placements.when; steps.when adds
+    flag_range's leaves, #512).
     """
     out = {p: i for i, fam in enumerate(_FOLD_FAMILIES) for p in fam}
     for i, shared in enumerate((_SET_WHEN, _QUEST_CONDITION), len(_FOLD_FAMILIES)):

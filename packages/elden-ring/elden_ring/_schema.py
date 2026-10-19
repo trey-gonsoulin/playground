@@ -1130,7 +1130,16 @@ INDEX_MAPPING = {
                     "order": {"type": "integer"},
                     "entered_from": {"type": "long"},
                     "locations": {"type": "keyword"},
-                    "when": {"properties": _QUEST_CONDITION},
+                    "when": {
+                        "properties": {
+                            **_QUEST_CONDITION,
+                            # #512: kind flag_range, a range test over another
+                            # NPC's block (top level only)
+                            "first_flag": {"type": "long"},
+                            "last_flag": {"type": "long"},
+                            "range_state": {"type": "keyword"},
+                        }
+                    },
                     # #485: what bringing the NPC in during the phase needs
                     "placements": {
                         "properties": {
