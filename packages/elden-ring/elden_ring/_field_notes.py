@@ -2658,7 +2658,8 @@ _FIELD_NOTES: dict[str, str] = {
     "betray). #502: a list entered_from counts at its earliest phase, since any one "
     "of them is enough (Blaidd the Half-Wolf's Redmane Castle festival 3611, from any "
     "of 3605-3610, is order 2, not after 3610). The entered_from edges form a "
-    "directed acyclic graph of the phases; order is the depth in it",
+    "directed acyclic graph of the phases, listed as phase_edges (#510); order is "
+    "the depth in it",
     "steps.entered_from": "the same NPC's phase the transition requires. #502: a "
     "list when the script tests 'any of these flags on' over the NPC's own block; "
     "the transition needs any one of them (Ranni the Witch's ring ceremony 3750 "
@@ -2673,7 +2674,25 @@ _FIELD_NOTES: dict[str, str] = {
     "talk sets on learning of Blaidd's fate, since the range only says his quest "
     "is under way. A phase can have both a single-phase entry and a "
     "list entry that includes that phase (Fia, Deathbed Companion's 4127: from "
-    "4125, from 4126, and from [4125, 4126]): one entry per scripted transition",
+    "4125, from 4126, and from [4125, 4126]): one entry per scripted transition. "
+    "phase_edges (#510) lists the same edges once each, for the whole quest",
+    "phase_edges": "on a quest doc (#510): the quest's phases as a directed graph, "
+    "one {from, to} edge per steps.entered_from: from = the phase the transition "
+    "needs, to = the step's phase_flag. A list entered_from ('any one of these "
+    "phases') becomes one edge per member, all sharing an any_of_group number "
+    "(1, 2, ... per quest, in step order); an edge with no any_of_group is required "
+    "on its own. Ranni the Witch: 3745..3749 -> 3750 in any_of_group 1 (the ring "
+    "ceremony from any of them), and 3746 -> 3747. A transition several steps state "
+    "(#499) is listed once; a phase entered through different either-or branches "
+    "(#507) gets one group per distinct list (Castellan Jerren's 3372: 3371 -> 3372, "
+    "and 3368..3370 -> 3372 in its own group). Steps with no entered_from (a quest's "
+    "first phase, or one the scripts enter on other conditions) have no incoming "
+    "edge. The graph is as the scripts state it: steps.order cuts the rare cycle "
+    "(Ranni 3745 <-> 3746), phase_edges keeps both edges",
+    "phase_edges.from": "the phase (event flag) the transition needs on",
+    "phase_edges.to": "the phase (event flag) the transition sets: a steps.phase_flag",
+    "phase_edges.any_of_group": "edges that share it are alternatives: any one of "
+    "their from phases is enough for to. Absent on a required edge",
     "steps.locations": "where the phase plays out: the dungeon location docs, else the "
     "landmarks whose MSB footprint is centred on the open-world tile (#190) followed "
     "by the region of the grace nearest the tile's centre, of every map whose event "
