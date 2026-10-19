@@ -12,6 +12,7 @@ Every tool returns a dict (bare list returns serialize poorly in some clients).
 """
 
 import hashlib
+import json
 import mimetypes
 from collections import Counter
 from collections.abc import Generator
@@ -43,6 +44,23 @@ MAX_REQUEST_BODY_BYTES = 4 * 1024 * 1024
 # Download cap for tree_attach_resource_from_url. The file is fetched by the
 # Lambda, not sent in the request, so the body limit above doesn't apply.
 _MAX_RESOURCE_BYTES = 25 * 1024 * 1024
+
+# Largest inline GEDCOM tree_export_gedcom returns, measured as the text travels
+# in the Lambda response (_inline_gedcom_bytes). mcp doesn't limit response size,
+# but Lambda refuses responses over 6 MB. The text is escaped three times on the
+# way: as the tool result's JSON, as a string in the JSON-RPC body, and as the
+# body string in Lambda's response JSON (ASCII-escaped). Raw bytes grow by up to
+# 8x for quotes and backslashes, 3x for 2-byte UTF-8 and about 2.1x for short
+# CRLF lines, so the cap is on the escaped size; the 1 MiB left over covers the
+# rest of the response. Above it the tool returns the stored path instead (#509).
+MAX_INLINE_GEDCOM_BYTES = 5 * 1024 * 1024
+
+
+def _inline_gedcom_bytes(text: str) -> int:
+    """Bytes ``text`` takes in the Lambda response once escaped three times."""
+    tool_json = json.dumps(text, ensure_ascii=False)[1:-1]
+    rpc_json = json.dumps(tool_json, ensure_ascii=False)[1:-1]
+    return len(json.dumps(rpc_json)) - 2
 
 
 @contextmanager
@@ -424,8 +442,12 @@ def tree_import_wikitree(
 def tree_export_gedcom(tree: str = "default", include_text: bool = False) -> dict:
     """Export the tree as GEDCOM 5.5.1 and save it as tree.ged (plus a dated copy).
 
-    Returns a download URL (presigned, valid 1 hour). Set include_text=True to
-    also return the GEDCOM inline (only sensible for small trees).
+    Returns a download URL (presigned, valid 1 hour) and the stored path of the
+    dated copy. Set include_text=True to also return the GEDCOM inline (only
+    sensible for small trees). Text too big for one response (about 5 MB once
+    escaped, less with many quotes or non-ASCII names) is left out with a note;
+    the export is still saved, so use the url or the path (e.g. as
+    tree_import_gedcom's stored_path) instead.
     """
     store = get_store()
     t, _ = store.load(tree)
@@ -439,9 +461,19 @@ def tree_export_gedcom(tree: str = "default", include_text: bool = False) -> dic
         "families": len(t.families),
         "bytes": len(ged),
         "url": store.file_url(tree, "tree.ged"),
+        "path": dated,
     }
     if include_text:
-        out["gedcom"] = ged.decode()
+        text = ged.decode()
+        size = _inline_gedcom_bytes(text)
+        if size <= MAX_INLINE_GEDCOM_BYTES:
+            out["gedcom"] = text
+        else:
+            out["note"] = (
+                f"GEDCOM not returned inline: it takes {size} bytes in the "
+                f"response, over the {MAX_INLINE_GEDCOM_BYTES} byte limit. "
+                "Download it from url, or use path (e.g. as stored_path)."
+            )
     return out
 
 

@@ -132,6 +132,8 @@ def test_lambda_handler_warm_invocations():
 
 # Lambda refuses synchronous invocation events over 6 MB (6 MiB).
 _LAMBDA_EVENT_LIMIT = 6 * 1024 * 1024
+# The same cap applies to the response it returns (#509).
+_LAMBDA_RESPONSE_LIMIT = _LAMBDA_EVENT_LIMIT
 
 
 def _import_gedcom_body(size: int, line: str) -> bytes:
@@ -200,6 +202,58 @@ def test_max_request_body_fits_a_lambda_event(line):
     event["body"] = body.decode()
     size = len(json.dumps(event).encode())
     assert size < _LAMBDA_EVENT_LIMIT, size
+
+
+def _export_gedcom_text(size: int, line: str) -> str:
+    """GEDCOM whose escaped size in the response (_inline_gedcom_bytes) is ``size``."""
+    from genealogy.mcp_server import _inline_gedcom_bytes
+
+    head, tail = "0 HEAD\n1 NOTE ", "\n0 TRLR\n"
+    unit = _inline_gedcom_bytes(line)
+    text = head + line * ((size - _inline_gedcom_bytes(head + tail)) // unit - 1)
+    # Each "x" costs exactly one byte, so pad the NOTE up to the exact size.
+    text += "x" * (size - _inline_gedcom_bytes(text + tail))
+    assert _inline_gedcom_bytes(text + tail) == size
+    return text + tail
+
+
+def _export(monkeypatch, text: str) -> tuple[dict, int]:
+    """Call tree_export_gedcom(include_text=True) through the Lambda handler."""
+    from genealogy import mcp_server
+
+    monkeypatch.setattr(mcp_server, "to_gedcom", lambda tree: text)
+    asyncio.set_event_loop(asyncio.new_event_loop())
+    call = {
+        "jsonrpc": "2.0",
+        "id": 4,
+        "method": "tools/call",
+        "params": {"name": "tree_export_gedcom", "arguments": {"include_text": True}},
+    }
+    resp = lambda_handler.handler(_http_api_v2_event("/mcp", call), None)
+    assert resp["statusCode"] == 200 and not resp.get("isBase64Encoded"), resp
+    result = json.loads(resp["body"])["result"]
+    assert result["isError"] is False, result
+    # The Python runtime serializes the response with json.dumps (ASCII-escaped).
+    return json.loads(result["content"][0]["text"]), len(json.dumps(resp).encode())
+
+
+@pytest.mark.parametrize("line", ['1 NOTE ""\n', "1 NOTE é\\\n", "1 CHR\r\n", "字"])
+def test_max_inline_gedcom_fits_a_lambda_response(monkeypatch, line):
+    # #509: the largest inline export still fits Lambda's 6 MB response cap even
+    # when it is all quotes, backslashes, non-ASCII or short CRLF lines, and one
+    # escaped byte more returns the stored path and a note instead of the text.
+    from genealogy.mcp_server import MAX_INLINE_GEDCOM_BYTES
+
+    text = _export_gedcom_text(MAX_INLINE_GEDCOM_BYTES, line)
+    out, size = _export(monkeypatch, text)
+    assert out["gedcom"] == text and "note" not in out
+    assert size < _LAMBDA_RESPONSE_LIMIT, size
+
+    out, size = _export(monkeypatch, text + "x")
+    assert "gedcom" not in out and "not returned inline" in out["note"]
+    assert out["path"].startswith("exports/tree-")
+    assert out["bytes"] == len(text.encode()) + 1
+    assert size < 64 * 1024, size
 
 
 def test_main_cli_runs_uvicorn(monkeypatch):
