@@ -18,6 +18,12 @@ _DOC = {
     "flag_block": [3940, 3959],
     "locations": ["Limgrave", "Coastal Cave"],
     "related_npcs": ["Smithing Master Hewg"],
+    # #510: the entered_from graph as edges; a list entered_from shares a group
+    "phase_edges": [
+        {"from": 3947, "to": 3948},
+        {"from": 3945, "to": 3949, "any_of_group": 1},
+        {"from": 3946, "to": 3949, "any_of_group": 1},
+    ],
     "text_content": "Demi-Human Boc\nBoc the Seamster\nLimgrave",
     "steps": [
         {"phase_flag": 3945, "order": 1, "locations": ["Limgrave"]},
@@ -202,6 +208,7 @@ def test_quest_doc_fully_mapped():
     paths = set(_leaves(_DOC))
     assert "steps.when.bosses" in paths and "outcomes.when.life_state" in paths
     assert "steps.when.set_when.bosses" in paths  # #314
+    assert "phase_edges.any_of_group" in paths  # #510
     assert "steps.when.conditions.conditions.npcs" in paths  # #484
     for path in paths:
         spec = _mapped(path)
@@ -214,6 +221,8 @@ def test_quest_flags_are_long():
         "flag_block",
         "steps.phase_flag",
         "steps.entered_from",
+        "phase_edges.from",  # #510
+        "phase_edges.to",
         "steps.when.flag",
         "outcomes.flag",
         "outcomes.waited_for.flag",
@@ -254,6 +263,8 @@ def test_quest_fields_documented():
         "steps",
         "steps.when",
         "steps.placements",
+        "phase_edges",  # #510
+        "phase_edges.any_of_group",
         "outcomes",
         "outcomes.trigger",
         "outcomes.waited_for",

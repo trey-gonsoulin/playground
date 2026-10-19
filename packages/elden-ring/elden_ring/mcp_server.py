@@ -307,7 +307,9 @@ def search_entities(
                            hit_count (the NPC hit N times), a raw flag named only by the maps that set it, or any_of
                            with nested conditions, one of which holds). outcomes
                            are life-state changes (hostile / dead). Phases are
-                           positional (order + location), not labelled; e.g.
+                           positional (order + location), not labelled;
+                           phase_edges lists the entered_from graph as
+                           {from, to, any_of_group} edges; e.g.
                            search entity_type="quest", query="Millicent".
             Call list_entity_types() for the authoritative live list.
         patch_version: Filter to a specific game patch (e.g. "1.07.0"). Native data

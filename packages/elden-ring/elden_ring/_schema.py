@@ -1142,6 +1142,14 @@ INDEX_MAPPING = {
                     },
                 }
             },
+            # #510: the phase DAG as explicit edges, from steps' entered_from
+            "phase_edges": {
+                "properties": {
+                    "from": {"type": "long"},
+                    "to": {"type": "long"},
+                    "any_of_group": {"type": "integer"},
+                }
+            },
             "outcomes": {
                 "properties": {
                     "flag": {"type": "long"},
