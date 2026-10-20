@@ -333,7 +333,7 @@ def test_builder_doc_shapes_fully_mapped():
                 "resistances": {"scarlet_rot": 14.25, "frostbite": 14.25},
             },
             "requirements": {"str": 14, "dex": 12},
-            "depicted_in_talisman": "Dagger Talisman",
+            "depicted_in_talisman": ["Dagger Talisman"],
             "damage_types": ["Standard", "Pierce"],
             "status_buildup": {"bleed": 38, "frostbite": 66},
             "reinforce_type_id": 0,
