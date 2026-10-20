@@ -71,9 +71,11 @@ def test_shared_fragments_fold_onto_their_shallowest_path():
     assert root in folded and f"{root}.flag" not in folded
     # A top-level copy named as a prefix is listed in full.
     assert "gate_set_when.flag" in folded
-    # steps.when has flag_range's leaves too (#512), so it is its own shape
-    assert folded["steps.placements.when"]["same_shape_as"] == "outcomes.when"
+    # steps.when and outcomes.when have flag_range's leaves at every level
+    # (#512/#514), so they share a shape steps.placements.when doesn't
+    assert folded["outcomes.when"]["same_shape_as"] == "steps.when"
     assert "same_shape_as" not in folded["steps.when"]
+    assert "same_shape_as" not in folded["steps.placements.when"]
     assert folded["phases.resistances"]["same_shape_as"] == "resistances"
     # Repeats outside the allowlist ({x, y, z}) stay listed.
     assert "same_shape_as" not in folded["world_position"]
@@ -107,7 +109,7 @@ def test_fold_families_name_mapped_objects():
             assert "properties" in _PATHS.get(path, {}), path
     families = _client._fold_families(_PROPS)
     assert families["gate_set_when"] == families["unlock_set_when"]
-    assert families["steps.placements.when"] == families["outcomes.when"]
+    assert families["steps.when"] == families["outcomes.when"]
 
 
 def test_default_lists_top_level_fields_only():

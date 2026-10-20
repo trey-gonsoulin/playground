@@ -28,6 +28,7 @@ from elden_ring._calc import STATS, attack_rating, spell_damage
 from elden_ring._field_notes import _FIELD_NOTES
 from elden_ring._schema import (
     _QUEST_CONDITION,
+    _QUEST_WHEN,
     _SET_WHEN,
     INDEX,
     INDEX_MAPPING,
@@ -2115,11 +2116,12 @@ def _fold_families(props: dict) -> dict[str, int]:
 
     The _FOLD_FAMILIES paths, plus one family per shared condition dict: every
     object whose properties are _SET_WHEN (unlock_set_when, gate_set_when, ...) or
-    _QUEST_CONDITION (outcomes.when, steps.placements.when; steps.when adds
-    flag_range's leaves, #512).
+    _QUEST_CONDITION (steps.placements.when) or _QUEST_WHEN (steps.when,
+    outcomes.when: the same plus flag_range's leaves, #512/#514).
     """
     out = {p: i for i, fam in enumerate(_FOLD_FAMILIES) for p in fam}
-    for i, shared in enumerate((_SET_WHEN, _QUEST_CONDITION), len(_FOLD_FAMILIES)):
+    shared_dicts = (_SET_WHEN, _QUEST_CONDITION, _QUEST_WHEN)
+    for i, shared in enumerate(shared_dicts, len(_FOLD_FAMILIES)):
         out.update(
             {
                 path: i
