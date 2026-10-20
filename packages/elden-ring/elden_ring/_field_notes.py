@@ -1884,8 +1884,8 @@ _FIELD_NOTES: dict[str, str] = {
     "Ranni the Witch's phase 1034509406)",
     "trigger_set_when": "on a cutscene doc (#228): for each trigger_flag with no "
     "quest step (unlinked, or linked to a quest only), {flag, when}: what turns it on, as warp gate_set_when (Jerren's "
-    "festival scene 60510000: flag 9410 = any_of(talk to Iji / Sellen, Roderika's "
-    "phase 3063) while no other festival flag 9411-9413 is on, with the player in "
+    "festival scene 60510000: flag 9410 = any_of(talk to Iji / Sellen, flag 3063) "
+    "while no other festival flag 9411-9413 is on, with the player in "
     "their own world; flag 9411 = talk to Castellan Jerren with 9410 already on; the Frenzied "
     "Flame endings' flag 108 = the player wearing no armor (armor_equipped Head, "
     "Body, Arms, Legs: the empty slots) and pressing 'Open door' on entity "
@@ -2322,7 +2322,7 @@ _FIELD_NOTES: dict[str, str] = {
     "event scripts that set it: conditions shaped as quest steps.when, all required "
     "(The Four Belfries: item_held Imbued Sword Key + the map flag of that gate's "
     "keyhole + action_button 'Examine' on the keyhole; 9410, the Radahn festival: "
-    "any_of(talk to Smithing Master Iji / Sorceress Sellen, Roderika's phase 3063) "
+    "any_of(talk to Smithing Master Iji / Sorceress Sellen, flag 3063) "
     "while no other festival flag 9411-9413 is on, with the player in their own "
     "world). An event that waits on a "
     "character's state adds it as kind character + state (dead, attacked, health, "
@@ -2618,7 +2618,7 @@ _FIELD_NOTES: dict[str, str] = {
     "flag_block": "on a quest doc: the NPC's 20 event flags [first, last]; +0..+4 are "
     "its life state, +5..+19 its quest phases. A second block of an NPC whose +1..+4 "
     "flags are set with no death / hostility evidence uses all 20 as phases "
-    "(Roderika 3060, Moore 4920). A block with its own common quest manager but no "
+    "(Moore 4920). A block with its own common quest manager but no "
     "talk-script or life-template flag is named after the one talk-script character "
     "its map's own events bind (#313: Count Ymir, High Priest 4500)",
     "related_npcs": "on a quest doc: other NPCs whose quest phase or life state gates "
