@@ -1,11 +1,12 @@
 export const meta = {
   name: 'address-issues-parallel',
-  description: 'Implement several elden-ring GitHub issues in parallel worktrees, then independently review each branch (implement -> review -> optional fix + re-review)',
+  description: 'Implement several elden-ring GitHub issues in parallel worktrees, run /code-review + /simplify on each branch, then independently review it (implement -> polish -> review -> optional fix + polish + re-review)',
   whenToUse: 'Called by /address-issue --parallel. The coordinator merges, ships and closes out after this returns.',
   phases: [
     { title: 'Implement', detail: 'one agent per issue group, isolated worktrees in playground + erdb-tools' },
-    { title: 'Review', detail: 'independent reviewer per branch, starts as soon as its branch is pushed' },
-    { title: 'Fix', detail: 'only for branches with blocking review problems; one fix round + re-review' },
+    { title: 'Polish', detail: '/code-review then /simplify on each branch diff; fixes applied, tests rerun, pushed' },
+    { title: 'Review', detail: 'independent reviewer per branch, starts as soon as its branch is polished' },
+    { title: 'Fix', detail: 'only for branches with blocking review problems; one fix round + polish + re-review' },
   ],
 }
 
@@ -116,6 +117,30 @@ ${COMMON}
 ${RULES(g)}
 `.trim()
 
+// User rule (2026-10-20): every change is /code-review'd and /simplify'd before it merges.
+const polishPrompt = (g, r) => `
+You polish branch \`${branchOf(g)}\` (${refs(g)}: ${g.title}) before an independent reviewer sees it. Work in the implementer's worktrees (erdb-tools: ${r.worktrees.erdb_tools || 'none'}; playground: ${r.worktrees.playground || 'none'}). The change under review is \`git -C <worktree> diff main...HEAD\` in each repo.
+
+## Steps
+1. Invoke the Skill tool with skill \`code-review\`, scoped to that branch diff in both worktrees. Fix every finding that is real (a bug, a missed case, a test gap the issue needs); skip ones that are style-only or contradict the issue context, and say why.
+2. Then invoke the Skill tool with skill \`simplify\` on the same diff, and apply its simplifications (reuse, dead code, needless branches, duplication), keeping the surrounding style. Don't widen the diff beyond the branch's own changes, and don't \`ruff format\` existing erdb-tools files.
+3. If the Skill tool or either skill is unavailable, do the same two passes yourself (correctness review, then simplification) and set \`skills_ran\` accordingly.
+4. Rerun every test, and rebuild the spot builds into new files and diff them against the implementer's AFTER builds (paths in the report): simplification must not change built data. Any data change is a finding: revert it or explain it.
+5. Commit (\`refactor(scope): simplify … (${refs(g)})\` / \`fix(scope): … (${refs(g)})\`, ending with "${ATTRIB}") and push to \`${branchOf(g)}\` in both repos. If nothing changed, don't commit.
+
+## Implementer's report
+${JSON.stringify(r, null, 2)}
+
+## Issue context from the coordinator
+${g.context || '(none)'}
+
+${COMMON}
+
+${RULES(g)}
+
+Return the implementer's report updated (new SHAs, tests, spot_build files if rebuilt) plus a \`polish\` object.
+`.trim()
+
 const STR = { type: 'string' }
 const REPORT = {
   type: 'object',
@@ -144,6 +169,19 @@ const REPORT = {
     memory_findings: { type: 'array', items: STR },
   },
 }
+const POLISHED = {
+  ...REPORT,
+  required: [...REPORT.required, 'polish'],
+  properties: { ...REPORT.properties, polish: { type: 'object', required: ['skills_ran', 'code_review', 'simplify', 'data_changed'], properties: {
+    skills_ran: { type: 'array', items: STR, description: 'skills actually invoked via the Skill tool (code-review, simplify); empty if done by hand' },
+    code_review: { type: 'string', description: 'findings: fixed / skipped with reason' },
+    simplify: { type: 'string', description: 'simplifications applied / skipped with reason' },
+    data_changed: { type: 'boolean', description: 'did the polish change any built data vs the implementer after-builds' },
+    commits: { type: 'array', items: STR } } } },
+}
+// A polish pass that returns nothing keeps the unpolished report and is flagged for the coordinator.
+const polish = (g, report, phase) => run(polishPrompt(g, report), { label: `polish:${g.key}`, phase, schema: POLISHED })
+  .then(p => p || { ...report, polish_missing: true })
 const REVIEW = {
   type: 'object',
   required: ['verdict', 'problems', 'checks_run'],
@@ -180,6 +218,7 @@ log(`Implementing ${GROUPS.length} group(s): ${GROUPS.map(refs).join(' | ')}`)
 const results = await pipeline(
   GROUPS,
   g => run(implPrompt(g), { label: `impl:${g.key}`, phase: 'Implement', isolation: 'worktree', schema: REPORT }),
+  (report, g) => report ? polish(g, report, 'Polish') : null,
   (report, g) => report
     ? run(reviewPrompt(g, report), { label: `review:${g.key}`, phase: 'Review', schema: REVIEW })
         .then(review => ({ report, review }))
@@ -193,8 +232,9 @@ const results = await pipeline(
     const blocking = (r.review?.problems || []).filter(p => p.severity === 'blocking')
     if (r.review?.verdict !== 'fix' || !blocking.length) return { group: g, ...r }
     log(`${refs(g)}: ${blocking.length} blocking review problem(s), running one fix round`)
-    const fixed = await run(fixPrompt(g, r.report, r.review), { label: `fix:${g.key}`, phase: 'Fix', schema: REPORT })
-    if (!fixed) return { group: g, ...r, fix_failed: true }
+    const fixedRaw = await run(fixPrompt(g, r.report, r.review), { label: `fix:${g.key}`, phase: 'Fix', schema: REPORT })
+    if (!fixedRaw) return { group: g, ...r, fix_failed: true }
+    const fixed = await polish(g, fixedRaw, 'Fix')
     const rereview = await run(reviewPrompt(g, fixed), { label: `re-review:${g.key}`, phase: 'Fix', schema: REVIEW })
     return { group: g, report: fixed, review: rereview, first_review: r.review, fixed: true, ...(rereview ? {} : { review_missing: true }) }
   },
@@ -203,5 +243,7 @@ const results = await pipeline(
 const out = results.map((r, i) => r || { group: GROUPS[i], error: 'pipeline dropped this group' })
 const needsUser = out.filter(r => r.report && ((r.report.user_visible_changes || []).length || (r.report.decisions || []).some(d => d.needs_user)))
 const reviewMissing = out.filter(r => r.review_missing)
+// Unpolished or hand-polished branches: the coordinator runs /code-review + /simplify itself before merging.
+const polishMissing = out.filter(r => r.report && (r.report.polish_missing || !(r.report.polish?.skills_ran || []).length))
 log(`Done. Passed review: ${out.filter(r => r.review?.verdict === 'pass').length}/${out.length}; review missing: ${reviewMissing.map(r => refs(r.group)).join(', ') || 'none'}; needing the user: ${needsUser.map(r => refs(r.group)).join(', ') || 'none'}`)
-return { results: out, needs_user: needsUser.map(r => r.group.key), review_missing: reviewMissing.map(r => r.group.key) }
+return { results: out, needs_user: needsUser.map(r => r.group.key), review_missing: reviewMissing.map(r => r.group.key), polish_missing: polishMissing.map(r => r.group.key) }
