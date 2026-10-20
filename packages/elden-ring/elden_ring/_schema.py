@@ -313,6 +313,33 @@ _QUEST_CONDITION = {
         }
     },
 }
+# kind flag_range: IfFlagRangeState over [first_flag, last_flag] (one fragment for
+# every condition shape that holds it)
+_FLAG_RANGE = {
+    "first_flag": {"type": "long"},
+    "last_flag": {"type": "long"},
+    "range_state": {"type": "keyword"},
+}
+# A quest step's or outcome's when: the conditions above, plus flag_range at every
+# level (#512: a range test over another NPC's block; #514: an outcome's range
+# tests, and inside the any_of / all_of members #507 doesn't split)
+_QUEST_WHEN = {
+    **_QUEST_CONDITION_LEAF,
+    **_FLAG_RANGE,
+    "conditions": {
+        "properties": {
+            **_QUEST_CONDITION_LEAF,
+            **_FLAG_RANGE,
+            "conditions": {
+                "properties": {
+                    **_QUEST_CONDITION_LEAF,
+                    **_FLAG_RANGE,
+                    "conditions": {"type": "object", "enabled": False},
+                }
+            },
+        }
+    },
+}
 # What an 'event' outcome's script waited for (#213): the conditions above, or kind
 # character (a character's state, named via its MSB entities); multiplayer_state (#245)
 _QUEST_WAITED_FOR = {
@@ -335,10 +362,7 @@ _SET_WHEN_LEAF = {
     "area": {"type": "keyword"},
     "subarea": {"type": "keyword"},
     "landmark": {"type": "keyword"},
-    # kind flag_range: IfFlagRangeState over [first_flag, last_flag]
-    "first_flag": {"type": "long"},
-    "last_flag": {"type": "long"},
-    "range_state": {"type": "keyword"},
+    **_FLAG_RANGE,
     # kind flag_count (#486): how many flags of [first_flag, last_flag] are on,
     # compared with count; counted names what the flags record when known
     "comparison": {"type": "keyword"},
@@ -1130,16 +1154,7 @@ INDEX_MAPPING = {
                     "order": {"type": "integer"},
                     "entered_from": {"type": "long"},
                     "locations": {"type": "keyword"},
-                    "when": {
-                        "properties": {
-                            **_QUEST_CONDITION,
-                            # #512: kind flag_range, a range test over another
-                            # NPC's block (top level only)
-                            "first_flag": {"type": "long"},
-                            "last_flag": {"type": "long"},
-                            "range_state": {"type": "keyword"},
-                        }
-                    },
+                    "when": {"properties": _QUEST_WHEN},
                     # #485: what bringing the NPC in during the phase needs
                     "placements": {
                         "properties": {
@@ -1165,7 +1180,7 @@ INDEX_MAPPING = {
                     "slot": {"type": "integer"},
                     "life_state": {"type": "keyword"},
                     "trigger": {"type": "keyword"},
-                    "when": {"properties": _QUEST_CONDITION},
+                    "when": {"properties": _QUEST_WHEN},
                     "waited_for": {"properties": _QUEST_WAITED_FOR},
                 }
             },
