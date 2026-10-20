@@ -1057,12 +1057,17 @@ _FIELD_NOTES: dict[str, str] = {
     "menu_category names (EquipParamGem canMountWep flags) (#290). Holy Ground: Small "
     "Shield, Medium Shield, Greatshield, Thrusting Shield. Every class is listed, even "
     "where skill_poise_damage has no hits",
-    "depicts_weapon": "talisman depicts this weapon (lore cross-reference)",
+    "depicts_weapon": "talisman: the weapon its icon depicts (#43: identified from "
+    "the icon art, the wikis' icon trivia and the description; Claw Talisman: Raptor "
+    "Talons, Two-Handed Sword Talisman: Dismounter); absent when it shows no specific "
+    "weapon (Spear Talisman, Smithing Talisman, the arrow talismans)",
     "conflicts": "talisman: the other talismans it can't be equipped with (they share "
     "EquipParamAccessory.accessoryGroup, #295): every rank of the same talisman "
     "(Crimson Amber Medallion +1/+2/+3), plus pairs such as Radagon Icon / Beloved "
     "Stardust and Crucible Scale Talisman / Talisman of All Crucibles; absent when none",
-    "depicted_in_talisman": "weapon depicted in this talisman (lore cross-reference)",
+    "depicted_in_talisman": "weapon: the talismans whose icon depicts it (a list, the "
+    "reverse of depicts_weapon, #43): Hand of Malenia is on both the Winged Sword "
+    "Insignia and the Rotten Winged Sword Insignia; absent when none",
     "attack_power": "weapon/ammo attack power at +0 by damage type, as shown in game "
     "(affinity multiplier applied). Weapons also carry stamina (damage dealt to the "
     "target's stamina) and critical (critical-hit multiplier, 100 = base; daggers 130). "
