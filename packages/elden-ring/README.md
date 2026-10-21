@@ -1,6 +1,6 @@
 # elden-ring
 
-An MCP server that searches Elden Ring game data at every patch: items, enemies, NPCs, quests, locations and dialogue. The data lives in an OpenSearch index on an EC2 instance in the `mcp-playground` stack. The Lambda that reads the index now deploys from soulsearch (`SoulsearchMcpFunction` in its `soulsearch` stack, soulsearch#2), and `start_search_service` starts the instance on demand. That tool returns within about 20 s, so a cold start takes a few calls before it answers `ready`. The `EldenRingSearchIdleStopAlarm` alarm stops the instance after an hour below 2% average CPU.
+An MCP server that searches Elden Ring game data at every patch: items, enemies, NPCs, quests, locations and dialogue. The data lives in an OpenSearch index on an EC2 instance. The instance and the Lambda that reads the index both live in soulsearch's `soulsearch` stack now (`SearchInstance` and `SoulsearchMcpFunction`; soulsearch#2, soulsearch#3), and `start_search_service` starts the instance on demand. That tool returns within about 20 s, so a cold start takes a few calls before it answers `ready`. The `SearchIdleStopAlarm` alarm stops the instance after an hour below 2% average CPU.
 
 The repo-level summary is the elden-ring section of the root `CLAUDE.md`. This file is the runbook.
 
@@ -85,30 +85,4 @@ They also need the Lambda's environment: `EC2_INSTANCE_ID`, `OPENSEARCH_USER` an
 
 ## Deploy
 
-The MCP Lambda and its HTTP API moved to soulsearch's own `soulsearch` stack (soulsearch#2); deploy server code from there (see soulsearch's `packages/soulsearch-mcp/README.md#deploy`). This stack still holds the OpenSearch instance, its security group, role and idle-stop alarm (moving them is soulsearch#3). Deploy a change to those from the repo root:
-
-```bash
-export DOCKER_HOST=unix://$HOME/.docker/run/docker.sock
-sam build
-sam deploy --no-execute-changeset
-aws cloudformation execute-change-set --change-set-name <arn> --profile personal
-aws cloudformation wait stack-update-complete --stack-name mcp-playground --profile personal
-```
-
-- **Export `DOCKER_HOST`; don't prefix it.** `sam build` and `sam deploy` must both use Docker Desktop's engine, and this Mac has a second engine. On 2026-09-28 an inline `DOCKER_HOST=… sam build && sam deploy` pushed a stale image from that engine and rolled the live code back. If the socket is missing, start Docker Desktop first.
-- **Review the change set before executing it.** Expect only the rows you changed, Modify, with Replacement False. Any `EldenRingSearchInstance` row with Replacement True or Conditional is a stop sign, because a new instance starts with an empty index. A stack policy also denies replacing or deleting that instance.
-- **Keep the instance id stable.** The `soulsearch` stack takes it as a parameter (this stack's `EldenRingSearchInstanceId` output). If the instance is ever replaced, update soulsearch's `samconfig.toml` and redeploy that stack.
-- **Never run `sam delete`.** It targets the whole `mcp-playground` stack, including the instance that holds the index.
-
-## Rebuilding the search instance
-
-UserData runs only on the instance's first boot. Rebuilding means a new instance, and a new instance starts with an empty index. The steps:
-
-1. The SSM SecureString `/elden-ring/opensearch-password` must exist. UserData reads it for the admin user, and so does the Lambda.
-2. UserData installs everything (see `EldenRingSearchInstance` in `template.yaml`):
-   - OpenSearch 2.13 and the `analysis-kuromoji` plugin, which the index settings require;
-   - a private CA with node and admin certs in place of the demo certs, and `admin` as the only internal user (#437, #450);
-   - a 512 MB heap, 2 GB swap and single-node discovery.
-3. The AMI is pinned (`ImageId`), because a new AMI forces a replacement. To upgrade on purpose, change it, deploy with `--stack-policy-during-update-body` to lift the replace denial for that update, and plan a full reindex.
-4. The root volume has `DeleteOnTermination: false`, so a replaced instance leaves its old volume behind. Delete that volume by hand once the new index is verified.
-5. Rebuild the index from scratch: `ensure_index`, then a full `reindex_all.sh`. No backup index exists.
+The MCP Lambda, its HTTP API and the OpenSearch instance (with its security group, role, instance profile and idle-stop alarm) all deploy from soulsearch's `soulsearch` stack (soulsearch#2, soulsearch#3). Nothing of Elden Ring's is left in `mcp-playground`. See soulsearch's `packages/soulsearch-mcp/README.md`: its Deploy section, and Rebuilding the search instance.
