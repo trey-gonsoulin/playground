@@ -73,7 +73,7 @@ The reference SAM config is in `~/code/hoshi/` (`template.yaml`, `samconfig.toml
 - `samconfig.toml` — pins `stack_name`, `region = "us-east-1"`, `capabilities = "CAPABILITY_IAM"`, `image_repositories` after first `sam deploy --guided`.
 - Docker build context is the repo root so the Dockerfile can `COPY` workspace files.
 
-Build and deploy with a reviewed change set. All functions share the `mcp-playground` stack, which also holds the Elden Ring OpenSearch instance:
+Build and deploy with a reviewed change set. The ynab and genealogy functions share the `mcp-playground` stack, which also holds the Elden Ring OpenSearch instance. The Elden Ring MCP Lambda deploys from soulsearch's own `soulsearch` stack (soulsearch#2):
 
 ```bash
 export DOCKER_HOST=unix://$HOME/.docker/run/docker.sock   # exported, so sam build AND sam deploy use Docker Desktop's engine
@@ -84,7 +84,7 @@ aws cloudformation execute-change-set --change-set-name <arn> --profile personal
 aws cloudformation wait stack-update-complete --stack-name mcp-playground --profile personal
 ```
 
-- Afterwards, check that the deployed image tags match the local images (`packages/elden-ring/README.md`, Deploy).
+- Afterwards, check that the deployed image tags match the local images: the `<function>-<12hex>-latest` tag in `aws cloudformation get-template --stack-name mcp-playground --profile personal --query TemplateBody --output text` must match the start of `docker image inspect <function>:latest --format '{{.Id}}'`.
 - Don't use an inline `DOCKER_HOST=… sam build && sam deploy`. The prefix reaches only `sam build`, and on 2026-09-28 the deploy pushed a stale image from another Docker engine, which rolled the live code back.
 - Never run `sam delete`. It would delete the whole stack.
 
@@ -138,7 +138,7 @@ A personal family tree built up through MCP tools and exported as GEDCOM. It is 
 
 ### elden-ring (`packages/elden-ring/`)
 
-Searches Elden Ring game data at every patch: items, enemies, NPCs, quests, locations and dialogue. The data is in an OpenSearch index on an EC2 instance, which `start_search_service` starts on demand. There are twelve MCP tools: `start_search_service`, `search_entities`, `search_entities_literal`, `get_entity`, `calculate_attack_rating`, `diff_entities`, `text_changed_between`, `list_entity_types`, `list_menu_categories`, `list_patch_versions`, `describe_fields` and `analyze_text`. The runbook (reindex, index cutover, tests, deploy, instance rebuild) is in `packages/elden-ring/README.md`.
+Searches Elden Ring game data at every patch: items, enemies, NPCs, quests, locations and dialogue. The data is in an OpenSearch index on an EC2 instance, which `start_search_service` starts on demand. There are twelve MCP tools: `start_search_service`, `search_entities`, `search_entities_literal`, `get_entity`, `calculate_attack_rating`, `diff_entities`, `text_changed_between`, `list_entity_types`, `list_menu_categories`, `list_patch_versions`, `describe_fields` and `analyze_text`. The runbook (reindex, index cutover, tests, deploy, instance rebuild) is in `packages/elden-ring/README.md`. The deployed server is soulsearch's copy (`SoulsearchMcpFunction`, soulsearch#2): this package no longer deploys from here, so server fixes belong in soulsearch.
 
 - **Data flow:**
   - `~/code/erdb-tools` extracts the game files. `er_native/build_dataset.py` writes one `dataset.json` per patch, and `er_native/reindex_all.sh` builds and loads every patch.
