@@ -3,7 +3,7 @@
 # this one stack. The Elden Ring MCP Lambda and its OpenSearch instance deploy
 # from soulsearch's own `soulsearch` stack (soulsearch#2, soulsearch#3).
 #
-# Deploy with a reviewed change set (see CLAUDE.md):
+# Deploy with a reviewed change set (see CLAUDE.md, SAM / deployment):
 #   export DOCKER_HOST=unix://$HOME/.docker/run/docker.sock
 #   sam build && sam deploy --no-execute-changeset
 #   # review the change set, then:

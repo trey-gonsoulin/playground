@@ -134,34 +134,16 @@ A personal family tree built up through MCP tools and exported as GEDCOM. It is 
   - Resources are content-addressed (`resources/<sha256[:16]>-<name>`). The bucket is versioned and retained.
 - **Request size:** `MAX_REQUEST_BODY_BYTES` (4 MiB, mcp's default, set explicitly) is passed to mcp as `max_request_body_size`; larger bodies get a 413. It keeps the Lambda event, which wraps the body as an escaped JSON string, under Lambda's 6 MB cap (#505). Only inline arguments such as `tree_import_gedcom`'s `gedcom_text` count; `tree_attach_resource_from_url` downloads in the Lambda (25 MiB cap).
 - **Response size:** mcp doesn't limit responses, but Lambda refuses ones over 6 MB. `tree_export_gedcom(include_text=True)` returns the GEDCOM inline only while `_inline_gedcom_bytes` (its size after the three JSON escapes on the way out: tool result, JSON-RPC body, Lambda response) is at most `MAX_INLINE_GEDCOM_BYTES` (5 MiB). Above that it returns a `note` instead, and the export is still saved; `path` (`exports/tree-<stamp>.ged`) and `url` are always returned (#509). Escaping grows quotes and backslashes 8x, 2-byte UTF-8 3x and short CRLF lines about 2.1x, which is why the cap is on the escaped size, not the raw bytes.
-- **Auth:** none when deployed, like elden-ring, because claude.ai connectors can't send a static bearer header. The app still requires `Authorization: Bearer <secret>` if `GENEALOGY_MCP_SECRET` is set (same pattern as ynab-mcp), but `template.yaml` leaves it unset.
+- **Auth:** none when deployed, because claude.ai connectors can't send a static bearer header. The app still requires `Authorization: Bearer <secret>` if `GENEALOGY_MCP_SECRET` is set (same pattern as ynab-mcp), but `template.yaml` leaves it unset.
 
-### elden-ring (`packages/elden-ring/`)
+### Elden Ring (moved to soulsearch)
 
-Searches Elden Ring game data at every patch: items, enemies, NPCs, quests, locations and dialogue. The data is in an OpenSearch index on an EC2 instance, which `start_search_service` starts on demand. There are twelve MCP tools: `start_search_service`, `search_entities`, `search_entities_literal`, `get_entity`, `calculate_attack_rating`, `diff_entities`, `text_changed_between`, `list_entity_types`, `list_menu_categories`, `list_patch_versions`, `describe_fields` and `analyze_text`. The runbook (reindex, index cutover, tests, deploy, instance rebuild) is in `packages/elden-ring/README.md`. The deployed server is soulsearch's copy (`SoulsearchMcpFunction`, soulsearch#2): this package no longer deploys from here, so server fixes belong in soulsearch.
-
-- **Data flow:**
-  - `~/code/erdb-tools` extracts the game files. `er_native/build_dataset.py` writes one `dataset.json` per patch, and `er_native/reindex_all.sh` builds and loads every patch.
-  - `scripts/load_dataset.py` in this package bulk-loads a dataset.
-  - Docs are keyed `entity_type::name::patch_version`, so loads are additive. `--prune` deletes the docs at that patch which the dataset no longer produces.
-- **Modules:**
-  - `_client.py` has the EC2/SSM connection (`get_client`, `start_instance`), then the query layer behind the tools (`search`, `get_entity`, the diff and literal-search helpers).
-  - `_schema.py` has `INDEX`, `INDEX_MAPPING` and `KUROMOJI_USER_DICTIONARY`.
-  - `_field_notes.py` has `_FIELD_NOTES`, which `describe_fields` serves.
-  - `mcp_server.py` holds the tool docstrings.
-- **Index:**
-  - `elden-ring-entities` is an alias to a concrete index (currently `-v4`).
-  - The mapping is `dynamic: strict`. A new field needs an `INDEX_MAPPING` entry and a field note before any load, or the load fails.
-  - A type or analyzer change needs a new concrete index, loaded with `ELDEN_RING_INDEX=<new>`, then an alias swap.
-- **Tests:** `uv run --package elden-ring pytest packages/elden-ring/tests/` runs offline. The live tests are opt-in (marker `live` plus `ER_LIVE_TESTS=1`), and they must point `ELDEN_RING_INDEX` at a throwaway index, never the alias.
-- **Instance:**
-  - The OpenSearch instance (OpenSearch 2.13) moved to soulsearch's `soulsearch` stack as `SearchInstance` (soulsearch#3). Its UserData, pinned AMI and stack policy live there now.
-  - `mcp-playground` keeps a stack policy, which can't be deleted; since soulsearch#3 it allows every update.
+The Elden Ring search MCP server, its data extraction, its runbook and its OpenSearch instance now live in [trey-gonsoulin/soulsearch](https://github.com/trey-gonsoulin/soulsearch) (soulsearch#1 to soulsearch#4). Bare `#N` in soulsearch's imported history refer to this repo's issues. The instance moved to soulsearch's `soulsearch` stack as `SearchInstance` (soulsearch#3), with its pinned AMI and stack policy. `mcp-playground` keeps a stack policy, which can't be deleted; since soulsearch#3 it allows every update.
 
 ## Conventions
 
 - Use `uv` for all dependency and run management (`uv add --package <name> <dep>`, `uv run`).
 - All route handlers in FastAPI should be synchronous (`def`, not `async def`) so uvicorn dispatches them to a thread pool — blocking SDK/network calls work without async wrappers.
-- MCP tools can be sync too: since mcp 2.x, a sync (`def`) tool runs on a worker thread, so a slow tool such as elden-ring's `start_search_service` no longer blocks other requests under local uvicorn (`main.py`). Lambda serves one request per invocation either way. Under local uvicorn, concurrent first calls can race to initialise lazy module-level clients (e.g. elden-ring's cached OpenSearch client); that's harmless, since the loser's client is just dropped.
+- MCP tools can be sync too: since mcp 2.x, a sync (`def`) tool runs on a worker thread, so a slow tool no longer blocks other requests under local uvicorn (`main.py`). Lambda serves one request per invocation either way. Under local uvicorn, concurrent first calls can race to initialise lazy module-level clients (e.g. a cached SDK client); that's harmless, since the loser's client is just dropped.
 - After adding a new package to the workspace, add it to `[tool.uv.workspace]` members in the root `pyproject.toml`.
 - Each package's `pyproject.toml` should declare `mangum`, `mcp`, and `fastapi` as dependencies; other packages in this workspace as `{ workspace = true }` sources.

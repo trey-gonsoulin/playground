@@ -6,12 +6,14 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = []
 
+# Dev tools shared by every package (ruff settings are in [tool.ruff] below).
+[dependency-groups]
+dev = ["ruff>=0.15"]
+
 [tool.uv.workspace]
 members = ["packages/*"]
 
-# Shared ruff settings for the repo root and the packages without their own config
-# (genealogy, ynab-mcp). elden-ring keeps its own [tool.ruff] in
-# packages/elden-ring/pyproject.toml (#457); ruff uses the closest config per file.
+# Shared ruff settings for the repo root and every package.
 [tool.ruff]
 target-version = "py313"
 # Markdown is prose with hand-aligned code samples (CLAUDE.md, READMEs).
