@@ -155,7 +155,7 @@ Searches Elden Ring game data at every patch: items, enemies, NPCs, quests, loca
   - A type or analyzer change needs a new concrete index, loaded with `ELDEN_RING_INDEX=<new>`, then an alias swap.
 - **Tests:** `uv run --package elden-ring pytest packages/elden-ring/tests/` runs offline. The live tests are opt-in (marker `live` plus `ER_LIVE_TESTS=1`), and they must point `ELDEN_RING_INDEX` at a throwaway index, never the alias.
 - **Instance:**
-  - The OpenSearch instance (a t4g.small running OpenSearch 2.13) moved to soulsearch's `soulsearch` stack as `SearchInstance` (soulsearch#3). Its UserData, pinned AMI and stack policy live there now.
+  - The OpenSearch instance (OpenSearch 2.13) moved to soulsearch's `soulsearch` stack as `SearchInstance` (soulsearch#3). Its UserData, pinned AMI and stack policy live there now.
   - `mcp-playground` keeps a stack policy, which can't be deleted; since soulsearch#3 it allows every update.
 
 ## Conventions
