@@ -138,7 +138,7 @@ A personal family tree built up through MCP tools and exported as GEDCOM. It is 
 
 ### Elden Ring (moved to soulsearch)
 
-The Elden Ring search MCP server, its data extraction and its runbook now live in [trey-gonsoulin/soulsearch](https://github.com/trey-gonsoulin/soulsearch) (soulsearch#1, #2, #4). Bare `#N` in soulsearch's imported history refer to this repo's issues. Only its OpenSearch instance (the `EldenRingSearch*` resources in `template.yaml`) stays in the `mcp-playground` stack until soulsearch#3 moves it.
+The Elden Ring search MCP server, its data extraction and its runbook now live in [trey-gonsoulin/soulsearch](https://github.com/trey-gonsoulin/soulsearch) (soulsearch#1, soulsearch#2 and soulsearch#4). Bare `#N` in soulsearch's imported history refer to this repo's issues. Only its OpenSearch instance (the `EldenRingSearch*` resources in `template.yaml`) stays in the `mcp-playground` stack until soulsearch#3 moves it. Its AMI is pinned and a stack policy denies replacing it, because a new instance starts with an empty index; the rebuild runbook is in soulsearch's `packages/soulsearch-mcp/README.md`.
 
 ## Conventions
 
