@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = []
 
-# ruff came in with elden-ring's dev group until that package moved to soulsearch.
+# Dev tools shared by every package (ruff settings are in [tool.ruff] below).
 [dependency-groups]
 dev = ["ruff>=0.15"]
 
