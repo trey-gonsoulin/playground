@@ -73,13 +73,13 @@ The reference SAM config is in `~/code/hoshi/` (`template.yaml`, `samconfig.toml
 - `samconfig.toml` — pins `stack_name`, `region = "us-east-1"`, `capabilities = "CAPABILITY_IAM"`, `image_repositories` after first `sam deploy --guided`.
 - Docker build context is the repo root so the Dockerfile can `COPY` workspace files.
 
-Build and deploy with a reviewed change set. The ynab and genealogy functions share the `mcp-playground` stack, which also holds the Elden Ring OpenSearch instance. The Elden Ring MCP Lambda deploys from soulsearch's own `soulsearch` stack (soulsearch#2):
+Build and deploy with a reviewed change set. The ynab and genealogy functions share the `mcp-playground` stack. The Elden Ring MCP Lambda and its OpenSearch instance deploy from soulsearch's own `soulsearch` stack (soulsearch#2, soulsearch#3):
 
 ```bash
 export DOCKER_HOST=unix://$HOME/.docker/run/docker.sock   # exported, so sam build AND sam deploy use Docker Desktop's engine
 sam build
 sam deploy --no-execute-changeset                         # creates and prints the change set, executes nothing
-# review it: expect Modify rows with Replacement False; any EldenRingSearchInstance Replace/Delete is a stop sign
+# review it: expect Modify rows with Replacement False
 aws cloudformation execute-change-set --change-set-name <arn> --profile personal
 aws cloudformation wait stack-update-complete --stack-name mcp-playground --profile personal
 ```
@@ -155,8 +155,8 @@ Searches Elden Ring game data at every patch: items, enemies, NPCs, quests, loca
   - A type or analyzer change needs a new concrete index, loaded with `ELDEN_RING_INDEX=<new>`, then an alias swap.
 - **Tests:** `uv run --package elden-ring pytest packages/elden-ring/tests/` runs offline. The live tests are opt-in (marker `live` plus `ER_LIVE_TESTS=1`), and they must point `ELDEN_RING_INDEX` at a throwaway index, never the alias.
 - **Instance:**
-  - `EldenRingSearchInstance` is a t4g.small running OpenSearch 2.13. On first boot, its `template.yaml` UserData installs the kuromoji plugin and a private CA.
-  - The AMI is pinned, and a stack policy denies replacing the instance, because a new instance starts empty.
+  - The OpenSearch instance (a t4g.small running OpenSearch 2.13) moved to soulsearch's `soulsearch` stack as `SearchInstance` (soulsearch#3). Its UserData, pinned AMI and stack policy live there now.
+  - `mcp-playground` keeps a stack policy, which can't be deleted; since soulsearch#3 it allows every update.
 
 ## Conventions
 
