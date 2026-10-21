@@ -15,12 +15,18 @@ Resources:
   # The MCP Lambda that queries it lives in soulsearch's own `soulsearch` stack
   # (soulsearch#2), which takes this instance's id (output
   # EldenRingSearchInstanceId) as a parameter. Moving the instance is soulsearch#3.
+  #
+  # DeletionPolicy/UpdateReplacePolicy Retain on all five resources is the first
+  # step of that move: removing them from this template then leaves them
+  # running, and the soulsearch stack imports them.
   # ---------------------------------------------------------------------------
 
   # Port 9200 open to the world; OpenSearch security plugin handles auth + TLS.
   # SSH is intentionally omitted — use SSM Session Manager to shell in.
   EldenRingSearchSecurityGroup:
     Type: AWS::EC2::SecurityGroup
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       GroupDescription: Elden Ring OpenSearch - HTTPS on 9200
       SecurityGroupIngress:
@@ -32,6 +38,8 @@ Resources:
 
   EldenRingSearchInstanceRole:
     Type: AWS::IAM::Role
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
@@ -54,12 +62,16 @@ Resources:
 
   EldenRingSearchInstanceProfile:
     Type: AWS::IAM::InstanceProfile
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       Roles:
         - !Ref EldenRingSearchInstanceRole
 
   EldenRingSearchInstance:
     Type: AWS::EC2::Instance
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       InstanceType: t4g.small
       # Pinned to the AMI the instance was launched with (Amazon Linux 2023 ARM64,
@@ -192,6 +204,8 @@ Resources:
   # and fires again on the next idle hour after start_search_service.
   EldenRingSearchIdleStopAlarm:
     Type: AWS::CloudWatch::Alarm
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       AlarmDescription: Stop the Elden Ring OpenSearch instance after an hour idle
       Namespace: AWS/EC2
