@@ -12,6 +12,9 @@ Resources:
   # ---------------------------------------------------------------------------
   # Elden Ring OpenSearch — self-hosted on EC2 (t4g.small). start_search_service
   # starts it; EldenRingSearchIdleStopAlarm stops it after an hour of low CPU.
+  # The MCP Lambda that queries it lives in soulsearch's own `soulsearch` stack
+  # (soulsearch#2), which takes this instance's id (output
+  # EldenRingSearchInstanceId) as a parameter. Moving the instance is soulsearch#3.
   # ---------------------------------------------------------------------------
 
   # Port 9200 open to the world; OpenSearch security plugin handles auth + TLS.
@@ -206,56 +209,6 @@ Resources:
       AlarmActions:
         - !Sub 'arn:aws:automate:${AWS::Region}:ec2:stop'
 
-  EldenRingHttpApi:
-    Type: AWS::Serverless::HttpApi
-
-  EldenRingMcpFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      PackageType: Image
-      # HTTP API stops waiting at 30 s, so keep the function just under it like
-      # genealogy's. start_search_service polls for at most ~20 s and tells the
-      # caller to call again while the instance boots (#440).
-      Timeout: 29
-      Policies:
-        - Statement:
-            - Effect: Allow
-              Action: ec2:StartInstances
-              Resource: !Sub 'arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:instance/${EldenRingSearchInstance}'
-            - Effect: Allow
-              Action:
-                - ec2:DescribeInstances
-                - ec2:DescribeInstanceStatus
-              Resource: '*'
-            - Effect: Allow
-              Action: ssm:GetParameter
-              Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/elden-ring/opensearch-password'
-      Environment:
-        Variables:
-          EC2_INSTANCE_ID: !Ref EldenRingSearchInstance
-          OPENSEARCH_USER: admin
-          # Path only — the actual secret is fetched at runtime via ssm:GetParameter
-          # so it never appears in the Lambda environment config in the console.
-          OPENSEARCH_PASSWORD_SSM_PATH: /elden-ring/opensearch-password
-      Events:
-        Root:
-          Type: HttpApi
-          Properties:
-            ApiId: !Ref EldenRingHttpApi
-            Path: /
-            Method: ANY
-        Proxy:
-          Type: HttpApi
-          Properties:
-            ApiId: !Ref EldenRingHttpApi
-            Path: /{proxy+}
-            Method: ANY
-    Metadata:
-      DockerTag: latest
-      DockerContext: .
-      Dockerfile: packages/elden-ring/Dockerfile
-
-
   YnabMcpFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -353,10 +306,6 @@ Outputs:
   YnabMcpApiUrl:
     Description: YNAB MCP HTTP API endpoint URL (MCP server at /mcp)
     Value: !Sub "https://${YnabHttpApi}.execute-api.${AWS::Region}.amazonaws.com"
-
-  EldenRingMcpApiUrl:
-    Description: Elden Ring MCP HTTP API endpoint URL (MCP server at /mcp)
-    Value: !Sub "https://${EldenRingHttpApi}.execute-api.${AWS::Region}.amazonaws.com"
 
   GenealogyMcpApiUrl:
     Description: Genealogy MCP HTTP API endpoint URL (MCP server at /mcp)
