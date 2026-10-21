@@ -1,6 +1,6 @@
 # elden-ring
 
-An MCP server that searches Elden Ring game data at every patch: items, enemies, NPCs, quests, locations and dialogue. The data lives in an OpenSearch index on an EC2 instance in the `mcp-playground` stack. The Lambda (`EldenRingMcpFunction`) reads the index, and `start_search_service` starts the instance on demand. That tool returns within about 20 s, so a cold start takes a few calls before it answers `ready`. The `EldenRingSearchIdleStopAlarm` alarm stops the instance after an hour below 2% average CPU.
+An MCP server that searches Elden Ring game data at every patch: items, enemies, NPCs, quests, locations and dialogue. The data lives in an OpenSearch index on an EC2 instance in the `mcp-playground` stack. The Lambda that reads the index now deploys from soulsearch (`SoulsearchMcpFunction` in its `soulsearch` stack, soulsearch#2), and `start_search_service` starts the instance on demand. That tool returns within about 20 s, so a cold start takes a few calls before it answers `ready`. The `EldenRingSearchIdleStopAlarm` alarm stops the instance after an hour below 2% average CPU.
 
 The repo-level summary is the elden-ring section of the root `CLAUDE.md`. This file is the runbook.
 
@@ -85,7 +85,7 @@ They also need the Lambda's environment: `EC2_INSTANCE_ID`, `OPENSEARCH_USER` an
 
 ## Deploy
 
-The Lambda deploys with the rest of the `mcp-playground` stack, from the repo root:
+The MCP Lambda and its HTTP API moved to soulsearch's own `soulsearch` stack (soulsearch#2); deploy server code from there (see soulsearch's `packages/soulsearch-mcp/README.md#deploy`). This stack still holds the OpenSearch instance, its security group, role and idle-stop alarm (moving them is soulsearch#3). Deploy a change to those from the repo root:
 
 ```bash
 export DOCKER_HOST=unix://$HOME/.docker/run/docker.sock
@@ -96,18 +96,9 @@ aws cloudformation wait stack-update-complete --stack-name mcp-playground --prof
 ```
 
 - **Export `DOCKER_HOST`; don't prefix it.** `sam build` and `sam deploy` must both use Docker Desktop's engine, and this Mac has a second engine. On 2026-09-28 an inline `DOCKER_HOST=… sam build && sam deploy` pushed a stale image from that engine and rolled the live code back. If the socket is missing, start Docker Desktop first.
-- **Review the change set before executing it.** For a code change, expect only `EldenRing*` (or the changed function's) rows, Modify, with Replacement False. Any `EldenRingSearchInstance` row with Replacement True or Conditional is a stop sign, because a new instance starts with an empty index. A stack policy also denies replacing or deleting that instance.
-- **Check the image.** The tag in the deployed template must match the local image id:
-
-  ```bash
-  aws cloudformation get-template --stack-name mcp-playground --profile personal --query TemplateBody --output text | grep -o 'eldenringmcpfunction-[0-9a-f]*-latest'
-  docker image inspect eldenringmcpfunction:latest --format '{{.Id}}'   # first 12 hex chars after sha256:
-  ```
-
-  "No changes to deploy" after a code change is a red flag. On the live MCP, `describe_fields(prefix=<field>)` shows the newest field note. `get_entity` proves nothing, because docs come from OpenSearch whatever code is deployed.
-- **Never run `sam delete`.** It targets the whole `mcp-playground` stack.
-
-`sam sync --code --resource-id EldenRingMcpFunction --stack-name mcp-playground` updates only the function code and skips CloudFormation. It's a quick path for code-only changes, but it never shows a change set.
+- **Review the change set before executing it.** Expect only the rows you changed, Modify, with Replacement False. Any `EldenRingSearchInstance` row with Replacement True or Conditional is a stop sign, because a new instance starts with an empty index. A stack policy also denies replacing or deleting that instance.
+- **Keep the instance id stable.** The `soulsearch` stack takes it as a parameter (this stack's `EldenRingSearchInstanceId` output). If the instance is ever replaced, update soulsearch's `samconfig.toml` and redeploy that stack.
+- **Never run `sam delete`.** It targets the whole `mcp-playground` stack, including the instance that holds the index.
 
 ## Rebuilding the search instance
 
