@@ -51,6 +51,12 @@ PERIOD = re.compile(r"(\d+)(d|wk|mo|y)")
 PERIOD_UNITS = {"d": "days", "wk": "weeks", "mo": "months", "y": "years"}
 METHODS = ("lognormal", "bootstrap")
 VOL_SOURCES = ("options", "history")
+EXTENDED_HOURS_SOURCES = ("post_market", "pre_market")
+EXTENDED_HOURS_NOTE = (
+    "spot is an extended-hours price: market and marketable orders are modelled as filling at it "
+    "now, but a real order placed now fills at the next regular open (the overnight gap risk of "
+    "that day-0 fill is not modelled)."
+)
 
 
 def _today() -> date:
@@ -242,8 +248,8 @@ def quote(ticker: str) -> dict:
 
     Returns last (regular-session price), previous_close, change_pct (percent), pre/post-market
     prices and times, dividend_yield (fraction), next_earnings (date and before_open/after_close,
-    or null), and spot / spot_source: the price the other tools start from (a post- or pre-market
-    price when it is newer than the regular close, else last).
+    or null), and spot / spot_source: the price the other tools start from (the newest post- or
+    pre-market price later than the regular close, else last).
     """
     symbol = _ticker(ticker)
     provider = _data.get_provider()
@@ -587,7 +593,8 @@ def evaluate_sell_plan(
     bootstrap) and drift (annualized fraction) as in price_target_odds; sigma / sigma_source: the
     vol the method used. Returns per plan proceeds and vs_sell_now (proceeds minus shares * spot)
     percentiles p5..p95, mean and std in currency, and per tranche fill_rate (fraction),
-    mean_fill_price and mean_days_to_fill.
+    mean_fill_price and mean_days_to_fill. spot_note (only when spot is a pre/post-market price):
+    day-0 market fills are modelled at that price, while a real order fills at the next open.
     """
     symbol = _ticker(ticker)
     _check_positive("shares", shares)
@@ -624,17 +631,17 @@ def evaluate_sell_plan(
             overnight=overnight_share(pairs),
             n_paths=n_paths,
         )
-    return _envelope(
-        {
-            "ticker": symbol,
-            "shares": shares,
-            "deadline_days": deadline_days,
-            "method": method,
-            "n_paths": n_paths,
-            "spot_source": spot_source,
-            "sigma": sigma,
-            "sigma_source": sigma_source,
-            "drift": drift,
-        }
-        | evaluate_plans(paths, shares, parsed)
-    )
+    result = {
+        "ticker": symbol,
+        "shares": shares,
+        "deadline_days": deadline_days,
+        "method": method,
+        "n_paths": n_paths,
+        "spot_source": spot_source,
+        "sigma": sigma,
+        "sigma_source": sigma_source,
+        "drift": drift,
+    }
+    if spot_source in EXTENDED_HOURS_SOURCES:
+        result["spot_note"] = EXTENDED_HOURS_NOTE
+    return _envelope(result | evaluate_plans(paths, shares, parsed))
