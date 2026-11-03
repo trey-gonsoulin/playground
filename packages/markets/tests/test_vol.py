@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 from fixture_data import fixture_chains, fixture_close, fixture_history, fixture_meta
-from markets._data import EarningsEvent, Quote
+from markets._data import DataSourceError, EarningsEvent, Quote
 from markets._vol import (
     atm,
     bs_price,
@@ -216,9 +216,11 @@ def test_garch_is_positive_and_reasonable():
 
 
 class FakeProvider:
-    def __init__(self, with_options=True):
+    def __init__(self, with_options=True, expiry_count=None, post_price=None):
         self.meta = fixture_meta()
         self.with_options = with_options
+        self.expiry_count = expiry_count
+        self.post_price = post_price
 
     def history(self, ticker, start, end=None, interval="1d", prepost=False):
         return fixture_history()
@@ -233,8 +235,8 @@ class FakeProvider:
             stamp,
             None,
             None,
-            None,
-            None,
+            self.post_price,
+            None if self.post_price is None else stamp + pd.Timedelta(hours=1),
             self.meta["dividend_yield"],
         )
 
@@ -242,7 +244,9 @@ class FakeProvider:
         return [EarningsEvent(date(2026, 11, 2), "after_close", 1.99, 2.10, 5.75)], None
 
     def option_expiries(self, ticker):
-        return [c[0] for c in fixture_chains()] if self.with_options else []
+        if not self.with_options:
+            return []
+        return [c[0] for c in fixture_chains()][: self.expiry_count]
 
     def option_chain(self, ticker, expiry):
         return next((c[1], c[2]) for c in fixture_chains() if c[0] == expiry)
@@ -261,3 +265,45 @@ def test_default_sigma_falls_back_to_realized():
     sigma, source = default_sigma(FakeProvider(with_options=False), "AAPL", TODAY)
     assert source == "realized_20d"
     assert sigma == pytest.approx(realized_vol(fixture_close(), 20))
+
+
+def test_default_sigma_inverts_at_regular_session_price_not_post_market():
+    meta = fixture_meta()
+    after_hours = default_sigma(
+        FakeProvider(post_price=meta["spot_after_hours"]), "AAPL", TODAY
+    )
+    regular = default_sigma(FakeProvider(), "AAPL", TODAY)
+    assert after_hours == regular
+    ts = _term_structure(date(2026, 11, 2))
+    assert regular[0] == pytest.approx(ts["ex_event_vol"])
+    # At the regular price the front expiry's call and put IVs agree; at the
+    # post-market price they would not.
+    _, calls, puts = fixture_chains()[0]
+    front = atm(
+        calls, puts, meta["spot"], 2 / 365, meta["rate"], meta["dividend_yield"]
+    )
+    assert abs(front["call_iv"] - front["put_iv"]) < 0.15
+    moved = atm(
+        calls,
+        puts,
+        meta["spot_after_hours"],
+        2 / 365,
+        meta["rate"],
+        meta["dividend_yield"],
+    )
+    assert abs(moved["call_iv"] - moved["put_iv"]) > 0.3
+
+
+def test_default_sigma_single_expiry_uses_atm_iv():
+    sigma, source = default_sigma(FakeProvider(expiry_count=1), "AAPL", TODAY)
+    assert source == "options_atm"
+    assert sigma == pytest.approx(_term_structure(None)["expiries"][0]["atm_iv"])
+
+
+def test_default_sigma_propagates_data_source_error():
+    class Broken(FakeProvider):
+        def option_chain(self, ticker, expiry):
+            raise DataSourceError("Yahoo refused")
+
+    with pytest.raises(DataSourceError):
+        default_sigma(Broken(), "AAPL", TODAY)
