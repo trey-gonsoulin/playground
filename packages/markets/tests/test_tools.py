@@ -4,9 +4,10 @@ import json
 import math
 from datetime import datetime
 
+import pandas as pd
 import pytest
 from fixture_data import FakeProvider, fixture_meta
-from markets._data import DataSourceError
+from markets._data import CHAIN_COLUMNS, DataSourceError
 from markets._vol import realized_vol
 from markets.mcp_server import (
     MAX_BARS,
@@ -137,7 +138,26 @@ def test_volatility_forecast_side_by_side():
 def test_volatility_forecast_without_options():
     res = volatility_forecast("SPYX")
     assert res["implied"] is None
+    assert "no listed options" in res["implied_note"]
     assert res["default_sigma_source"] == "realized_20d"
+
+
+def test_volatility_forecast_degrades_when_option_quotes_unusable(
+    fake_provider, monkeypatch
+):
+    # Expiries are listed but every chain is empty: no ATM IV anywhere.
+    empty = pd.DataFrame(columns=CHAIN_COLUMNS)
+    monkeypatch.setattr(fake_provider, "option_chain", lambda t, e: (empty, empty))
+    res = volatility_forecast("AAPL")
+    _check_envelope(res)
+    assert res["implied"] is None
+    assert "no usable option quotes for AAPL" in res["implied_note"]
+    assert set(res["realized"]) == {"10d", "20d", "60d"}
+    assert 0.05 < res["garch"] < 1.0
+    assert res["default_sigma_source"] == "realized_20d"
+    # The dedicated tool still raises its clear error.
+    with pytest.raises(ValueError, match="no usable option quotes"):
+        implied_volatility("AAPL")
 
 
 def test_price_target_odds_both_methods_agree_roughly():

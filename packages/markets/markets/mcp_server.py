@@ -398,9 +398,9 @@ def volatility_forecast(ticker: str, horizon_days: int = 20) -> dict:
     """Volatility estimates side by side, all annualized fractions (0.25 = 25%).
 
     realized: close-to-close over the last 10/20/60 sessions. garch: GARCH(1,1) forecast averaged
-    over the next horizon_days sessions, fit on 5 years. implied (null without listed options):
-    ex_event_vol (forward vol excluding the pending earnings move) and atm_iv_at_horizon (ATM IV of
-    the expiry nearest the horizon). default_sigma / default_sigma_source: what price_target_odds
+    over the next horizon_days sessions, fit on 5 years. implied: ex_event_vol (forward vol
+    excluding the pending earnings move) and atm_iv_at_horizon (ATM IV of the expiry nearest the
+    horizon); null without listed or usable options, with implied_note saying why. default_sigma / default_sigma_source: what price_target_odds
     and evaluate_sell_plan use when no vol is given.
     """
     symbol = _ticker(ticker)
@@ -411,14 +411,17 @@ def volatility_forecast(ticker: str, horizon_days: int = 20) -> dict:
     close = _history(provider, symbol, start)["Close"]
     horizon_calendar = math.ceil(horizon_days * 365 / TRADING_DAYS_PER_YEAR)
 
-    implied = None
-    if provider.option_expiries(symbol):
+    implied = implied_note = None
+    try:
         ts = _term_structure(
             provider,
             symbol,
             today,
             min_days=max(CHAIN_HORIZON_DAYS, horizon_calendar),
         )
+    except ValueError as exc:  # no (usable) options: still report realized and GARCH
+        implied_note = str(exc)
+    else:
         nearest = min(ts["expiries"], key=lambda e: abs(e["days"] - horizon_calendar))
         implied = {
             "ex_event_vol": ts["ex_event_vol"],
@@ -434,6 +437,7 @@ def volatility_forecast(ticker: str, horizon_days: int = 20) -> dict:
             "realized": {f"{w}d": realized_vol(close, w) for w in REALIZED_WINDOWS},
             "garch": garch_forecast(close, horizon_days),
             "implied": implied,
+            "implied_note": implied_note,
             "default_sigma": sigma,
             "default_sigma_source": sigma_source,
         }
