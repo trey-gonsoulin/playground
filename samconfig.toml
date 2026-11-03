@@ -1,5 +1,5 @@
 # SAM CLI configuration for the mcp-playground stack, committed so deploys are
-# reproducible. Every function in template.yaml (ynab, genealogy) deploys into
+# reproducible. Every function in template.yaml (ynab, genealogy, markets) deploys into
 # this one stack. The Elden Ring MCP Lambda and its OpenSearch instance deploy
 # from soulsearch's own `soulsearch` stack (soulsearch#2, soulsearch#3).
 #
@@ -10,7 +10,7 @@
 #   aws cloudformation execute-change-set --change-set-name <arn> --profile personal
 #
 # A new image function needs an ECR repo in image_repositories before a
-# non-guided deploy. The genealogy repo was created by hand (aws ecr
+# non-guided deploy. The genealogy and markets repos were created by hand (aws ecr
 # create-repository + the same lifecycle policy as the others) rather than via
 # `sam deploy --guided`.
 #
@@ -35,4 +35,4 @@ capabilities = "CAPABILITY_IAM"
 confirm_changeset = true
 resolve_s3 = true
 s3_prefix = "mcp-playground"
-image_repositories = ["YnabMcpFunction=268834972001.dkr.ecr.us-east-1.amazonaws.com/mcpplayground7d6ff2e8/ynabmcpfunction7a0a73f1repo", "GenealogyMcpFunction=268834972001.dkr.ecr.us-east-1.amazonaws.com/mcp-playground/genealogymcpfunction"]
+image_repositories = ["YnabMcpFunction=268834972001.dkr.ecr.us-east-1.amazonaws.com/mcpplayground7d6ff2e8/ynabmcpfunction7a0a73f1repo", "GenealogyMcpFunction=268834972001.dkr.ecr.us-east-1.amazonaws.com/mcp-playground/genealogymcpfunction", "MarketsMcpFunction=268834972001.dkr.ecr.us-east-1.amazonaws.com/mcp-playground/marketsmcpfunction"]
