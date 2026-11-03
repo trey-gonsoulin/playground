@@ -27,11 +27,26 @@ def test_resolve_spot_prefers_argument_then_post_then_pre(quote_factory):
     assert resolve_spot(stale) == (338.32, "last")
 
 
-def test_resolve_spot_post_beats_pre_when_both_are_later(quote_factory):
-    q = quote_factory(
-        pre_price=331.0, pre_time=LATER, post_price=329.0, post_time=LATER
+def test_resolve_spot_newest_extended_hours_price_wins(quote_factory):
+    newest = NOW + timedelta(hours=14)
+    # Pre-market morning: Yahoo still carries last evening's post price.
+    morning = quote_factory(
+        pre_price=331.0, pre_time=newest, post_price=329.0, post_time=LATER
     )
-    assert resolve_spot(q) == (329.0, "post_market")
+    assert resolve_spot(morning) == (331.0, "pre_market")
+    evening = quote_factory(
+        pre_price=331.0, pre_time=LATER, post_price=329.0, post_time=newest
+    )
+    assert resolve_spot(evening) == (329.0, "post_market")
+    stale = quote_factory(
+        last=338.32,
+        pre_price=331.0,
+        pre_time=EARLIER,
+        post_price=329.0,
+        post_time=EARLIER,
+    )
+    assert resolve_spot(stale) == (338.32, "last")
+    assert resolve_spot(morning, 330.0) == (330.0, "argument")
 
 
 def test_earnings_timing_and_split():

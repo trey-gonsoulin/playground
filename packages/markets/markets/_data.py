@@ -277,13 +277,22 @@ def get_provider() -> MarketData:
 
 
 def resolve_spot(quote: Quote, spot: float | None = None) -> tuple[float, str]:
-    """Pick the price to analyse from: argument, then a later post/pre quote, then last."""
+    """Pick the price to analyse from: argument, then the newest post/pre quote later than the close, then last.
+
+    Yahoo keeps the previous evening's post-market price through the next pre-market session, so
+    the newer of the two wins rather than a fixed order.
+    """
     if spot is not None:
         return spot, "argument"
-    for price, stamp, source in (
-        (quote.post_price, quote.post_time, "post_market"),
-        (quote.pre_price, quote.pre_time, "pre_market"),
-    ):
-        if price is not None and stamp is not None and stamp > quote.regular_time:
-            return price, source
+    later = [
+        (stamp, price, source)
+        for price, stamp, source in (
+            (quote.post_price, quote.post_time, "post_market"),
+            (quote.pre_price, quote.pre_time, "pre_market"),
+        )
+        if price is not None and stamp is not None and stamp > quote.regular_time
+    ]
+    if later:
+        _, price, source = max(later, key=lambda c: c[0])
+        return price, source
     return quote.last, "last"
