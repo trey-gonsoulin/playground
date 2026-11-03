@@ -1,0 +1,204 @@
+"""Offline tests for the HTTP request path: FastAPI app, lifespan and Lambda handler.
+
+Mangum runs the whole lifespan on every invocation, so a warm Lambda container
+re-enters it each time; ``mcp_lambda.ReentrantMCP`` rebuilds the session manager
+per entry. These tests cycle the lifespan 20 times, so an mcp upgrade that breaks
+re-entry fails here instead of on the second live invocation. Tool calls use the
+recorded fixtures through the fake provider; nothing touches the network.
+"""
+
+import asyncio
+import base64
+import json
+
+import pytest
+from fastapi.testclient import TestClient
+from markets._data import DataSourceError
+from markets.app import create_app
+
+N_TOOLS = 7
+
+_HEADERS = {
+    "content-type": "application/json",
+    "accept": "application/json, text/event-stream",
+}
+
+_INITIALIZE = {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "initialize",
+    "params": {
+        "protocolVersion": "2025-06-18",
+        "capabilities": {},
+        "clientInfo": {"name": "test_app", "version": "0"},
+    },
+}
+
+_TOOLS_LIST = {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}
+
+
+def _call(name: str, arguments: dict) -> dict:
+    return {
+        "jsonrpc": "2.0",
+        "id": 3,
+        "method": "tools/call",
+        "params": {"name": name, "arguments": arguments},
+    }
+
+
+@pytest.fixture(autouse=True)
+def _offline_env(monkeypatch, fake_provider):
+    monkeypatch.delenv("MARKETS_MCP_SECRET", raising=False)
+
+
+def _check_initialize(status: int, body: dict) -> None:
+    assert status == 200, body
+    assert body["id"] == 1
+    assert body["result"]["serverInfo"]["name"] == "markets"
+
+
+def _check_tools(status: int, body: dict) -> None:
+    assert status == 200, body
+    tools = body["result"]["tools"]
+    assert len(tools) == N_TOOLS, [t["name"] for t in tools]
+
+
+def test_lifespan_reentry_via_testclient():
+    app = create_app()
+    for _ in range(20):  # later blocks = warm container re-entering the lifespan
+        with TestClient(app) as client:
+            for path in ("/mcp", "/mcp/"):
+                r = client.post(path, json=_INITIALIZE, headers=_HEADERS)
+                _check_initialize(r.status_code, r.json())
+                r = client.post(path, json=_TOOLS_LIST, headers=_HEADERS)
+                _check_tools(r.status_code, r.json())
+
+
+def test_tool_names():
+    with TestClient(create_app()) as client:
+        r = client.post("/mcp/", json=_TOOLS_LIST, headers=_HEADERS)
+    assert {t["name"] for t in r.json()["result"]["tools"]} == {
+        "quote",
+        "price_history",
+        "earnings_event_study",
+        "implied_volatility",
+        "volatility_forecast",
+        "price_target_odds",
+        "evaluate_sell_plan",
+    }
+
+
+def test_tool_call_and_tool_error():
+    with TestClient(create_app()) as client:
+        r = client.post(
+            "/mcp/", json=_call("quote", {"ticker": "AAPL"}), headers=_HEADERS
+        )
+        result = r.json()["result"]
+        assert result["isError"] is False, result
+        body = json.loads(result["content"][0]["text"])
+        assert body["spot_source"] == "post_market"
+        assert body["source"] == "yahoo"
+
+        r = client.post(
+            "/mcp/",
+            json=_call("implied_volatility", {"ticker": "SPYX"}),
+            headers=_HEADERS,
+        )
+        result = r.json()["result"]
+        assert result["isError"] is True
+        assert "no listed options" in result["content"][0]["text"]
+
+
+def test_data_source_error_message_reaches_client(fake_provider, monkeypatch):
+    # mcp hides the text of unexpected exceptions; Yahoo failures must still say "retry later".
+    def refuse(ticker):
+        raise DataSourceError(
+            "Yahoo Finance refused or failed the request (HTTP 429); retry later"
+        )
+
+    monkeypatch.setattr(fake_provider, "quote", refuse)
+    with TestClient(create_app()) as client:
+        r = client.post(
+            "/mcp/", json=_call("quote", {"ticker": "AAPL"}), headers=_HEADERS
+        )
+    result = r.json()["result"]
+    assert result["isError"] is True
+    assert "HTTP 429); retry later" in result["content"][0]["text"]
+
+
+def test_bearer_secret_enforced_when_set(monkeypatch):
+    monkeypatch.setenv("MARKETS_MCP_SECRET", "s3cret")
+    with TestClient(create_app()) as client:
+        r = client.post("/mcp", json=_INITIALIZE, headers=_HEADERS)
+        assert r.status_code == 401
+        auth = {**_HEADERS, "authorization": "Bearer s3cret"}
+        r = client.post("/mcp", json=_INITIALIZE, headers=auth)
+        _check_initialize(r.status_code, r.json())
+
+
+def _http_api_v2_event(path: str, payload: dict) -> dict:
+    """Minimal API Gateway HTTP API (payload v2.0) event, as the Lambda sees it."""
+    return {
+        "version": "2.0",
+        "routeKey": "$default",
+        "rawPath": path,
+        "rawQueryString": "",
+        "headers": {**_HEADERS, "host": "example.execute-api.us-east-1.amazonaws.com"},
+        "requestContext": {
+            "accountId": "123456789012",
+            "apiId": "example",
+            "domainName": "example.execute-api.us-east-1.amazonaws.com",
+            "domainPrefix": "example",
+            "http": {
+                "method": "POST",
+                "path": path,
+                "protocol": "HTTP/1.1",
+                "sourceIp": "127.0.0.1",
+                "userAgent": "test_app",
+            },
+            "requestId": "test",
+            "routeKey": "$default",
+            "stage": "$default",
+            "time": "02/Nov/2026:00:00:00 +0000",
+            "timeEpoch": 0,
+        },
+        "body": json.dumps(payload),
+        "isBase64Encoded": False,
+    }
+
+
+def _invoke(path: str, payload: dict) -> tuple[int, dict]:
+    from markets import lambda_handler  # Mangum needs the loop set by the caller
+
+    resp = lambda_handler.handler(_http_api_v2_event(path, payload), None)
+    body = resp["body"]
+    if resp.get("isBase64Encoded"):
+        body = base64.b64decode(body).decode()
+    # Plain JSON, not SSE: API Gateway needs json_response (fixed by mcp_lambda).
+    assert resp["headers"]["content-type"].startswith("application/json"), resp
+    return resp["statusCode"], json.loads(body)
+
+
+def test_lambda_handler_warm_invocations():
+    # Each Mangum call runs the full lifespan; 20 calls = one cold + 19 warm.
+    # Mangum uses the thread's current loop, which an earlier asyncio.run() in the
+    # same pytest process may have cleared (a Lambda process starts with one).
+    asyncio.set_event_loop(asyncio.new_event_loop())
+    for _ in range(5):
+        for path in ("/mcp", "/mcp/"):
+            _check_initialize(*_invoke(path, _INITIALIZE))
+            _check_tools(*_invoke(path, _TOOLS_LIST))
+    status, body = _invoke("/mcp/", _call("quote", {"ticker": "AAPL"}))
+    assert status == 200 and body["result"]["isError"] is False, body
+
+
+def test_main_cli_runs_uvicorn(monkeypatch):
+    import uvicorn
+    from markets import main
+
+    calls = []
+    monkeypatch.setattr(uvicorn, "run", lambda *a, **kw: calls.append((a, kw)))
+    main.cli()
+    assert calls == [
+        (("markets.app:app",), {"host": "0.0.0.0", "port": 8003, "reload": True})
+    ]

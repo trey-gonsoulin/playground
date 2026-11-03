@@ -1,7 +1,7 @@
 """Shared fixtures: a FakeTicker that stands in for yfinance, so tests never touch the network."""
 
 from collections import Counter
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from types import SimpleNamespace
 
 import markets._data
@@ -63,6 +63,18 @@ def fake_ticker(monkeypatch):
     FakeTicker.chain = None
     monkeypatch.setattr(markets._data.yf, "Ticker", FakeTicker)
     return FakeTicker
+
+
+@pytest.fixture
+def fake_provider(monkeypatch):
+    """Serve the recorded AAPL fixtures to the tools, with a post-market quote, on the capture date."""
+    import markets.mcp_server
+    from fixture_data import FakeProvider, fixture_meta
+
+    provider = FakeProvider(post_price=fixture_meta()["spot_after_hours"])
+    monkeypatch.setattr(markets._data, "_provider", provider)
+    monkeypatch.setattr(markets.mcp_server, "_today", lambda: date(2026, 11, 2))
+    return provider
 
 
 @pytest.fixture
