@@ -55,3 +55,69 @@ def test_lognormal_odds_both_sides():
     assert set(rows[0]) == {"level", "pct_from_spot", "touch", "close_beyond"}
     assert rows[2]["pct_from_spot"] == 10.0
     assert rows[0]["pct_from_spot"] == -10.0
+
+
+@pytest.mark.parametrize("drift", [0.3, -0.2])
+def test_touch_matches_monte_carlo_with_material_drift_both_sides(drift):
+    sigma, years, up, down = 0.3, 20 / 252, 108.0, 92.0
+    n_paths, n_steps, chunk = 20_000, 1000, 5_000
+    dt = years / n_steps
+    shift = (
+        0.5826 * sigma * math.sqrt(dt)
+    )  # Broadie-Glasserman-Kou: discrete -> continuous
+    up_barrier, down_barrier = math.log(up / 100) - shift, math.log(down / 100) + shift
+    rng = np.random.default_rng(1)
+    up_hits = down_hits = 0
+    for _ in range(n_paths // chunk):
+        z = rng.standard_normal((chunk, n_steps))
+        log_paths = np.cumsum(
+            (drift - sigma**2 / 2) * dt + sigma * math.sqrt(dt) * z, axis=1
+        )
+        up_hits += int((log_paths.max(axis=1) >= up_barrier).sum())
+        down_hits += int((log_paths.min(axis=1) <= down_barrier).sum())
+    assert touch_probability(100, up, sigma, years, drift) == pytest.approx(
+        up_hits / n_paths, abs=0.01
+    )
+    assert touch_probability(100, down, sigma, years, drift) == pytest.approx(
+        down_hits / n_paths, abs=0.01
+    )
+
+
+def test_close_beyond_at_zero_log_drift_is_symmetric_tail():  # drift = sigma**2/2 -> nu = 0
+    sigma, years, b = 0.3, 0.2, 0.1
+    s = sigma * math.sqrt(years)
+    expected = norm.cdf(-b / s)
+    for level in (100 * math.exp(b), 100 * math.exp(-b)):
+        got = close_beyond_probability(100, level, sigma, years, drift=sigma**2 / 2)
+        assert got == pytest.approx(expected, rel=1e-9)
+
+
+@pytest.mark.parametrize("drift", [0.3, -0.2])
+def test_close_beyond_matches_terminal_lognormal(drift):
+    sigma, years = 0.3, 0.2
+    s = sigma * math.sqrt(years)
+    mean = (drift - sigma**2 / 2) * years  # mean of ln(S_T / S)
+
+    def cdf_at(level):  # P(S_T <= level)
+        return norm.cdf((math.log(level / 100) - mean) / s)
+
+    assert close_beyond_probability(100, 110, sigma, years, drift) == pytest.approx(
+        1 - cdf_at(110), rel=1e-9
+    )
+    assert close_beyond_probability(100, 90, sigma, years, drift) == pytest.approx(
+        cdf_at(90), rel=1e-9
+    )
+
+
+def test_close_beyond_is_monotone_away_from_spot():
+    sigma, years, drift = 0.3, 0.2, 0.1
+    ups = [
+        close_beyond_probability(100, lv, sigma, years, drift)
+        for lv in (101, 105, 110, 120)
+    ]
+    downs = [
+        close_beyond_probability(100, lv, sigma, years, drift)
+        for lv in (99, 95, 90, 80)
+    ]
+    assert ups == sorted(ups, reverse=True)
+    assert downs == sorted(downs, reverse=True)
