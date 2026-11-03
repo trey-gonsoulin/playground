@@ -6,5 +6,6 @@
 !packages/*/Dockerfile
 !packages/genealogy/genealogy
 !packages/ynab-mcp/ynab_mcp
+!packages/markets/markets
 !packages/mcp-lambda/mcp_lambda
 **/__pycache__
