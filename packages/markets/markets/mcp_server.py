@@ -50,6 +50,7 @@ INTERVALS = {
 PERIOD = re.compile(r"(\d+)(d|wk|mo|y)")
 PERIOD_UNITS = {"d": "days", "wk": "weeks", "mo": "months", "y": "years"}
 METHODS = ("lognormal", "bootstrap")
+VOL_SOURCES = ("options", "history")
 
 
 def _today() -> date:
@@ -110,6 +111,11 @@ def _check_levels(levels: list[float]) -> None:
 def _check_drift(drift: float) -> None:
     if not math.isfinite(drift):
         raise ValueError(f"drift must be a finite number, got {drift!r}")
+
+
+def _check_vol_source(vol_source: str) -> None:
+    if vol_source not in VOL_SOURCES:
+        raise ValueError(f"vol_source must be options or history, got {vol_source!r}")
 
 
 # Shared data access.
@@ -188,6 +194,24 @@ def _bootstrap_pairs(provider: MarketData, ticker: str, today: date) -> np.ndarr
 def _pairs_vol(pairs: np.ndarray) -> float:
     """Annualized close-to-close vol of the history's daily returns."""
     return float(pairs.sum(axis=1).std() * math.sqrt(TRADING_DAYS_PER_YEAR))
+
+
+def _bootstrap_sigma(
+    provider: MarketData,
+    ticker: str,
+    today: date,
+    vol: float | None,
+    vol_source: str,
+    pairs: np.ndarray,
+) -> tuple[float, str]:
+    """The vol the bootstrap rescales to: the lognormal one (`_sigma`), or the history's own.
+
+    The history's own vol applies only with vol_source="history" and no `vol`; rescaling to it
+    leaves the paths as they are.
+    """
+    if vol is None and vol_source == "history":
+        return _pairs_vol(pairs), "history_5y"
+    return _sigma(provider, ticker, today, vol)
 
 
 # Tools.
@@ -454,16 +478,22 @@ def price_target_odds(
     vol: float | None = None,
     drift: float = 0.0,
     n_paths: int = 10000,
+    vol_source: str = "options",
 ) -> dict:
     """Probability (fraction 0-1) that each price level is touched, or closed beyond, within days sessions.
 
     levels: absolute prices. method: lognormal (closed form), bootstrap (5 years of the stock's
     own daily moves, overnight gaps and intraday ranges), or both. spot defaults to the quote's
-    spot (after-hours when newer). vol: annualized fraction; default is the ex-earnings option vol,
-    else 20-day realized; given vol also rescales the bootstrap, otherwise the bootstrap keeps the
-    history's own vol. drift: annualized fraction (0 = no drift). Each row: level, pct_from_spot
-    (percent), touch_<method> and close_beyond_<method> (close on the last day at or beyond the
-    level, on its side of spot). days * n_paths is capped at 2,000,000.
+    spot (the newest pre/post-market price when later than the close). vol: annualized fraction;
+    default is the ex-earnings option vol, else the nearest at-the-money option vol, else 20-day
+    realized. vol_source: options (default; the bootstrap is rescaled to that same vol, so both
+    methods agree on volatility) or history (the bootstrap keeps the 5-year history's own vol); a
+    given vol rescales both either way. sigma / sigma_source: the lognormal vol (the bootstrap's
+    when it runs alone); bootstrap.sigma / bootstrap.sigma_source: the bootstrap's. Sources:
+    argument, options_ex_event, options_atm, realized_20d, or history_5y (vol_source=history).
+    drift: annualized fraction (0 = no drift). Each row: level, pct_from_spot (percent),
+    touch_<method> and close_beyond_<method> (close on the last day at or beyond the level, on its
+    side of spot). days * n_paths must be at most 2,000,000 (larger requests are rejected).
     """
     symbol = _ticker(ticker)
     _check_levels(levels)
@@ -474,6 +504,7 @@ def price_target_odds(
     _check_drift(drift)
     if method not in (*METHODS, "both"):
         raise ValueError(f"method must be lognormal, bootstrap or both, got {method!r}")
+    _check_vol_source(vol_source)
     methods = METHODS if method == "both" else (method,)
 
     provider = _data.get_provider()
@@ -484,11 +515,11 @@ def price_target_odds(
     sigma = sigma_source = None
     if "bootstrap" in methods:
         pairs = _bootstrap_pairs(provider, symbol, today)
-        paths = simulate(
-            spot, days, sigma=vol, pairs=pairs, drift=drift, n_paths=n_paths
+        boot_sigma, boot_source = _bootstrap_sigma(
+            provider, symbol, today, vol, vol_source, pairs
         )
-        boot_sigma, boot_source = (
-            (vol, "argument") if vol is not None else (_pairs_vol(pairs), "history_5y")
+        paths = simulate(
+            spot, days, sigma=boot_sigma, pairs=pairs, drift=drift, n_paths=n_paths
         )
         result["bootstrap"] = {
             "n_paths": n_paths,
@@ -543,6 +574,7 @@ def evaluate_sell_plan(
     vol: float | None = None,
     drift: float = 0.0,
     n_paths: int = 10000,
+    vol_source: str = "options",
 ) -> dict:
     """Compare plans for selling `shares` over the next deadline_days sessions, on the same simulated paths.
 
@@ -551,8 +583,9 @@ def evaluate_sell_plan(
     open); stop_limit (price = stop, limit_price <= stop: triggers at the stop, then rests as a
     limit at limit_price); bracket (take_profit and stop, optional limit_price <= stop; whichever
     hits first). Unfilled shares sell at the deadline close. method: bootstrap (5 years of daily
-    moves) or lognormal; spot, vol (annualized fraction) and drift (annualized fraction) as in
-    price_target_odds. Returns per plan proceeds and vs_sell_now (proceeds minus shares * spot)
+    moves) or lognormal; spot, vol (annualized fraction), vol_source (options or history; used by
+    bootstrap) and drift (annualized fraction) as in price_target_odds; sigma / sigma_source: the
+    vol the method used. Returns per plan proceeds and vs_sell_now (proceeds minus shares * spot)
     percentiles p5..p95, mean and std in currency, and per tranche fill_rate (fraction),
     mean_fill_price and mean_days_to_fill.
     """
@@ -565,6 +598,7 @@ def evaluate_sell_plan(
     _check_drift(drift)
     if method not in METHODS:
         raise ValueError(f"method must be bootstrap or lognormal, got {method!r}")
+    _check_vol_source(vol_source)
     if not plans:
         raise ValueError("plans must hold at least one plan")
     parsed = parse_plans(plans)
@@ -574,11 +608,11 @@ def evaluate_sell_plan(
     spot, spot_source = resolve_spot(provider.quote(symbol), spot)
     pairs = _bootstrap_pairs(provider, symbol, today)
     if method == "bootstrap":
-        sigma, sigma_source = (
-            (vol, "argument") if vol is not None else (_pairs_vol(pairs), "history_5y")
+        sigma, sigma_source = _bootstrap_sigma(
+            provider, symbol, today, vol, vol_source, pairs
         )
         paths = simulate(
-            spot, deadline_days, sigma=vol, pairs=pairs, drift=drift, n_paths=n_paths
+            spot, deadline_days, sigma=sigma, pairs=pairs, drift=drift, n_paths=n_paths
         )
     else:
         sigma, sigma_source = _sigma(provider, symbol, today, vol)
