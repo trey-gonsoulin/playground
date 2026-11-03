@@ -147,11 +147,11 @@ Short-horizon market analysis: quotes, volatility, price-target odds and sell-pl
   - `implied_volatility` summarizes option-implied vol by expiry.
   - `volatility_forecast` gives σ estimates and the default σ.
   - `price_target_odds` estimates the odds of touching or finishing past a price within a horizon.
-  - `evaluate_sell_plan` simulates a sell plan (market, limit, stop, stop-limit, bracket orders) over simulated paths.
+  - `evaluate_sell_plan` simulates a sell plan over simulated paths. Tranche types are `market`, `limit`, `stop_limit` and `bracket` (there is no plain stop; a bracket without `limit_price` has a stop-market leg). A price field the type doesn't use is rejected.
 - **Data:** yfinance only (pinned in `pyproject.toml`). Yahoo may rate-limit or block Lambda IPs; that surfaces as a `DataSourceError` ("retry later").
-- **Spot:** resolved as argument > post-market price if newer than the regular close > pre-market > last. Option IVs are always inverted at the regular-session price (`quote.last`), because option quotes are regular-session.
+- **Spot:** resolved as argument > the newest of the post- and pre-market prices that are later than the regular close > last. Newest wins because Yahoo keeps the previous evening's post price through the next pre-market. With an extended-hours spot, `evaluate_sell_plan` adds a `spot_note`: day-0 market fills are modelled at that price, but a real order fills at the next regular open. Option IVs are always inverted at the regular-session price (`quote.last`), because option quotes are regular-session.
 - **Implied vol:** off-hours chains have bid=ask=0 and junk Yahoo IV, so IV falls back mid > last trade > Yahoo IV, accepted only within [0.01, 3.0].
-- **Default σ:** `options_ex_event` > `options_atm` > `realized_20d`.
+- **Default σ:** `options_ex_event` > `options_atm` > `realized_20d`. Both simulation tools take `vol_source`: `options` (default) rescales the bootstrap to that same σ (or the `vol` argument), so lognormal and bootstrap agree; `history` keeps the 5-year history's own vol (`history_5y`).
 - **Path model (`_paths.py`):**
   - Stationary block bootstrap (mean block 5 days) over 5 y of history, with the overnight/intraday split kept.
   - Highs and lows come from Brownian bridges.
