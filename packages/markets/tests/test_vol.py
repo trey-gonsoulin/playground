@@ -3,8 +3,8 @@ from datetime import date
 import numpy as np
 import pandas as pd
 import pytest
-from fixture_data import fixture_chains, fixture_close, fixture_history, fixture_meta
-from markets._data import DataSourceError, EarningsEvent, Quote
+from fixture_data import FakeProvider, fixture_chains, fixture_close, fixture_meta
+from markets._data import DataSourceError, EarningsEvent
 from markets._vol import (
     atm,
     bs_price,
@@ -213,46 +213,6 @@ def test_realized_vol_matches_hand_calc():
 
 def test_garch_is_positive_and_reasonable():
     assert 0.05 < garch_forecast(fixture_close(), 20) < 1.0
-
-
-class FakeProvider:
-    def __init__(self, with_options=True, expiry_count=None, post_price=None):
-        self.meta = fixture_meta()
-        self.with_options = with_options
-        self.expiry_count = expiry_count
-        self.post_price = post_price
-
-    def history(self, ticker, start, end=None, interval="1d", prepost=False):
-        return fixture_history()
-
-    def quote(self, ticker):
-        stamp = pd.Timestamp("2026-11-02 21:00", tz="UTC").to_pydatetime()
-        return Quote(
-            ticker,
-            "USD",
-            self.meta["spot"],
-            self.meta["spot"],
-            stamp,
-            None,
-            None,
-            self.post_price,
-            None if self.post_price is None else stamp + pd.Timedelta(hours=1),
-            self.meta["dividend_yield"],
-        )
-
-    def earnings(self, ticker, limit=80):
-        return [EarningsEvent(date(2026, 11, 2), "after_close", 1.99, 2.10, 5.75)], None
-
-    def option_expiries(self, ticker):
-        if not self.with_options:
-            return []
-        return [c[0] for c in fixture_chains()][: self.expiry_count]
-
-    def option_chain(self, ticker, expiry):
-        return next((c[1], c[2]) for c in fixture_chains() if c[0] == expiry)
-
-    def rate(self):
-        return self.meta["rate"]
 
 
 def test_default_sigma_prefers_ex_event_options():
