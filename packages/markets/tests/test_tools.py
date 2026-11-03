@@ -2,7 +2,8 @@
 
 import json
 import math
-from datetime import date, datetime
+from dataclasses import replace
+from datetime import date, datetime, timedelta
 
 import pandas as pd
 import pytest
@@ -248,6 +249,39 @@ def test_evaluate_sell_plan_shape():
     sell_now = res["plans"][1]
     assert sell_now["vs_sell_now"]["std"] == pytest.approx(0, abs=1e-9)
     assert res["note"]
+
+
+def test_evaluate_sell_plan_spot_note_for_extended_hours_spot(
+    fake_provider, monkeypatch
+):
+    post = evaluate_sell_plan("AAPL", 10, [SELL_NOW], n_paths=500)
+    assert post["spot_source"] == "post_market"
+    assert "next regular open" in post["spot_note"]
+
+    regular = fake_provider.quote("AAPL")
+    pre_quote = replace(
+        regular,
+        pre_price=331.0,
+        pre_time=regular.regular_time + timedelta(hours=12),
+        post_price=None,
+        post_time=None,
+    )
+    monkeypatch.setattr(fake_provider, "quote", lambda ticker: pre_quote)
+    pre = evaluate_sell_plan("AAPL", 10, [SELL_NOW], n_paths=500)
+    assert pre["spot_source"] == "pre_market"
+    assert "next regular open" in pre["spot_note"]
+
+
+@pytest.mark.parametrize("post_price", [None, "argument"])
+def test_evaluate_sell_plan_no_spot_note_otherwise(fake_provider, post_price):
+    kwargs = {}
+    if post_price is None:
+        fake_provider.post_price = None
+    else:
+        kwargs["spot"] = 340
+    res = evaluate_sell_plan("AAPL", 10, [SELL_NOW], n_paths=500, **kwargs)
+    assert res["spot_source"] in ("last", "argument")
+    assert "spot_note" not in res
 
 
 def test_evaluate_sell_plan_bootstrap_vol_source():
