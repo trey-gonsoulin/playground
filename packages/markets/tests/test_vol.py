@@ -123,11 +123,84 @@ def test_atm_uses_mid_when_quotes_are_good():
     assert res["straddle_mid"] == pytest.approx(call + put)
 
 
-def test_atm_falls_back_on_crossed_quote():
-    res = atm(_chain(0, 0, 0.41), _chain(1.0, 0.5, 0.43), 100, 0.25, 0.04, 0.0)
-    assert res["call_iv"] == pytest.approx(0.41)
-    assert res["put_iv"] == pytest.approx(0.43)
+def test_atm_reports_mid_source():
+    call = bs_price(100, 100, 0.25, 0.04, 0.0, 0.3, call=True)
+    res = atm(
+        _chain(call - 0.05, call + 0.05, 0.9),
+        _chain(call - 0.05, call + 0.05, 0.9),
+        100,
+        0.25,
+        0.04,
+        0.0,
+    )
+    assert res["iv_source"] == "mid"
+
+
+def test_atm_falls_back_on_crossed_quote_to_last_price():
+    call_last = bs_price(100, 100, 0.25, 0.04, 0.0, 0.35, call=True)
+    put_last = bs_price(100, 100, 0.25, 0.04, 0.0, 0.37, call=False)
+    res = atm(
+        _chain(0, 0, 0.9, last=call_last),
+        _chain(1.0, 0.5, 0.9, last=put_last),
+        100,
+        0.25,
+        0.04,
+        0.0,
+    )
+    assert res["call_iv"] == pytest.approx(
+        implied_vol(call_last, 100, 100, 0.25, 0.04, 0.0, call=True)
+    )
+    assert res["call_iv"] == pytest.approx(0.35, abs=1e-6)
+    assert res["put_iv"] == pytest.approx(0.37, abs=1e-6)
+    assert res["iv_source"] == "last"
+    assert res["straddle_mid"] == pytest.approx(call_last + put_last)
+
+
+def test_atm_uses_sane_yahoo_iv_as_last_resort():
+    res = atm(_chain(0, 0, 0.41), _chain(0, 0, 0.43), 100, 0.25, 0.04, 0.0)
     assert res["iv"] == pytest.approx(0.42)
+    assert res["iv_source"] == "yahoo"
+    assert res["straddle_mid"] is None
+
+
+def test_atm_drops_side_with_junk_yahoo_iv():
+    put_last = bs_price(100, 100, 0.25, 0.04, 0.0, 0.37, call=False)
+    res = atm(
+        _chain(0, 0, 1e-5),
+        _chain(0, 0, 1e-5, last=put_last),
+        100,
+        0.25,
+        0.04,
+        0.0,
+    )
+    assert res["call_iv"] is None
+    assert res["iv"] == pytest.approx(0.37, abs=1e-6)
+
+
+def test_atm_tries_next_nearest_strike_when_both_sides_unusable():
+    dead = _chain(0, 0, 1e-5)
+    good = _chain(0, 0, 0.4)
+    good["strike"] = 110.0
+    both = pd.concat([dead, good], ignore_index=True)
+    res = atm(both, both, 100, 0.25, 0.04, 0.0)
+    assert res["strike"] == 110.0
+    assert res["iv"] == pytest.approx(0.4)
+
+
+def test_atm_none_when_nothing_usable():
+    res = atm(_chain(0, 0, 1e-5), _chain(0, 0, 1e-5), 100, 0.25, 0.04, 0.0)
+    assert res["iv"] is None
+    assert res["iv_source"] is None
+
+
+def test_term_structure_skips_expiry_without_usable_iv():
+    chains = fixture_chains()
+    junk = _chain(0, 0, 1e-5)
+    skipped = [(chains[0][0], junk, junk), *chains[1:]]
+    ts = _term_structure(None, skipped)
+    assert [e["expiry"] for e in ts["expiries"]] == [c[0] for c in chains[1:]]
+    nonoverlap = [(chains[0][0], junk, _chain(0, 0, 1e-5).assign(strike=105.0))]
+    assert _term_structure(None, nonoverlap)["expiries"] == []
 
 
 def test_realized_vol_matches_hand_calc():
