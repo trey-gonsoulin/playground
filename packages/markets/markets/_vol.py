@@ -60,6 +60,13 @@ def implied_vol(
     return float(brentq(gap, low, high, xtol=1e-10))
 
 
+SOURCES = ("mid", "last", "yahoo")  # strongest to weakest
+YAHOO_IV_RANGE = (
+    0.01,
+    3.0,
+)  # outside this, Yahoo's column is a placeholder, not a quote
+
+
 def _side(
     chain: pd.DataFrame,
     strike: float,
@@ -68,16 +75,26 @@ def _side(
     rate: float,
     div_yield: float,
     call: bool,
-) -> tuple[float | None, float | None]:
-    """(iv, mid) of one option: IV from the bid/ask mid, else Yahoo's impliedVolatility column."""
+) -> tuple[float, float | None, str] | None:
+    """(iv, price, source) of one option, or None when no source gives a usable IV.
+
+    Sources, in order: the bid/ask mid, the last trade price, Yahoo's own
+    impliedVolatility (only inside [0.01, 3.0]; it has no price).
+    """
     row = chain.loc[chain["strike"] == strike].iloc[0]
+    candidates = []
     if row["bid"] > 0 and row["ask"] > row["bid"]:
-        mid = float((row["bid"] + row["ask"]) / 2)
-        iv = implied_vol(mid, spot, strike, years, rate, div_yield, call)
+        candidates.append(("mid", float((row["bid"] + row["ask"]) / 2)))
+    if row["lastPrice"] > 0:
+        candidates.append(("last", float(row["lastPrice"])))
+    for source, price in candidates:
+        iv = implied_vol(price, spot, strike, years, rate, div_yield, call)
         if iv is not None:
-            return iv, mid
-        return float(row["impliedVolatility"]), mid
-    return float(row["impliedVolatility"]), None
+            return iv, price, source
+    yahoo = float(row["impliedVolatility"])
+    if YAHOO_IV_RANGE[0] <= yahoo <= YAHOO_IV_RANGE[1]:
+        return yahoo, None, "yahoo"
+    return None
 
 
 def atm(
@@ -88,22 +105,36 @@ def atm(
     rate: float,
     div_yield: float,
 ) -> dict:
-    """The at-the-money straddle: the strike nearest spot that lists both a call and a put."""
+    """The at-the-money straddle: the nearest common strike where a call or put has a usable IV.
+
+    `iv_source` is the weakest source of the sides used and `straddle_mid` sums
+    their prices. Everything is None when no common strike has a usable side.
+    """
     strikes = np.intersect1d(calls["strike"].to_numpy(), puts["strike"].to_numpy())
-    if strikes.size == 0:
-        raise ValueError("calls and puts share no strike")
-    strike = float(strikes[np.abs(strikes - spot).argmin()])
-    call_iv, call_mid = _side(calls, strike, spot, years, rate, div_yield, True)
-    put_iv, put_mid = _side(puts, strike, spot, years, rate, div_yield, False)
-    straddle = (
-        call_mid + put_mid if call_mid is not None and put_mid is not None else None
-    )
+    for nearest in strikes[np.argsort(np.abs(strikes - spot), kind="stable")]:
+        strike = float(nearest)
+        call = _side(calls, strike, spot, years, rate, div_yield, True)
+        put = _side(puts, strike, spot, years, rate, div_yield, False)
+        sides = [side for side in (call, put) if side is not None]
+        if not sides:
+            continue
+        prices = [side[1] for side in sides]
+        both = len(sides) == 2 and None not in prices
+        return {
+            "strike": strike,
+            "iv": sum(side[0] for side in sides) / len(sides),
+            "call_iv": call[0] if call else None,
+            "put_iv": put[0] if put else None,
+            "straddle_mid": sum(prices) if both else None,
+            "iv_source": max((side[2] for side in sides), key=SOURCES.index),
+        }
     return {
-        "strike": strike,
-        "iv": (call_iv + put_iv) / 2,
-        "call_iv": call_iv,
-        "put_iv": put_iv,
-        "straddle_mid": straddle,
+        "strike": None,
+        "iv": None,
+        "call_iv": None,
+        "put_iv": None,
+        "straddle_mid": None,
+        "iv_source": None,
     }
 
 
@@ -140,6 +171,8 @@ def term_structure(
             continue
         years = days / 365
         mid = atm(calls, puts, spot, years, rate, div_yield)
+        if mid["iv"] is None:
+            continue
         straddle = mid["straddle_mid"]
         expiries.append(
             {
