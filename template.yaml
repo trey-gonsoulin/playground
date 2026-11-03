@@ -102,6 +102,44 @@ Resources:
       DockerContext: .
       Dockerfile: packages/genealogy/Dockerfile
 
+  # ---------------------------------------------------------------------------
+  # Markets — short-horizon market analysis (yfinance data, no state)
+  # ---------------------------------------------------------------------------
+
+  MarketsHttpApi:
+    Type: AWS::Serverless::HttpApi
+
+  # No auth for now (like genealogy): claude.ai connectors can't send a static
+  # bearer header. The app enforces one if MARKETS_MCP_SECRET is set.
+  MarketsMcpFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      PackageType: Image
+      # Just under the HTTP API's 30 s limit (see GenealogyMcpFunction).
+      Timeout: 29
+      MemorySize: 1024
+      Environment:
+        Variables:
+          # /tmp is the only writable path; yfinance keeps its caches under HOME.
+          HOME: /tmp
+      Events:
+        Root:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MarketsHttpApi
+            Path: /
+            Method: ANY
+        Proxy:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MarketsHttpApi
+            Path: /{proxy+}
+            Method: ANY
+    Metadata:
+      DockerTag: latest
+      DockerContext: .
+      Dockerfile: packages/markets/Dockerfile
+
 Outputs:
   YnabMcpApiUrl:
     Description: YNAB MCP HTTP API endpoint URL (MCP server at /mcp)
@@ -114,3 +152,7 @@ Outputs:
   GenealogyBucketName:
     Description: S3 bucket holding family trees (tree.json, tree.ged, resources/)
     Value: !Ref GenealogyBucket
+
+  MarketsMcpApiUrl:
+    Description: Markets MCP HTTP API endpoint URL (MCP server at /mcp)
+    Value: !Sub "https://${MarketsHttpApi}.execute-api.${AWS::Region}.amazonaws.com"
