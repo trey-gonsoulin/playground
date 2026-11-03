@@ -1,8 +1,12 @@
 """Closed-form lognormal (geometric Brownian motion) odds of reaching or finishing beyond a price level."""
 
 import math
+from typing import TYPE_CHECKING
 
 from scipy.stats import norm
+
+if TYPE_CHECKING:
+    from markets._paths import Paths
 
 TRADING_DAYS_PER_YEAR = 252
 _MIN_STDEV = 1e-12
@@ -55,11 +59,37 @@ def lognormal_odds(
     """Touch and terminal odds for each level over `days` trading days (252 per year)."""
     years = days / TRADING_DAYS_PER_YEAR
     return [
-        {
-            "level": level,
-            "pct_from_spot": round((level / spot - 1) * 100, 2),
-            "touch": touch_probability(spot, level, sigma, years, drift),
-            "close_beyond": close_beyond_probability(spot, level, sigma, years, drift),
-        }
+        _row(
+            spot,
+            level,
+            touch_probability(spot, level, sigma, years, drift),
+            close_beyond_probability(spot, level, sigma, years, drift),
+        )
         for level in levels
     ]
+
+
+def bootstrap_odds(paths: "Paths", levels: list[float]) -> list[dict]:
+    """Touch and terminal odds for each level as the share of simulated paths that reach or finish beyond it."""
+    highest = paths.high.max(axis=1)
+    lowest = paths.low.min(axis=1)
+    final = paths.close[:, -1]
+    rows = []
+    for level in levels:
+        if level > paths.spot:
+            touch, beyond = (highest >= level).mean(), (final >= level).mean()
+        elif level < paths.spot:
+            touch, beyond = (lowest <= level).mean(), (final <= level).mean()
+        else:
+            touch = beyond = 1.0
+        rows.append(_row(paths.spot, level, float(touch), float(beyond)))
+    return rows
+
+
+def _row(spot: float, level: float, touch: float, close_beyond: float) -> dict:
+    return {
+        "level": level,
+        "pct_from_spot": round((level / spot - 1) * 100, 2),
+        "touch": touch,
+        "close_beyond": close_beyond,
+    }
