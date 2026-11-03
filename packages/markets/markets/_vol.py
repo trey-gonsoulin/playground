@@ -9,7 +9,7 @@ from arch import arch_model
 from scipy.optimize import brentq
 from scipy.stats import norm
 
-from markets._data import EarningsEvent, MarketData, resolve_spot
+from markets._data import EarningsEvent, MarketData
 from markets._odds import TRADING_DAYS_PER_YEAR
 
 IV_BOUNDS = (1e-4, 5.0)
@@ -164,6 +164,12 @@ def term_structure(
     div_yield: float,
     event: date | None,
 ) -> dict:
+    """ATM IV, straddle and forward vols per expiry.
+
+    `spot` must be the regular-session price matching the option quotes, not a
+    post- or pre-market price: inverting last-trade prices at a moved spot gives
+    wrong IVs.
+    """
     expiries = []
     for expiry, calls, puts in chains:
         days = (expiry - today).days
@@ -246,7 +252,6 @@ def default_sigma(provider: MarketData, ticker: str, today: date) -> tuple[float
     expiries = provider.option_expiries(ticker)
     if expiries:
         quote = provider.quote(ticker)
-        spot, _ = resolve_spot(quote)
         events, nxt = provider.earnings(ticker)
         chains = []
         for expiry in expiries:
@@ -256,7 +261,7 @@ def default_sigma(provider: MarketData, ticker: str, today: date) -> tuple[float
                 break
         ts = term_structure(
             chains,
-            spot,
+            quote.last,  # the regular-session price the option quotes were struck at
             today,
             provider.rate(),
             quote.dividend_yield,
