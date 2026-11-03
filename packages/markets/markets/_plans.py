@@ -44,6 +44,10 @@ PRICE_FIELDS = ("price", "limit_price", "take_profit", "stop")
 TRANCHE_FIELDS = {f.name for f in fields(Tranche)}
 
 
+def _is_number(value: object) -> bool:
+    return isinstance(value, int | float) and not isinstance(value, bool)
+
+
 def _parse_tranche(raw: dict) -> Tranche:
     unknown = set(raw) - TRANCHE_FIELDS
     if unknown:
@@ -53,16 +57,16 @@ def _parse_tranche(raw: dict) -> Tranche:
         raise ValueError(
             f"tranche type must be one of {', '.join(REQUIRED)}, got {kind!r}"
         )
-    fraction = raw.get("fraction")
-    if fraction is None or not fraction > 0:
-        raise ValueError(f"tranche fraction must be positive, got {fraction!r}")
     for name in REQUIRED[kind]:
         if raw.get(name) is None:
             raise ValueError(f"{kind} tranche needs {name}")
-    for name in PRICE_FIELDS:
+    for name in ("fraction", *PRICE_FIELDS):
         value = raw.get(name)
-        if value is not None and not value > 0:
-            raise ValueError(f"{name} must be positive, got {value!r}")
+        if value is None and name != "fraction":
+            continue
+        if not _is_number(value) or not value > 0:
+            raise ValueError(f"{name} must be a positive number, got {value!r}")
+    fraction = raw["fraction"]
     t = Tranche(**{**raw, "fraction": float(fraction)})
     if kind == "stop_limit" and t.limit_price > t.price:
         raise ValueError("stop_limit limit_price must be at most price (the stop)")
@@ -98,23 +102,23 @@ def parse_plans(raw: list[dict]) -> list[Plan]:
 
 
 def _fills(t: Tranche, paths: Paths) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Per path: (sale price, filled, 1-based session of the fill). Unfilled paths sell at the last close."""
+    """Per path: (sale price, filled, 1-based session of the fill, 0 = now). Unfilled paths sell at the last close."""
     n_paths, days = paths.open.shape
-    if t.type == "market":
-        return (
-            np.full(n_paths, paths.spot),
-            np.ones(n_paths, dtype=bool),
-            np.zeros(n_paths),
-        )
+    spot = paths.spot
     # Every order type as: sell above `up`, trigger below `down`, then rest as a limit at `rest`.
-    up = {"limit": t.price, "bracket": t.take_profit}.get(t.type) or math.inf
+    up = {"market": -math.inf, "limit": t.price, "bracket": t.take_profit}.get(
+        t.type
+    ) or math.inf
     down = {"stop_limit": t.price, "bracket": t.stop}.get(t.type) or -math.inf
     rest = t.limit_price if t.limit_price is not None else -math.inf
 
+    # Marketable at submission: fills at spot on day 0, or a triggered stop rests from session 1.
+    if spot >= up or (spot <= down and spot >= rest):
+        return np.full(n_paths, spot), np.ones(n_paths, dtype=bool), np.zeros(n_paths)
     price = paths.close[:, -1].copy()
     filled = np.zeros(n_paths, dtype=bool)
     day = np.zeros(n_paths)
-    resting = np.zeros(n_paths, dtype=bool)
+    resting = np.full(n_paths, spot <= down)
     for d in range(days):
         o, h, lo = paths.open[:, d], paths.high[:, d], paths.low[:, d]
         waiting = ~filled & ~resting
