@@ -2,7 +2,7 @@
 
 import json
 import math
-from datetime import datetime
+from datetime import date, datetime
 
 import pandas as pd
 import pytest
@@ -11,6 +11,8 @@ from markets._data import CHAIN_COLUMNS, DataSourceError
 from markets._vol import realized_vol
 from markets.mcp_server import (
     MAX_BARS,
+    _bootstrap_pairs,
+    _pairs_vol,
     earnings_event_study,
     evaluate_sell_plan,
     implied_volatility,
@@ -160,18 +162,30 @@ def test_volatility_forecast_degrades_when_option_quotes_unusable(
         implied_volatility("AAPL")
 
 
-def test_price_target_odds_both_methods_agree_roughly():
-    res = price_target_odds("AAPL", [342, 350, 310], days=20)
+def test_price_target_odds_both_methods_agree_by_default():
+    spot = META["spot_after_hours"]
+    levels = [round(spot * 1.1, 2), round(spot * 0.9, 2)]
+    res = price_target_odds("AAPL", levels, days=20)
     _check_envelope(res)
     rows = res["levels"]
-    assert all(abs(r["touch_lognormal"] - r["touch_bootstrap"]) < 0.12 for r in rows)
-    assert (res["spot"], res["spot_source"]) == (
-        META["spot_after_hours"],
-        "post_market",
-    )
+    assert all(abs(r["touch_lognormal"] - r["touch_bootstrap"]) < 0.03 for r in rows)
+    assert (res["spot"], res["spot_source"]) == (spot, "post_market")
     assert res["sigma_source"] == "options_ex_event"
-    assert res["bootstrap"]["sigma_source"] == "history_5y"
-    assert 0 < res["bootstrap"]["overnight_share"] < 1
+    boot = res["bootstrap"]
+    assert (boot["sigma"], boot["sigma_source"]) == (res["sigma"], res["sigma_source"])
+    assert 0 < boot["overnight_share"] < 1
+
+
+def test_price_target_odds_history_vol_source_keeps_history_vol():
+    res = price_target_odds("AAPL", [350], vol_source="history")
+    assert res["sigma_source"] == "options_ex_event"
+    boot = res["bootstrap"]
+    assert boot["sigma_source"] == "history_5y"
+    history_vol = _pairs_vol(
+        _bootstrap_pairs(FakeProvider(), "AAPL", date(2026, 11, 2))
+    )
+    assert boot["sigma"] == pytest.approx(history_vol)
+    assert boot["sigma"] != pytest.approx(res["sigma"], rel=0.01)
 
 
 def test_price_target_odds_vol_argument_rescales_bootstrap():
@@ -198,7 +212,9 @@ def test_price_target_odds_single_method_columns():
         "touch_bootstrap",
         "close_beyond_bootstrap",
     }
-    assert res["sigma_source"] == "history_5y"
+    assert res["sigma_source"] == "options_ex_event"
+    history = price_target_odds("AAPL", [350], method="bootstrap", vol_source="history")
+    assert history["sigma_source"] == "history_5y"
 
 
 @pytest.mark.parametrize(
@@ -214,6 +230,7 @@ def test_price_target_odds_single_method_columns():
         ({"n_paths": 0}, "n_paths"),
         ({"drift": math.nan}, "drift"),
         ({"method": "magic"}, "method"),
+        ({"vol_source": "implied"}, "vol_source"),
         ({"days": 300, "n_paths": 10000}, "2,000,000"),
     ],
 )
@@ -231,6 +248,20 @@ def test_evaluate_sell_plan_shape():
     sell_now = res["plans"][1]
     assert sell_now["vs_sell_now"]["std"] == pytest.approx(0, abs=1e-9)
     assert res["note"]
+
+
+def test_evaluate_sell_plan_bootstrap_vol_source():
+    default = evaluate_sell_plan("AAPL", 10, [SELL_NOW], n_paths=500)
+    assert default["sigma_source"] == "options_ex_event"
+    lognormal = evaluate_sell_plan(
+        "AAPL", 10, [SELL_NOW], method="lognormal", n_paths=500
+    )
+    assert default["sigma"] == lognormal["sigma"]
+    history = evaluate_sell_plan(
+        "AAPL", 10, [SELL_NOW], n_paths=500, vol_source="history"
+    )
+    assert history["sigma_source"] == "history_5y"
+    assert history["sigma"] != pytest.approx(default["sigma"], rel=0.01)
 
 
 def test_evaluate_sell_plan_lognormal_uses_default_sigma():
@@ -254,6 +285,7 @@ def test_evaluate_sell_plan_lognormal_uses_default_sigma():
             "sum to 1",
         ),
         ({"plans": []}, "plans"),
+        ({"vol_source": "implied"}, "vol_source"),
     ],
 )
 def test_evaluate_sell_plan_validation(kwargs, match):
