@@ -20,6 +20,8 @@ REQUIRED = {
     "stop_limit": ("price", "limit_price"),
     "bracket": ("take_profit", "stop"),
 }
+# Price fields each type reads: the required ones plus bracket's optional limit_price.
+ALLOWED = REQUIRED | {"bracket": ("take_profit", "stop", "limit_price")}
 
 
 @dataclass(frozen=True)
@@ -60,6 +62,9 @@ def _parse_tranche(raw: dict) -> Tranche:
     for name in REQUIRED[kind]:
         if raw.get(name) is None:
             raise ValueError(f"{kind} tranche needs {name}")
+    for name in PRICE_FIELDS:
+        if raw.get(name) is not None and name not in ALLOWED[kind]:
+            raise ValueError(f"{kind} tranche does not use {name}")
     for name in ("fraction", *PRICE_FIELDS):
         value = raw.get(name)
         if value is None and name != "fraction":
@@ -83,6 +88,7 @@ def parse_plans(raw: list[dict]) -> list[Plan]:
 
     `limit` needs `price`; `stop_limit` needs `price` (the stop) and `limit_price` ≤ stop; `bracket` needs
     `take_profit` > `stop`, with an optional `limit_price` ≤ stop (without it, the stop leg is a stop-market).
+    `market` takes no price, and a price field the type doesn't use is rejected.
     """
     plans = []
     for p in raw:

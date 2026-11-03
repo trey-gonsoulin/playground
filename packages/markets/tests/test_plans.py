@@ -262,6 +262,34 @@ def test_fractions_must_sum_to_one():
         ({"fraction": 1, "type": "limit", "price": 0}, "positive"),
         ({"fraction": 1, "type": "limit", "price": 105, "colour": "red"}, "colour"),
         ({"fraction": 0, "type": "market"}, "fraction"),
+        (
+            {"fraction": 1, "type": "limit", "price": 345, "stop": 315},
+            "limit tranche does not use stop",
+        ),
+        (
+            {"fraction": 1, "type": "market", "price": 345},
+            "market tranche does not use price",
+        ),
+        (
+            {
+                "fraction": 1,
+                "type": "stop_limit",
+                "price": 95,
+                "limit_price": 94,
+                "take_profit": 110,
+            },
+            "stop_limit tranche does not use take_profit",
+        ),
+        (
+            {
+                "fraction": 1,
+                "type": "bracket",
+                "take_profit": 110,
+                "stop": 95,
+                "price": 100,
+            },
+            "bracket tranche does not use price",
+        ),
     ],
 )
 def test_invalid_tranches_rejected(tranche, match):
