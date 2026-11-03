@@ -269,6 +269,94 @@ def test_invalid_tranches_rejected(tranche, match):
         parse_plans([{"name": "p", "tranches": [tranche]}])
 
 
+@pytest.mark.parametrize("price", [100, 95])
+def test_limit_at_spot_fills_on_day_zero(price):
+    plan = evaluate(FLAT, {"fraction": 1, "type": "limit", "price": price})
+    assert plan["proceeds"]["mean"] == 1000.0
+    assert plan["tranches"] == [
+        {
+            "type": "limit",
+            "fill_rate": 1.0,
+            "mean_fill_price": 100.0,
+            "mean_days_to_fill": 0.0,
+        }
+    ]
+
+
+def test_stop_limit_at_or_above_spot_triggers_on_submission():
+    # stop 100 >= spot and spot >= limit 98 -> fills at spot on day 0
+    plan = evaluate(
+        FLAT, {"fraction": 1, "type": "stop_limit", "price": 100, "limit_price": 98}
+    )
+    assert plan["tranches"][0] == {
+        "type": "stop_limit",
+        "fill_rate": 1.0,
+        "mean_fill_price": 100.0,
+        "mean_days_to_fill": 0.0,
+    }
+    # stop 101 >= spot but spot < limit 100.5 -> rests; session 1 high 101 -> fills 100.5
+    plan = evaluate(
+        FLAT, {"fraction": 1, "type": "stop_limit", "price": 101, "limit_price": 100.5}
+    )
+    assert plan["tranches"][0]["mean_fill_price"] == 100.5
+    assert plan["tranches"][0]["mean_days_to_fill"] == 1.0
+
+
+@pytest.mark.parametrize(
+    "tranche",
+    [
+        {"fraction": 1, "type": "bracket", "take_profit": 100, "stop": 95},
+        {"fraction": 1, "type": "bracket", "take_profit": 110, "stop": 102},
+        {
+            "fraction": 1,
+            "type": "bracket",
+            "take_profit": 110,
+            "stop": 102,
+            "limit_price": 99,
+        },
+    ],
+)
+def test_bracket_marketable_on_submission_fills_at_spot(tranche):
+    plan = evaluate(FLAT, tranche)
+    assert plan["tranches"][0] == {
+        "type": "bracket",
+        "fill_rate": 1.0,
+        "mean_fill_price": 100.0,
+        "mean_days_to_fill": 0.0,
+    }
+
+
+def test_bracket_stop_above_spot_below_limit_rests_from_session_one():
+    tranche = {
+        "fraction": 1,
+        "type": "bracket",
+        "take_profit": 110,
+        "stop": 102,
+        "limit_price": 101,
+    }
+    plan = evaluate(FLAT, tranche)
+    assert plan["tranches"][0]["mean_fill_price"] == 101.0
+    assert plan["tranches"][0]["mean_days_to_fill"] == 1.0
+
+
+@pytest.mark.parametrize(
+    ("tranche", "match"),
+    [
+        ({"fraction": "0.5", "type": "market"}, "fraction"),
+        ({"fraction": True, "type": "market"}, "fraction"),
+        ({"fraction": 1, "type": "limit", "price": "105"}, "price"),
+        (
+            {"fraction": 1, "type": "stop_limit", "price": 95, "limit_price": [93]},
+            "limit_price",
+        ),
+        ({"fraction": 1, "type": "limit", "price": float("nan")}, "price"),
+    ],
+)
+def test_non_numeric_values_rejected(tranche, match):
+    with pytest.raises(ValueError, match=match):
+        parse_plans([{"name": "p", "tranches": [tranche]}])
+
+
 def test_plan_needs_a_name_and_tranches():
     with pytest.raises(ValueError, match="name"):
         parse_plans([{"tranches": [{"fraction": 1, "type": "market"}]}])
