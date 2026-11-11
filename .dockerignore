@@ -8,4 +8,5 @@
 !packages/ynab-mcp/ynab_mcp
 !packages/markets/markets
 !packages/mcp-lambda/mcp_lambda
+!packages/vault-mcp/vault_mcp
 **/__pycache__

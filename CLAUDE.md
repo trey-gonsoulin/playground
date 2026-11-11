@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Goal
 
-This repo is a collection of personal MCP servers deployed to AWS Lambda and integrated with Claude Desktop / Claude iOS. Each MCP is its own package under `packages/`, following the same structure as `~/code/hoshi` (the reference implementation). The root `pyproject.toml` is a **uv workspace** with one member per MCP package. The exception is `vault-mcp`, a long-running server on its own EC2 box (see Packages).
+This repo is a collection of personal MCP servers deployed to AWS Lambda and integrated with Claude Desktop / Claude iOS. Each MCP is its own package under `packages/`, following the same structure as `~/code/hoshi` (the reference implementation). The root `pyproject.toml` is a **uv workspace** with one member per MCP package. `vault-mcp` also runs a server on an on-demand EC2 box behind its Lambda (see Packages).
 
 ## Architecture pattern
 
@@ -164,8 +164,30 @@ Short-horizon market analysis: quotes, volatility, price-target odds and sell-pl
 
 ### vault-mcp (`packages/vault-mcp/`)
 
-The Obsidian vault as a claude.ai custom connector. Unlike the other packages it is **not a Lambda**. It is a uvicorn server on an always-on EC2 box (stack `obsidian-vault`, `deploy/template.yaml`) next to the real Obsidian app running headless under Xvfb with Obsidian Sync. It's reached only through a Cloudflare named tunnel. `packages/vault-mcp/README.md` is the runbook.
+The Obsidian vault as a claude.ai custom connector, in its own SAM stack `obsidian-vault` (`deploy/template.yaml`, `deploy/samconfig.toml`). It's on demand, following the soulsearch pattern. `packages/vault-mcp/README.md` is the runbook.
 
+- **Two halves of one package:**
+  - **Lambda front end** (`proxy.py`, image from `packages/vault-mcp/Dockerfile`): an always-on stable API Gateway URL.
+    - It lists the box's tools by wrapping the same functions (`_forward`), so the schemas can't drift.
+    - It forwards `tools/call` to the box over HTTPS on 8443 and adds `start_vault` and `health`.
+    - A call while the box is stopped runs `StartInstances` and returns a "starting, call start_vault()" `ToolError`.
+  - **The box** (EC2 t4g.small) runs the real Obsidian app under Xvfb with Obsidian Sync, plus `vault-mcp` (`app.py`/`main.py`) as a uv tool.
+- **Lambda to box:** the same as soulsearch.
+  - No VPC. The public DNS name is cached per container and forgotten on connection errors.
+  - The box makes its own CA in `install.sh` and publishes it to SSM `/obsidian-vault/ca-cert`. The Lambda pins it and checks the chain but not the hostname.
+  - The bearer token (SSM SecureString `/obsidian-vault/mcp-token`) is the same at both hops. Both apps fail closed without it.
+- **Readiness** (`_ready.py`): after a start, the box's tools refuse calls (`VAULT_REQUIRE_READY`) until Sync has caught up:
+  - the app is running;
+  - the Sync plugin's status, read with CLI `eval` (undocumented), isn't in `VAULT_SYNC_BUSY`;
+  - the vault has been quiet for 30 s by ctime;
+  - uptime is at least 60 s.
+
+  Once ready it latches; after 10 min it serves anyway.
+- **Idle stop:** `deploy/server/bin/vault-idle-stop` (a root timer, every 5 min) powers off after `VAULT_IDLE_MINUTES` (30) with no authenticated MCP request.
+  - Activity is the mtime of `last_activity`, touched by `app.py` on non-401 `/mcp` requests.
+  - It waits for `/readyz` `settled`, so Claude's edits upload first, and takes a `vault-snapshot` before stopping.
+  - `InstanceInitiatedShutdownBehavior: stop`. A `hold` file (set by `vault-vnc`) keeps the box up.
+- **No S3 backups:** Sync history plus the devices are the backup. `vault-snapshot` is a local git repo outside the vault, committed before bulk edits and idle stops.
 - **Backends:**
   - The official Obsidian CLI (`obsidian-cli`) handles search, move/rename (link rewriting), delete (to trash), tasks and creating today's daily note.
   - Everything else, and every CLI action while the app is down, uses the files directly.
@@ -177,18 +199,17 @@ The Obsidian vault as a claude.ai custom connector. Unlike the other packages it
 - **Vault Guide rules are enforced in the write tools:**
   - New notes go to `_Inbox` with `type`/`status`/`created`, and `type`/`status`/`source` vocabulary is checked.
   - A rename adds the old title to `aliases`.
-  - Body edits keep the frontmatter byte-exact, and `updated` is never touched.
+  - `updated` is never touched.
+- **Frontmatter** (`_notes.py`): read with `yaml.BaseLoader`, so scalars stay text. `set_properties` rewrites only the changed keys' lines; the rest of the block stays byte-exact.
 - **Safety:**
   - `Vault.resolve` keeps paths in the vault (no `..`, absolute paths or symlinks out; no writes in `.obsidian`/`.trash`/`.git`).
-  - Nothing is deleted permanently.
-  - Bulk edits are dry-run first, and every write is audit-logged (JSON lines).
-  - `VAULT_MCP_READONLY=1` unregisters the write tools.
-- **Auth:** fails closed. The app refuses to start without `VAULT_MCP_TOKEN` (SSM SecureString `/obsidian-vault/mcp-token`), and the connector sends it as a request header.
-- **Frontmatter:** PyYAML with the timestamp resolver removed, so dates stay strings and round-trip unquoted.
-- **Deploy:** `deploy/deploy.sh` runs over SSM only; the box has no inbound ports.
-  - `infra` creates a change set, which you review and execute.
-  - `push` builds the `vault-mcp` + `mcp-lambda` wheels and runs `deploy/server/install.sh` on the box.
-  - The AMI is pinned at first deploy. The instance, volume and bucket are `Retain`.
+  - Writes are serialized (`_WRITE_LOCK`), and `write_text(expect=...)` refuses if the file changed since it was read.
+  - Nothing is deleted permanently. Bulk edits are dry-run first, and every write is audit-logged.
+  - SSM `readonly` unregisters the write tools on both halves.
+- **Deploy** (`deploy/deploy.sh`):
+  - `infra` creates the ECR repo if needed, runs `sam build`, and creates a change set with `--no-execute-changeset` for you to review.
+  - `push` starts the box if needed, builds the wheels, and runs `deploy/server/install.sh` over SSM (no SSH).
+  - The AMI is pinned in `samconfig.toml`. The instance is `Retain`, and its volume `DeleteOnTermination: false`. Never run `sam delete`.
 
 ### Elden Ring (moved to soulsearch)
 

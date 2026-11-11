@@ -1,26 +1,26 @@
 #!/bin/bash
-# Every 2 minutes (vault-healthcheck.timer): ask vault-mcp's /healthz locally
-# (app + CLI + vault) and, when VAULT_PUBLIC_URL is set, through the tunnel.
-# Sends one SNS alert once something has been down for 10 minutes, and one
-# when it recovers. (A dead box is covered by the CloudWatch status alarms.)
+# Every 2 minutes while the box is up (vault-healthcheck.timer): ask vault-mcp's
+# /healthz (app + CLI + vault). Being stopped is normal for this on-demand box,
+# so this only covers "running but broken": one SNS alert once a problem has
+# lasted 10 minutes, one on recovery. (A wedged box is the CloudWatch alarms' job.)
 set -uo pipefail
 
 : "${VAULT_MCP_TOKEN:?}" "${VAULT_TOPIC_ARN:?}" "${AWS_REGION:?}"
 AWS=${AWS:-/snap/bin/aws}
 STATE="$HOME/.local/state/vault-mcp"
 mkdir -p "$STATE"
-auth="Authorization: Bearer $VAULT_MCP_TOKEN"
-problems=()
 
-if body=$(curl -fsS -m 30 -H "$auth" "http://127.0.0.1:${VAULT_MCP_PORT:-8765}/healthz"); then
+# Startup (boot, Obsidian, Sync catching up) is not a failure.
+(($(cut -d. -f1 /proc/uptime) >= 900)) || exit 0
+
+problems=()
+if body=$(curl -fsS -m 30 --cacert /etc/vault-mcp/ca.pem -H "Authorization: Bearer $VAULT_MCP_TOKEN" \
+  "https://localhost:${VAULT_MCP_PORT:-8443}/healthz"); then
   if [ "$(jq -r .ok <<<"$body")" != "true" ]; then
-    problems+=("Obsidian app/CLI: $(jq -c '{app_running, cli, vault_found}' <<<"$body")")
+    problems+=("Obsidian app/CLI: $(jq -c '{app_running, cli, vault_found, sync}' <<<"$body")")
   fi
 else
-  problems+=("vault-mcp is not answering on 127.0.0.1")
-fi
-if [ -n "${VAULT_PUBLIC_URL:-}" ] && ! curl -fsS -m 30 -o /dev/null -H "$auth" "$VAULT_PUBLIC_URL/healthz"; then
-  problems+=("tunnel: $VAULT_PUBLIC_URL/healthz is unreachable")
+  problems+=("vault-mcp is not answering on localhost:${VAULT_MCP_PORT:-8443}")
 fi
 
 publish() {
@@ -34,10 +34,10 @@ if ((${#problems[@]})); then
   [ -f "$STATE/down_since" ] || echo "$now" >"$STATE/down_since"
   since=$(cat "$STATE/down_since")
   if ((now - since >= 600)) && [ ! -f "$STATE/alerted" ]; then
-    publish "Obsidian vault server DOWN" "Down since $(date -d "@$since"):
+    publish "Obsidian vault server unhealthy" "Unhealthy since $(date -d "@$since"):
 $(printf ' - %s\n' "${problems[@]}")
 
-Logs: journalctl --user -u obsidian -u vault-mcp (as obsidian), journalctl -u cloudflared"
+Logs: deploy.sh logs"
     touch "$STATE/alerted"
   fi
   exit 1

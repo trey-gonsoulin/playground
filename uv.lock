@@ -1723,7 +1723,10 @@ name = "vault-mcp"
 version = "0.1.0"
 source = { editable = "packages/vault-mcp" }
 dependencies = [
+    { name = "boto3" },
     { name = "fastapi" },
+    { name = "httpx" },
+    { name = "mangum" },
     { name = "mcp" },
     { name = "mcp-lambda" },
     { name = "pyyaml" },
@@ -1737,7 +1740,10 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "boto3", specifier = ">=1.43.89" },
     { name = "fastapi", specifier = ">=0.115" },
+    { name = "httpx", specifier = ">=0.28.1" },
+    { name = "mangum", specifier = ">=0.21.0" },
     { name = "mcp", specifier = ">=2.3,<3" },
     { name = "mcp-lambda", editable = "packages/mcp-lambda" },
     { name = "pyyaml", specifier = ">=6.0" },

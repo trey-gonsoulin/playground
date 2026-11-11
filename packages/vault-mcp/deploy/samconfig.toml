@@ -1,0 +1,26 @@
+# SAM CLI configuration for the obsidian-vault stack (packages/vault-mcp).
+# Deploy with deploy.sh (a reviewed change set; see packages/vault-mcp/README.md):
+#   ./deploy.sh infra    # sam build + sam deploy --no-execute-changeset
+#
+# ImageId is pinned on purpose: a different AMI would replace the instance.
+# Never run `sam delete` (the instance and its volume are Retain, but the
+# Lambda, API and alarms would go).
+
+version = 0.1
+
+[default.global.parameters]
+stack_name = "obsidian-vault"
+region = "us-east-1"
+profile = "personal"
+
+[default.build.parameters]
+cached = true
+
+[default.deploy.parameters]
+capabilities = "CAPABILITY_IAM"
+confirm_changeset = true
+resolve_s3 = true
+s3_prefix = "obsidian-vault"
+# Ubuntu 24.04 arm64 (ebs-gp3), current on 2026-11-11.
+parameter_overrides = "ImageId=ami-0f6435163a86ffc8c"
+image_repositories = ["VaultProxyFunction=268834972001.dkr.ecr.us-east-1.amazonaws.com/obsidian-vault/vaultproxyfunction"]
