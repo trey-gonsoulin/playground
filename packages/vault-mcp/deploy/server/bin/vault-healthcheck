@@ -6,7 +6,7 @@
 set -uo pipefail
 
 : "${VAULT_MCP_TOKEN:?}" "${VAULT_TOPIC_ARN:?}" "${AWS_REGION:?}"
-AWS=${AWS:-/snap/bin/aws}
+AWS=${AWS:-/usr/local/bin/aws}
 STATE="$HOME/.local/state/vault-mcp"
 mkdir -p "$STATE"
 

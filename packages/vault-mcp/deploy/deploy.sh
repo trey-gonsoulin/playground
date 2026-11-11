@@ -111,15 +111,17 @@ case "${1:-}" in
       uv build -q --wheel --package mcp-lambda -o packages/vault-mcp/dist)
     aws s3 sync --delete --only-show-errors "$HERE/../dist" "s3://$bucket/deploy/dist"
     aws s3 sync --delete --only-show-errors "$HERE/server" "s3://$bucket/deploy/server"
-    # UserData's one snap install can miss (the snap store is sometimes
-    # unreachable at first boot), so make sure the AWS CLI is there first.
+    # The AWS CLI comes from AWS's own installer, not the snap store (which
+    # timed out from this box). UserData's snap attempt is best effort and unused.
     run_remote "set -e; . /etc/vault-mcp/stack.env
-for i in 1 2 3 4 5; do
-  [ -x /snap/bin/aws ] && break
-  snap install aws-cli --classic || { echo 'snap install failed; retrying' >&2; sleep 15; }
-done
+if [ ! -x /usr/local/bin/aws ]; then
+  command -v unzip >/dev/null || { apt-get update -q && apt-get install -y -q unzip; }
+  t=\$(mktemp -d)
+  curl -fsSL -o \$t/awscli.zip https://awscli.amazonaws.com/awscli-exe-linux-\$(uname -m).zip
+  unzip -q \$t/awscli.zip -d \$t && \$t/aws/install --update && rm -rf \$t
+fi
 rm -rf /opt/vault-mcp/src && mkdir -p /opt/vault-mcp/src
-/snap/bin/aws s3 sync --only-show-errors --region \$AWS_REGION s3://\$VAULT_BUCKET/deploy/ /opt/vault-mcp/src/
+/usr/local/bin/aws s3 sync --only-show-errors --region \$AWS_REGION s3://\$VAULT_BUCKET/deploy/ /opt/vault-mcp/src/
 chmod -R a+rX /opt/vault-mcp/src
 OBSIDIAN_VERSION=${OBSIDIAN_VERSION:-1.15.0} bash /opt/vault-mcp/src/server/install.sh 2>&1"
     ;;

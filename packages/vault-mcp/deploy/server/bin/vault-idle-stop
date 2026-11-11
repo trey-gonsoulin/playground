@@ -33,7 +33,7 @@ if [ "$settled" != "true" ]; then
     echo "idle ${idle}s but Sync not settled ($settled); waiting"
     exit 0
   fi
-  [ -n "${VAULT_TOPIC_ARN:-}" ] && /snap/bin/aws sns publish --region "$AWS_REGION" \
+  [ -n "${VAULT_TOPIC_ARN:-}" ] && /usr/local/bin/aws sns publish --region "$AWS_REGION" \
     --topic-arn "$VAULT_TOPIC_ARN" --subject "Obsidian vault server stopped unsettled" \
     --message "Idle for $((idle / 60)) min but Sync never reported settled; stopped anyway. Recent edits on the box may not have uploaded; they're in the local snapshot." >/dev/null || true
 fi
