@@ -18,7 +18,7 @@ H=/home/$U
 VAULT=$H/vaults/$VAULT_NAME
 TLS=/etc/vault-mcp
 PORT=8443
-AWS=/snap/bin/aws
+AWS=/usr/local/bin/aws # AWS CLI v2, installed by deploy.sh push
 log() { printf '\n== %s\n' "$*"; }
 param() {
   "$AWS" ssm get-parameter --region "$AWS_REGION" --name "/obsidian-vault/$1" \
@@ -35,7 +35,7 @@ cat >/etc/apt/apt.conf.d/20auto-upgrades <<'EOF'
 APT::Periodic::Update-Package-Lists "1";
 APT::Periodic::Unattended-Upgrade "1";
 EOF
-command -v "$AWS" >/dev/null || snap install aws-cli --classic
+[ -x "$AWS" ] || { echo "no AWS CLI at $AWS; run deploy.sh push" >&2; exit 1; }
 # Obsidian's "today" (daily notes) must match the server's America/Chicago date,
 # or every evening it would create tomorrow's daily note.
 timedatectl set-timezone America/Chicago
