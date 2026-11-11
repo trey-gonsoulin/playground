@@ -152,7 +152,7 @@ obsidian-cli vault=Trey sync:status
 - Run `sync:status` while Sync is idle, then again while it's busy (edit a note on the Mac). Busy reads `status: syncing`.
 - If the busy value isn't one of `syncing,uploading,downloading,connecting,pending`, run `./deploy.sh sync-busy "<values>"` and then `./deploy.sh push`.
 - The server accepts `search`/`tasks` output as a list of paths or of `{path|file, ...}` objects; anything else falls back to the files. On CLI 1.12, search gives a list of paths and tasks gives `{status, text, file, line}`.
-- When done, run `sudo -iu obsidian vault-vnc stop` to release the idle hold.
+- When done, run `vault-vnc stop` (still as `obsidian`) to release the idle hold.
 
 ### 6. Claude
 1. Run `./deploy.sh url` to get the connector URL.
