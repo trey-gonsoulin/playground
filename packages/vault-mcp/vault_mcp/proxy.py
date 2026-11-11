@@ -12,28 +12,36 @@ up per container (it changes on every start); TLS with the box's own CA, read
 from SSM with the bearer token, checking the chain but not the hostname.
 """
 
+import asyncio
 import functools
+import logging
 import os
 import ssl
 import time
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 import boto3
 import httpx
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import ToolAnnotations
 from mcp_lambda import create_mcp_app
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response
 
 from vault_mcp import mcp_server
 from vault_mcp.app import TOKEN_ENV
+
+log = logging.getLogger(__name__)
 
 PARAM_PREFIX = "/obsidian-vault/"
 PORT = int(os.environ.get("VAULT_BOX_PORT", "8443"))
 # API Gateway cuts HTTP APIs off at 30 s; the function timeout is 29 s.
 START_BUDGET = 20.0
 CALL_TIMEOUT = 25.0
+PARAMS_TTL = 300.0
 
 STARTING = (
     "The vault server was asleep and is starting now. That takes 1-3 minutes, "
@@ -59,13 +67,23 @@ def _ec2() -> Any:
 
 
 def _params() -> dict[str, str]:
-    """mcp-token, ca-cert and readonly from SSM, cached per container."""
-    if "params" not in _cache:
+    """mcp-token, ca-cert and readonly from SSM, re-read every PARAMS_TTL seconds.
+
+    Each read also refreshes the token the front end's own bearer check uses, so
+    a rotated token reaches warm containers within PARAMS_TTL.
+    """
+    fresh = time.monotonic() - _cache.get("params_at", -PARAMS_TTL) < PARAMS_TTL
+    if "params" not in _cache or not fresh:
         names = [PARAM_PREFIX + n for n in ("mcp-token", "ca-cert", "readonly")]
         resp = boto3.client("ssm").get_parameters(Names=names, WithDecryption=True)
-        _cache["params"] = {
+        params = {
             p["Name"].removeprefix(PARAM_PREFIX): p["Value"] for p in resp["Parameters"]
         }
+        if params != _cache.get("params"):
+            _forget("client")  # new token or CA
+        _cache["params"], _cache["params_at"] = params, time.monotonic()
+        if params.get("mcp-token"):
+            os.environ[TOKEN_ENV] = params["mcp-token"]
     return _cache["params"]
 
 
@@ -126,8 +144,8 @@ def _host_or_start() -> str:
     )
 
 
-def _get(host: str, path: str) -> httpx.Response:
-    return _request(lambda c: c.get(f"https://{host}:{PORT}{path}"))
+def _get(host: str, path: str, timeout: float = CALL_TIMEOUT) -> httpx.Response:
+    return _request(lambda c: c.get(f"https://{host}:{PORT}{path}", timeout=timeout))
 
 
 def _request(send: Any) -> httpx.Response:
@@ -143,6 +161,13 @@ def _request(send: Any) -> httpx.Response:
         ) from exc
     except httpx.TimeoutException as exc:
         raise ToolError("The vault server took too long to answer; try again.") from exc
+    except httpx.TransportError as exc:
+        # Dropped mid-request, e.g. the box powering off after being idle.
+        _forget("host")
+        raise ToolError(
+            f"The connection to the vault server dropped ({type(exc).__name__}); it may "
+            "be stopping. Call start_vault() and retry."
+        ) from exc
     if resp.status_code == 401:
         _forget("client", "params")
         raise ToolError("The vault server rejected the token (rotated?); try again.")
@@ -166,7 +191,12 @@ def _call(name: str, arguments: dict[str, Any]) -> Any:
     )
     if resp.status_code != 200:
         raise ToolError(f"vault server error {resp.status_code}: {resp.text[:300]}")
-    payload = resp.json()
+    try:
+        payload = resp.json()
+    except ValueError as exc:
+        raise ToolError(
+            f"vault server sent a non-JSON reply: {resp.text[:200]!r}"
+        ) from exc
     if "error" in payload:
         raise ToolError(str(payload["error"].get("message", payload["error"])))
     result = payload["result"]
@@ -204,8 +234,10 @@ def start_vault() -> dict[str, Any]:
             detail = "starting the instance"
         elif state == "running" and host:
             _cache["host"] = host
+            # Keep the whole call inside the Lambda's 29 s timeout.
+            remaining = max(2.0, deadline + 6.0 - time.monotonic())
             try:
-                resp = _get(host, "/readyz")
+                resp = _get(host, "/readyz", timeout=min(CALL_TIMEOUT, remaining))
                 ready = resp.json() if resp.status_code == 200 else None
             except ToolError:
                 ready = None
@@ -268,15 +300,26 @@ def create_proxy_server(readonly: bool) -> MCPServer:
 
 def create_proxy_app() -> FastAPI:
     """The Lambda's app. Same token as the box; fails closed without one."""
-    params = _params()
-    token = params.get("mcp-token")
-    if not token:
+    params = _params()  # also sets os.environ[TOKEN_ENV]
+    if not params.get("mcp-token"):
         raise RuntimeError(f"SSM {PARAM_PREFIX}mcp-token is not set")
-    os.environ[TOKEN_ENV] = token
     readonly = params.get("readonly", "0").strip().lower() in {"1", "true", "yes", "on"}
-    return create_mcp_app(
+    app = create_mcp_app(
         create_proxy_server(readonly),
         title="Obsidian Vault MCP",
         description="Always-on front end for the on-demand Obsidian vault server.",
         auth_env=TOKEN_ENV,
     )
+
+    async def refresh_params(
+        request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
+        # Outermost, so the bearer check below sees a rotated token (TTL-cached).
+        try:
+            await asyncio.to_thread(_params)
+        except Exception:  # an SSM hiccup: keep serving with the cached token
+            log.warning("SSM refresh failed; keeping cached settings", exc_info=True)
+        return await call_next(request)
+
+    app.add_middleware(BaseHTTPMiddleware, dispatch=refresh_params)
+    return app

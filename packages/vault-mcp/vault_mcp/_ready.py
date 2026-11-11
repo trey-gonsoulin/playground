@@ -22,6 +22,8 @@ QUIET_SECONDS = 30
 MIN_UPTIME = 60
 # Past this, serve anyway (the tools fall back to the files if the app is down).
 MAX_WAIT = 600
+# The Sync probe must stay quick: /readyz runs inside the Lambda's 29 s budget.
+PROBE_TIMEOUT = 5.0
 
 _SYNC_JS = (
     "(()=>{const p=app.internalPlugins.getPluginById('sync');"
@@ -54,7 +56,7 @@ def last_change(root: Path) -> float:
 def sync_status(s: Settings) -> str | None:
     """The Sync plugin's status as text, or None when it can't be read."""
     try:
-        out = _cli.run(s, "eval", code=_SYNC_JS).strip()
+        out = _cli.run(s, "eval", _timeout=PROBE_TIMEOUT, code=_SYNC_JS).strip()
     except _cli.CliError:
         return None
     try:
@@ -83,8 +85,20 @@ def state(s: Settings) -> dict[str, Any]:
     }
 
 
+def check(
+    s: Settings, st: dict[str, Any] | None = None
+) -> tuple[bool, dict[str, Any] | None]:
+    """``(ready, state)``, computing the state at most once (or using ``st``).
+
+    Latched: once caught up after a start, later local writes don't re-gate, and
+    the state isn't computed again (``None`` unless ``st`` was given).
+    """
+    if _latched["ready"]:
+        return True, st
+    st = st or state(s)
+    _latched["ready"] = st["ready"]
+    return st["ready"], st
+
+
 def is_ready(s: Settings) -> bool:
-    """Latched: once caught up after a start, later local writes don't re-gate."""
-    if not _latched["ready"]:
-        _latched["ready"] = state(s)["ready"]
-    return _latched["ready"]
+    return check(s)[0]

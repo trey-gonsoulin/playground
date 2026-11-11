@@ -1,6 +1,7 @@
 """FastAPI app on the vault box: the MCP server at ``/mcp`` plus ``/healthz`` and
 ``/readyz``, all behind a bearer token. The Lambda proxy (proxy.py) calls it."""
 
+import hmac
 import os
 from collections.abc import Awaitable, Callable
 from typing import Any
@@ -16,19 +17,33 @@ from vault_mcp.config import get_settings
 TOKEN_ENV = "VAULT_MCP_TOKEN"  # noqa: S105 -- the variable name, not a secret
 
 
+def _touch_activity() -> None:
+    path = get_settings().activity_file
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.touch()
+    except OSError:
+        pass
+
+
 async def _record_activity(
     request: Request, call_next: Callable[[Request], Awaitable[Response]]
 ) -> Response:
     """Touch the activity file on authenticated MCP requests; the idle shutdown
-    reads its mtime. (Port 8443 is public, so scanners' 401s must not count.)"""
+    reads its mtime. (Port 8443 is public, so scanners' requests must not count.)
+
+    Touched on arrival as well as on completion, so vault-idle-stop sees a call
+    that is still running and backs off instead of powering off under it.
+    """
+    if not request.url.path.startswith("/mcp"):
+        return await call_next(request)
+    token = os.environ.get(TOKEN_ENV, "")
+    sent = request.headers.get("Authorization", "")
+    if token and hmac.compare_digest(sent.encode(), f"Bearer {token}".encode()):
+        _touch_activity()
     response = await call_next(request)
-    if request.url.path.startswith("/mcp") and response.status_code != 401:
-        path = get_settings().activity_file
-        try:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.touch()
-        except OSError:
-            pass
+    if response.status_code != 401:
+        _touch_activity()
     return response
 
 
@@ -59,6 +74,7 @@ def create_app() -> FastAPI:
     @app.get("/readyz")
     def readyz() -> dict[str, Any]:
         s = get_settings()
-        return {**_ready.state(s), "latched": _ready.is_ready(s)}
+        st = _ready.state(s)  # always fresh: vault-idle-stop needs "settled"
+        return {**st, "latched": _ready.check(s, st)[0]}
 
     return app

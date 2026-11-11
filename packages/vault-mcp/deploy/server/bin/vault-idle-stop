@@ -17,7 +17,8 @@ IDLE_MINUTES=${VAULT_IDLE_MINUTES:-30}
 
 now=$(date +%s)
 boot=$((now - $(cut -d. -f1 /proc/uptime)))
-last=$(stat -c %Y "$STATE/last_activity" 2>/dev/null || echo 0)
+last_seen=$(stat -c %Y "$STATE/last_activity" 2>/dev/null || echo 0)
+last=$last_seen
 ((last > boot)) || last=$boot
 idle=$((now - last))
 ((idle >= IDLE_MINUTES * 60)) || exit 0
@@ -37,7 +38,19 @@ if [ "$settled" != "true" ]; then
     --message "Idle for $((idle / 60)) min but Sync never reported settled; stopped anyway. Recent edits on the box may not have uploaded; they're in the local snapshot." >/dev/null || true
 fi
 
-runuser -u "$U" -- env HOME="/home/$U" VAULT_ROOT="$VAULT_ROOT" /usr/local/bin/vault-snapshot "before idle stop" || true
+as_user() { runuser -u "$U" -- env HOME="/home/$U" XDG_RUNTIME_DIR="/run/user/$(id -u $U)" "$@"; }
+
+# Stop taking requests first, then make sure none arrived since the idle check
+# (vault-mcp touches last_activity when an authenticated call arrives, and again
+# when it finishes). If one did, its edits may not have uploaded yet: back off.
+as_user systemctl --user stop vault-mcp.service || true
+if [ "$(stat -c %Y "$STATE/last_activity" 2>/dev/null || echo 0)" != "$last_seen" ]; then
+  echo "activity during the idle check; not stopping"
+  as_user systemctl --user start vault-mcp.service
+  exit 0
+fi
+
+as_user env VAULT_ROOT="$VAULT_ROOT" /usr/local/bin/vault-snapshot "before idle stop" || true
 echo "idle ${idle}s (Sync settled: $settled): stopping the instance"
-runuser -u "$U" -- env XDG_RUNTIME_DIR="/run/user/$(id -u $U)" systemctl --user stop obsidian.service || true
+as_user systemctl --user stop obsidian.service || true
 systemctl poweroff
