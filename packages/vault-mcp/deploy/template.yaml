@@ -1,34 +1,86 @@
 AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
 Description: >-
-  obsidian-vault: always-on Ubuntu 24.04 box running Obsidian (Xvfb) + vault-mcp,
-  reached only through Cloudflare Tunnel (outbound) and SSM (no inbound ports).
+  obsidian-vault: an always-on Lambda MCP front end (stable API Gateway URL) for an
+  on-demand Ubuntu 24.04 box running Obsidian (Xvfb + Sync) and vault-mcp. The
+  Lambda starts the box when Claude needs it; the box stops itself when idle.
 
 Parameters:
   ImageId:
     Type: AWS::EC2::Image::Id
     Description: >-
-      Ubuntu 24.04 AMI, pinned. deploy.sh looks it up once for a new stack and
-      reuses the previous value afterwards, so an AMI release never replaces the box.
+      Ubuntu 24.04 AMI, pinned in samconfig.toml. Never point this at the
+      "latest" SSM parameter: an ImageId change replaces the instance.
   InstanceType:
     Type: String
     Default: t4g.small
     AllowedValues: [t4g.small, t4g.medium, t3.small, t3.medium]
     Description: Graviton (t4g) needs an arm64 AMI; t3 needs amd64.
-  AlertEmail:
-    Type: String
-    Description: Where health alerts go (confirm the SNS subscription email).
   VolumeSize:
     Type: Number
     Default: 20
 
 Resources:
-  BackupBucket:
-    Type: AWS::S3::Bucket
-    DeletionPolicy: Retain
-    UpdateReplacePolicy: Retain
+  # ---------------------------------------------------------------------------
+  # Front end: always on, scales to zero
+  # ---------------------------------------------------------------------------
+  VaultProxyFunction:
+    Type: AWS::Serverless::Function
     Properties:
-      VersioningConfiguration:
-        Status: Enabled
+      PackageType: Image
+      Architectures: [arm64]
+      MemorySize: 512
+      # HTTP APIs cut requests off at 30 s.
+      Timeout: 29
+      Environment:
+        Variables:
+          VAULT_INSTANCE_ID: !Ref Instance
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: ec2:StartInstances
+              Resource: !Sub "arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:instance/${Instance}"
+            - Effect: Allow
+              Action: ec2:DescribeInstances
+              Resource: "*"
+            - Effect: Allow
+              Action: ssm:GetParameters
+              Resource: !Sub "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/obsidian-vault/*"
+            - Effect: Allow
+              Action: kms:Decrypt
+              Resource: "*"
+              Condition:
+                StringEquals:
+                  kms:ViaService: !Sub "ssm.${AWS::Region}.amazonaws.com"
+      Events:
+        Root:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref VaultHttpApi
+            Path: /
+            Method: ANY
+        Proxy:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref VaultHttpApi
+            Path: /{proxy+}
+            Method: ANY
+    Metadata:
+      DockerTag: latest
+      DockerContext: ../../..
+      Dockerfile: packages/vault-mcp/Dockerfile
+
+  VaultHttpApi:
+    Type: AWS::Serverless::HttpApi
+
+  # ---------------------------------------------------------------------------
+  # The box
+  # ---------------------------------------------------------------------------
+  # Deploy artifacts only (deploy.sh push); no backups: Obsidian Sync keeps 30
+  # days of history and every device holds a copy.
+  DeployBucket:
+    Type: AWS::S3::Bucket
+    Properties:
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
@@ -38,20 +90,11 @@ Resources:
         BlockPublicPolicy: true
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
-      LifecycleConfiguration:
-        Rules:
-          - Id: expire-old-backups
-            Status: Enabled
-            NoncurrentVersionExpiration:
-              NoncurrentDays: 90
 
   AlertTopic:
     Type: AWS::SNS::Topic
     Properties:
       DisplayName: Obsidian vault server
-      Subscription:
-        - Protocol: email
-          Endpoint: !Ref AlertEmail
 
   InstanceRole:
     Type: AWS::IAM::Role
@@ -70,19 +113,21 @@ Resources:
             Version: "2012-10-17"
             Statement:
               - Effect: Allow
-                Action: [s3:GetObject, s3:PutObject]
-                Resource:
-                  - !Sub "${BackupBucket.Arn}/backups/*"
-                  - !Sub "${BackupBucket.Arn}/deploy/*"
+                Action: s3:GetObject
+                Resource: !Sub "${DeployBucket.Arn}/deploy/*"
               - Effect: Allow
                 Action: s3:ListBucket
-                Resource: !GetAtt BackupBucket.Arn
+                Resource: !GetAtt DeployBucket.Arn
               - Effect: Allow
                 Action: sns:Publish
                 Resource: !Ref AlertTopic
               - Effect: Allow
                 Action: ssm:GetParameter
                 Resource: !Sub "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/obsidian-vault/*"
+              # The box publishes its CA certificate for the Lambda to pin.
+              - Effect: Allow
+                Action: ssm:PutParameter
+                Resource: !Sub "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/obsidian-vault/ca-cert"
               - Effect: Allow
                 Action: kms:Decrypt
                 Resource: "*"
@@ -95,13 +140,18 @@ Resources:
     Properties:
       Roles: [!Ref InstanceRole]
 
-  # No ingress rules at all: shell access is SSM Session Manager, and the MCP
-  # server is reached through cloudflared's outbound tunnel. (A new group in the
-  # default VPC allows all egress.)
+  # Lambda (no VPC, so no fixed source IPs) reaches vault-mcp on 8443, protected
+  # by TLS with the box's own CA and the bearer token, as soulsearch does with
+  # OpenSearch. No SSH: shell access is SSM Session Manager.
   SecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: obsidian-vault - egress only
+      GroupDescription: obsidian-vault - vault-mcp HTTPS (bearer token required)
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8443
+          ToPort: 8443
+          CidrIp: 0.0.0.0/0
 
   Instance:
     Type: AWS::EC2::Instance
@@ -112,6 +162,8 @@ Resources:
       InstanceType: !Ref InstanceType
       IamInstanceProfile: !Ref InstanceProfile
       SecurityGroupIds: [!GetAtt SecurityGroup.GroupId]
+      # vault-idle-stop powers off; that must stop, not terminate.
+      InstanceInitiatedShutdownBehavior: stop
       MetadataOptions:
         HttpTokens: required
       BlockDeviceMappings:
@@ -131,13 +183,13 @@ Resources:
           set -eux
           mkdir -p /etc/vault-mcp
           cat > /etc/vault-mcp/stack.env <<EOF
-          VAULT_BUCKET=${BackupBucket}
+          VAULT_BUCKET=${DeployBucket}
           VAULT_TOPIC_ARN=${AlertTopic}
           AWS_REGION=${AWS::Region}
           EOF
           snap install aws-cli --classic || true
 
-  # Hardware/host failure: recover onto new hardware (same volume, same id).
+  # Only evaluated while running (stopped = no data = OK).
   SystemCheckAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
@@ -150,11 +202,12 @@ Resources:
       EvaluationPeriods: 5
       Threshold: 1
       ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
       AlarmActions:
         - !Sub "arn:${AWS::Partition}:automate:${AWS::Region}:ec2:recover"
         - !Ref AlertTopic
 
-  # The box itself is wedged (the on-box health check can't report that).
+  # Wedged box: reboot it (the on-box checks can't report that).
   InstanceCheckAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
@@ -167,14 +220,18 @@ Resources:
       EvaluationPeriods: 10
       Threshold: 1
       ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
       AlarmActions:
         - !Sub "arn:${AWS::Partition}:automate:${AWS::Region}:ec2:reboot"
         - !Ref AlertTopic
 
 Outputs:
+  McpUrl:
+    Description: The custom connector URL
+    Value: !Sub "https://${VaultHttpApi}.execute-api.${AWS::Region}.amazonaws.com/mcp"
   InstanceId:
     Value: !Ref Instance
-  BackupBucket:
-    Value: !Ref BackupBucket
+  DeployBucket:
+    Value: !Ref DeployBucket
   AlertTopicArn:
     Value: !Ref AlertTopic

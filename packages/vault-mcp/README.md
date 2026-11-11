@@ -1,71 +1,104 @@
 # vault-mcp
 
-An always-on Obsidian vault for Claude (web, desktop and iPhone) through a custom connector.
-It's built from `~/Downloads/obsidian-vault-connector-brief.md`.
+The Obsidian vault as a claude.ai custom connector, from `~/Downloads/obsidian-vault-connector-brief.md`.
+It runs **on demand**: the box sleeps when Claude isn't using it, and your devices keep syncing through Obsidian Sync as usual.
 
 ```
-iPhone / Mac / PC ──Obsidian Sync──┐
-                                   ▼
-EC2 t4g.small (Ubuntu 24.04, no inbound ports, SSM for shell)
-  obsidian.service     Obsidian 1.15 under Xvfb :99, built-in Sync, CLI on
-  vault-mcp.service    this package, 127.0.0.1:8765, bearer token
-  cloudflared          named tunnel ──► https://<hostname>/mcp ◄── claude.ai connector
-  vault-backup.timer   nightly git bundle ──► S3 (versioned)
-  vault-healthcheck    every 2 min; SNS email after 10 min down
+iPhone / Mac / PC ──Obsidian Sync (always)──┐
+                                            ▼
+claude.ai ──► API Gateway + Lambda ──HTTPS:8443──► EC2 t4g.small (only while in use)
+              (vault_mcp.proxy,     (box's own CA,   obsidian.service  Obsidian 1.15 under Xvfb, Sync, CLI
+               always on, stable    bearer token)    vault-mcp         this package, the real tools
+               URL)                                  vault-idle-stop   stops the box after 30 idle min,
+                 │                                                     once Sync has uploaded everything
+                 └─ box stopped? StartInstances → "starting, call start_vault()"
 ```
+
+**How a request flows:**
+1. Claude calls a tool on the Lambda.
+2. If the box is asleep, the Lambda starts it and answers "starting; call `start_vault()`".
+3. `start_vault()` polls until the box is up *and* Obsidian Sync has caught up (see "Readiness" below). That takes about 1–3 minutes.
+4. Calls then go straight through.
+5. After 30 minutes without an MCP call, the box waits for Sync to finish uploading Claude's edits, takes a local snapshot, and powers off. A power-off stops the instance; it never terminates it.
+
+**Cost:** about $3/month at a couple of hours of use a day.
+- The 20 GB gp3 volume is ~$1.60/month whether the box runs or not.
+- The t4g.small is ~$0.017/hour while running, and its public IPv4 address ~$0.005/hour while running.
+- Lambda, API Gateway and SNS cost pennies.
 
 ## Tools
 
+The Lambda lists the box's tools with identical schemas. It wraps the same functions, so the two lists can't drift apart.
+
 | Tool | Backend |
 |--|--|
-| `search(query, folder?, limit?)` | Obsidian search via the CLI (operators work). Falls back to file search if the app is down or returns nothing. |
+| `start_vault()` | Lambda only. Wakes the box and waits up to ~20 s per call until it's ready. |
+| `health()` | Lambda only. Reports the instance state, plus the box's health while it's running. Doesn't wake the box. |
+| `search(query, folder?, limit?)` | Obsidian search via the CLI, so operators work. Falls back to file search. |
 | `read_note(note, offset?, limit?)` | Files. Returns the body (paged by line), frontmatter as JSON, links and backlinks. |
 | `list_notes(folder?, type?, status?, tag?, person?, updated_before?, updated_after?)` | Files (property index). |
 | `get_links`, `get_backlinks`, `list_tags`, `list_properties` | Files. |
 | `tasks(status?, folder?)` | CLI `tasks`, falling back to parsing the files. |
 | `daily_note(day?)` | Reads the note, or creates it: CLI `daily` for today, otherwise from `_Templates/Daily Note`. |
-| `create_note`, `update_note`, `append_to_note` | Files, following the Vault Guide (see below). |
-| `move_note(note, new, dry_run?)` | CLI `rename`/`move`, then checks on disk and fixes any links left behind. With the app down, moves the file and rewrites links itself. |
-| `delete_note(note)` | CLI `delete` to Obsidian's trash. With the app down, moves to `_Review/To delete/`. Never permanent. |
-| `bulk_update_properties(set_properties, filters…, dry_run=true)` | Files. Always returns a plan first. |
-| `health()` | App, CLI, note count, last change. |
+| `create_note`, `update_note`, `append_to_note` | Files, following the Vault Guide. |
+| `move_note(note, new, dry_run?)` | CLI `rename`/`move`, checked on disk. Fixes any links Obsidian left behind and keeps the old title as an alias. |
+| `delete_note(note)` | CLI `delete` to Obsidian's trash. With the app down, moves to `_Review/To delete/`. |
+| `bulk_update_properties(set_properties, filters…, dry_run=true)` | Files. Always returns a plan first, and takes a snapshot before applying. |
 
-Every result says which `backend` it used.
+Every box result names its `backend`.
 
 **Conventions enforced**
-- New notes go to `_Inbox` with `type`, `status: active`, `created` and `tags: []`. A note in a top-level area folder gets `up: "[[Folder]]"`.
-- `type`, `status` and `source` must be from the Vault Guide's vocabulary. Off-list tags produce a warning.
+- New notes go to `_Inbox` with `type`, `status: active`, `created` and `tags: []`.
+- `type`, `status` and `source` must be from the Vault Guide's vocabulary.
 - A rename adds the old title to `aliases`.
-- Body edits never rewrite the frontmatter. `updated` is never touched, because it records an import's last edit.
+- Frontmatter edits rewrite only the changed keys; every other line stays byte-for-byte.
+- `updated` is never touched.
 
 **Safety**
-- Paths resolve inside the vault: no `..`, absolute paths or symlinks out, and no writes in `.obsidian`, `.trash` or `.git`.
-- Every write is appended to `~/.local/state/vault-mcp/audit.log` (JSON lines, rotated monthly).
-- `VAULT_MCP_READONLY=1` removes the write tools from the tool list.
-- The server refuses to start without `VAULT_MCP_TOKEN`.
+- Paths stay inside the vault: no `..`, absolute paths or symlinks out, and no writes in `.obsidian`, `.trash` or `.git`.
+- Writes are serialized, and a write is refused if the note changed since it was read.
+- Every write is audit-logged (JSON lines, rotated monthly).
+- `readonly` removes the write tools from both tool lists.
+- Both the Lambda and the box refuse to start without the token.
+- Port 8443 is public, as with soulsearch's OpenSearch port, so the box uses TLS from its own CA plus the bearer token. The Lambda pins that CA through SSM.
 
-**Why the CLI isn't trusted blindly:** it always exits 0, prints errors on stdout, and its JSON shapes aren't documented. So the server checks what the CLI did on disk and falls back to the filesystem when the output looks wrong. It also checks that `obsidian.service` is active before every CLI call, because the CLI would otherwise launch a second, unsupervised app.
+**Why the CLI isn't trusted blindly:**
+- It always exits 0, prints errors on stdout, and its JSON shapes are undocumented. So the server checks what it did on disk and falls back to the files.
+- It also checks that `obsidian.service` is active before every CLI call, because the CLI would otherwise launch a second, unsupervised app.
+
+**Readiness:** "Sync has caught up" means all of the following:
+- The app is running.
+- Sync's internal status isn't one of the `sync-busy` names. The status is read with the CLI's `eval` and is undocumented.
+- Nothing in the vault has changed for 30 s. This uses ctime, which Sync can't backdate.
+- The box has been up for at least 60 s.
+
+After 10 minutes the box serves anyway. Until it's ready, the box's tools answer "still catching up".
 
 ## Local development
 
 ```bash
-uv run --package vault-mcp pytest packages/vault-mcp/tests/   # fixture vault + a fake obsidian-cli
+uv run --package vault-mcp pytest packages/vault-mcp/tests/   # fixture vault, fake obsidian-cli, in-process box behind the proxy
 VAULT_ROOT=~/Obsidian/Trey VAULT_MCP_TOKEN=dev OBSIDIAN_CLI= OBSIDIAN_APP_CHECK= \
-  uv run --package vault-mcp vault-mcp                          # http://127.0.0.1:8765/mcp
+  uv run --package vault-mcp vault-mcp                          # http://127.0.0.1:8765/mcp (no TLS unless VAULT_MCP_SSL_CERT)
 ```
 
 `OBSIDIAN_CLI=` (empty) means filesystem only. For local writes, use a *copy* of the vault.
 
 ## Runbook
 
-`deploy/deploy.sh` does everything from the Mac over SSM, so you never need SSH.
-- One-time setup: `brew install --cask session-manager-plugin`.
-- Stack: `obsidian-vault` in us-east-1, profile `personal`.
+`deploy/deploy.sh` does everything from the Mac.
+
+**Prerequisites:**
+- the AWS CLI with profile `personal`
+- the SAM CLI and Docker Desktop
+- `brew install --cask session-manager-plugin`
+
+**Defaults:** stack `obsidian-vault` in us-east-1, configured in `deploy/samconfig.toml`, with the AMI pinned there.
 
 ### 1. Mac: move to Obsidian Sync (you, brief §5)
 1. Subscribe to Sync (Standard).
-2. First shrink or move the files over 5 MB (listed in the brief).
-3. Move the vault out of iCloud, to `~/Obsidian/Trey`, and open it in Obsidian.
+2. Shrink or move the files over 5 MB (listed in the brief).
+3. Move the vault out of iCloud to `~/Obsidian/Trey`, and open it in Obsidian.
 4. Set these in Settings:
    - Files & links:
      - Default location for new notes → `_Inbox`
@@ -79,79 +112,76 @@ VAULT_ROOT=~/Obsidian/Trey VAULT_MCP_TOKEN=dev OBSIDIAN_CLI= OBSIDIAN_APP_CHECK=
      - template → `_Templates/Daily Note`
      - format → `YYYY-MM-DD`
 5. Settings → Sync:
-   - Create a remote vault (end-to-end encryption is fine; keep the password handy).
-   - Turn on "Sync all other types" plus images, PDFs and every settings toggle.
+   - Create a remote vault (end-to-end encryption is fine).
+   - Turn on "Sync all other types", images, PDFs and the settings toggles.
    - Wait for the upload to finish.
 6. iPhone and PC: create a new **local** vault, then connect it to the remote vault.
 
-### 2. Infrastructure
+### 2. Stack
 ```bash
 cd packages/vault-mcp/deploy
-ALERT_EMAIL=you@example.com ./deploy.sh infra   # creates a change set; nothing is executed yet
+./deploy.sh token          # bearer token (SSM SecureString /obsidian-vault/mcp-token); keep the printed header
+./deploy.sh infra          # creates the ECR repo if needed, sam build, and a change set (nothing executed)
 aws cloudformation execute-change-set --change-set-name <arn> --profile personal --region us-east-1
 aws cloudformation wait stack-create-complete --stack-name obsidian-vault --profile personal --region us-east-1
+./deploy.sh alerts you@example.com   # then confirm the subscription email
 ```
-- Confirm the SNS subscription email.
-- The instance, its volume and the bucket are `Retain`, so deleting the stack doesn't delete your data.
 
-### 3. Server
+### 3. Box
 ```bash
-./deploy.sh token     # makes the bearer token (SSM SecureString /obsidian-vault/mcp-token) and prints it
-./deploy.sh push      # builds the wheels, installs everything, prints status and /healthz
+./deploy.sh push           # starts the box if needed, installs everything, prints /healthz
 ```
+A push counts as activity, so the box stays up for the next 30 minutes.
 
 ### 4. One-time Sync login (VNC through SSM; no XQuartz needed)
-1. Run `./deploy.sh vnc`. It prints a password and forwards `localhost:5900`.
+1. Run `./deploy.sh vnc`. It prints a password, forwards `localhost:5900`, and holds the idle stop.
 2. In Finder, press Cmd+K and connect to `vnc://localhost:5900`.
-3. In the Obsidian window:
-   - Open the vault `/home/obsidian/vaults/Trey` if it isn't already open.
-   - Settings → Sync: log in, connect to the remote vault and enter the encryption password.
-   - Turn on the same file-type toggles as on the Mac.
-   - Settings → General: turn **Automatic updates off**. App updates are manual (see Ops).
-   - Settings → General: check that **Command line interface** is on.
-4. Wait for the first sync. Then press Ctrl+C, run `./deploy.sh shell`, and run `sudo -iu obsidian vault-vnc stop`.
+3. In Obsidian:
+   - Open the vault `/home/obsidian/vaults/Trey` if it isn't open.
+   - Settings → Sync: log in, connect to the remote vault, enter the encryption password, and set the same file-type toggles as on the Mac.
+   - Settings → General: turn **Automatic updates off** and check that **Command line interface** is on.
+4. Wait for the first full sync.
 
-### 5. Check the CLI on the box (`./deploy.sh shell`, then `sudo -iu obsidian`)
+### 5. Check the CLI and Sync status (`./deploy.sh shell`, then `sudo -iu obsidian`)
 ```bash
-obsidian-cli help                                  # compare with the command list in the brief
-obsidian-cli vault=Trey vault info=name
+obsidian-cli help
 obsidian-cli vault=Trey search query=Eberron format=json
 obsidian-cli vault=Trey tasks todo verbose format=json | head
+obsidian-cli vault=Trey eval code="JSON.stringify(app.internalPlugins.getPluginById('sync').instance.getStatus())"
 ```
-The JSON shapes of `search` and `tasks` aren't documented. The server accepts a list of paths or of `{path|file, ...}` objects, and anything else falls back to files.
-- If the real output differs, adjust `_parse_cli_paths` / `_cli_tasks` in `mcp_server.py`.
-- Then edit a note on the Mac and check that it appears on the box, and the other way round.
+- Run the last command while Sync is idle, then again while it's busy (edit a note on the Mac).
+- If the busy value isn't one of `syncing,uploading,downloading,connecting,pending`, run `./deploy.sh sync-busy "<values>"` and then `./deploy.sh push`.
+- The server accepts `search`/`tasks` output as a list of paths or of `{path|file, ...}` objects; anything else falls back to the files. If the real output differs, adjust `_parse_cli_paths` / `_cli_tasks` in `mcp_server.py`.
+- When done, run `sudo -iu obsidian vault-vnc stop` to release the idle hold.
 
-### 6. Cloudflare Tunnel
-1. Cloudflare Zero Trust → Networks → Tunnels → create a tunnel (cloudflared).
-2. Add a public hostname, e.g. `vault.<your-domain>`, with service `http://localhost:8765`.
-3. Copy the token from the install command, then:
-   ```bash
-   ./deploy.sh tunnel-token <token>
-   ./deploy.sh public-url https://vault.<your-domain>
-   ./deploy.sh push
-   ```
-4. Optional: add a WAF rate-limiting rule on the hostname, e.g. 120 requests/minute per IP. Don't turn on Bot Fight Mode or a managed challenge: Claude's servers can't solve one.
-
-### 7. Claude
-Go to claude.ai → Customize → Connectors → Add custom connector:
-- Name: "Obsidian Vault"
-- URL: `https://vault.<domain>/mcp`
-- Request header: `Authorization: Bearer <token from ./deploy.sh token>`
-
-Then run the acceptance tests (brief §8) from the iPhone.
+### 6. Claude
+1. Run `./deploy.sh url` to get the connector URL.
+2. Go to claude.ai → Customize → Connectors → Add custom connector:
+   - Name: "Obsidian Vault"
+   - URL: the one from step 1
+   - Request header: `Authorization: Bearer <token>`
+3. Run the brief's acceptance tests (§8) from the iPhone. Add one more: leave the box idle for 30+ minutes, edit a note on the phone, then ask Claude about that note. It should start the box, wait for Sync, and see the edit.
 
 ## Ops
 
-- **Logs:** run `./deploy.sh logs`. It shows the journal for all services and the last audit entries.
-- **Code update:** run `./deploy.sh push`. This restarts `vault-mcp` only.
-- **Obsidian update:** run `OBSIDIAN_VERSION=1.15.1 ./deploy.sh push`. It installs `/opt/obsidian-<v>`, repoints `/opt/obsidian` and restarts the app. To roll back, push the old version.
-- **Read-only:** run `./deploy.sh readonly 1 && ./deploy.sh push`.
+- **Logs:** run `./deploy.sh logs`. It starts the box if needed.
+- **Start or keep up by hand:**
+  - `./deploy.sh start` starts the box.
+  - On the box, `touch ~obsidian/.local/state/vault-mcp/hold` keeps it up; remove the file to release it.
+- **Idle time:** `./deploy.sh idle-minutes 60 && ./deploy.sh push`.
+- **Code updates:**
+  - Box: `./deploy.sh push`.
+  - Lambda: `./deploy.sh infra`, then execute the change set.
+- **Obsidian update:** `OBSIDIAN_VERSION=1.15.1 ./deploy.sh push`. To roll back, push the old version.
+- **Read-only:** `./deploy.sh readonly 1 && ./deploy.sh push`. The Lambda picks it up on its next cold start.
 - **Rotate the token:**
   1. `aws ssm delete-parameter --name /obsidian-vault/mcp-token --profile personal`
   2. `./deploy.sh token && ./deploy.sh push`
-  3. Update the connector header.
-- **Restore a backup:** run `aws s3 cp s3://<bucket>/backups/vault.bundle . --profile personal` (add `--version-id` for an older night), then `git clone vault.bundle Trey-restore`.
+  3. Update the connector header. The Lambda re-reads the token after a 401.
+- **Undo a bad bulk edit:** Obsidian Sync's version history keeps 30 days. The box also keeps local snapshots, taken before every bulk change and every idle stop:
+  - Browse: `sudo -iu obsidian git --git-dir ~/snapshots/vault.git log --stat`
+  - Restore: `git --git-dir ~/snapshots/vault.git --work-tree ~/vaults/Trey checkout <commit> -- <path>`
 - **Alerts:**
-  - The on-box check emails after 10 minutes of app, CLI, MCP or tunnel failure, and again on recovery.
-  - CloudWatch recovers or reboots the instance if its status checks fail, and emails too.
+  - The box emails if it has been unhealthy for 10 minutes. It only checks after its first 15 minutes up.
+  - It emails if it had to stop before Sync settled.
+  - CloudWatch recovers or reboots the instance if its status checks fail while it's running.

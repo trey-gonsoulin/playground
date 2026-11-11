@@ -1,0 +1,43 @@
+#!/bin/bash
+# Root, every 5 minutes (vault-idle-stop.timer): stop the box once no MCP call
+# has arrived for VAULT_IDLE_MINUTES (default 30), but only after Obsidian Sync
+# has uploaded everything (vault-mcp's /readyz reports "settled"), so Claude's
+# edits reach the other devices before the box sleeps. The instance's shutdown
+# behaviour is "stop"; the Lambda starts it again on the next call.
+# `touch ~obsidian/.local/state/vault-mcp/hold` keeps it up (vault-vnc does this).
+set -uo pipefail
+
+U=obsidian
+STATE=/home/$U/.local/state/vault-mcp
+# shellcheck source=/dev/null
+source /home/$U/.config/vault-mcp/env
+IDLE_MINUTES=${VAULT_IDLE_MINUTES:-30}
+
+[ -e "$STATE/hold" ] && exit 0
+
+now=$(date +%s)
+boot=$((now - $(cut -d. -f1 /proc/uptime)))
+last=$(stat -c %Y "$STATE/last_activity" 2>/dev/null || echo 0)
+((last > boot)) || last=$boot
+idle=$((now - last))
+((idle >= IDLE_MINUTES * 60)) || exit 0
+
+settled=$(curl -fsS -m 30 --cacert /etc/vault-mcp/ca.pem \
+  -H "Authorization: Bearer $VAULT_MCP_TOKEN" "https://localhost:${VAULT_MCP_PORT:-8443}/readyz" |
+  jq -r .settled 2>/dev/null)
+if [ "$settled" != "true" ]; then
+  # Sync still busy (or the server is down). Wait for the next run, but don't
+  # pay for a stuck box forever: after 4x the idle time, stop anyway and say so.
+  if ((idle < IDLE_MINUTES * 60 * 4)); then
+    echo "idle ${idle}s but Sync not settled ($settled); waiting"
+    exit 0
+  fi
+  [ -n "${VAULT_TOPIC_ARN:-}" ] && /snap/bin/aws sns publish --region "$AWS_REGION" \
+    --topic-arn "$VAULT_TOPIC_ARN" --subject "Obsidian vault server stopped unsettled" \
+    --message "Idle for $((idle / 60)) min but Sync never reported settled; stopped anyway. Recent edits on the box may not have uploaded; they're in the local snapshot." >/dev/null || true
+fi
+
+runuser -u "$U" -- env HOME="/home/$U" VAULT_ROOT="$VAULT_ROOT" /usr/local/bin/vault-snapshot "before idle stop" || true
+echo "idle ${idle}s (Sync settled: $settled): stopping the instance"
+runuser -u "$U" -- env XDG_RUNTIME_DIR="/run/user/$(id -u $U)" systemctl --user stop obsidian.service || true
+systemctl poweroff

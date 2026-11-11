@@ -16,6 +16,8 @@ VAULT_NAME=${VAULT_NAME:-Trey}
 U=obsidian
 H=/home/$U
 VAULT=$H/vaults/$VAULT_NAME
+TLS=/etc/vault-mcp
+PORT=8443
 AWS=/snap/bin/aws
 log() { printf '\n== %s\n' "$*"; }
 param() {
@@ -27,7 +29,7 @@ log "packages + unattended security upgrades"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -q
 apt-get install -y -q --no-install-recommends \
-  xvfb xauth x11vnc git curl jq ca-certificates unattended-upgrades \
+  xvfb xauth x11vnc git curl jq openssl ca-certificates unattended-upgrades \
   libgtk-3-0t64 libnotify4 libnss3 libxss1 libasound2t64 libgbm1 libsecret-1-0 libdrm2 xdg-utils
 cat >/etc/apt/apt.conf.d/20auto-upgrades <<'EOF'
 APT::Periodic::Update-Package-Lists "1";
@@ -50,6 +52,9 @@ loginctl enable-linger "$U"
 RUNTIME=/run/user/$(id -u "$U")
 for _ in $(seq 30); do [ -S "$RUNTIME/bus" ] && break; sleep 1; done
 as_user() { sudo -u "$U" XDG_RUNTIME_DIR="$RUNTIME" DBUS_SESSION_BUS_ADDRESS="unix:path=$RUNTIME/bus" "$@"; }
+as_user mkdir -p "$H/.local/state/vault-mcp"
+# A deploy counts as activity, so the box doesn't stop mid-setup.
+as_user touch "$H/.local/state/vault-mcp/last_activity"
 
 log "Obsidian $OBSIDIAN_VERSION"
 case $(dpkg --print-architecture) in
@@ -69,11 +74,10 @@ fi
 previous=$(readlink /opt/obsidian || true)
 ln -sfn "$dest" /opt/obsidian
 [ -x /opt/obsidian/obsidian-cli ] || echo "WARNING: /opt/obsidian/obsidian-cli missing; the CLI needs installer 1.12.7+"
-install -m 755 "$HERE"/bin/obsidian-cli "$HERE"/bin/vault-backup "$HERE"/bin/vault-healthcheck "$HERE"/bin/vault-vnc /usr/local/bin/
+install -m 755 "$HERE"/bin/* /usr/local/bin/
 
 log "Obsidian config: CLI on, vault registered"
-as_user mkdir -p "$VAULT/.obsidian" "$H/.config/obsidian" "$H/.config/vault-mcp" \
-  "$H/.config/systemd/user" "$H/.local/state/vault-mcp"
+as_user mkdir -p "$VAULT/.obsidian" "$H/.config/obsidian" "$H/.config/vault-mcp" "$H/.config/systemd/user"
 cfg=$H/.config/obsidian/obsidian.json
 [ -s "$cfg" ] || echo '{}' | as_user tee "$cfg" >/dev/null
 jq --arg path "$VAULT" --argjson ts "$(date +%s000)" '
@@ -96,6 +100,32 @@ seed templates.json <<'EOF'
 {"folder": "_Templates", "dateFormat": "YYYY-MM-DD", "timeFormat": "HH:mm"}
 EOF
 
+log "TLS: the box's own CA, published to SSM for the Lambda to pin"
+# Port 8443 is open to the internet (the Lambda has no fixed IPs), so vault-mcp
+# speaks HTTPS. The CA lives on the volume and survives stop/start; the Lambda
+# checks the chain, not the hostname (the public DNS name changes every start).
+umask 077
+if [ ! -s "$TLS/ca.pem" ]; then
+  openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -days 3650 \
+    -subj "/CN=obsidian-vault CA" -keyout "$TLS/ca.key" -out "$TLS/ca.pem" \
+    -addext "basicConstraints=critical,CA:TRUE" -addext "keyUsage=critical,keyCertSign,cRLSign" \
+    -addext "subjectKeyIdentifier=hash"
+fi
+if [ ! -s "$TLS/server.pem" ] || ! openssl x509 -checkend 2592000 -noout -in "$TLS/server.pem"; then
+  openssl req -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -subj "/CN=vault-mcp" \
+    -keyout "$TLS/server.key" -out "$TLS/server.csr"
+  openssl x509 -req -in "$TLS/server.csr" -CA "$TLS/ca.pem" -CAkey "$TLS/ca.key" -CAcreateserial \
+    -days 825 -out "$TLS/server.pem" -extfile <(printf '%s\n' \
+      "subjectAltName=DNS:localhost,IP:127.0.0.1" "basicConstraints=critical,CA:FALSE" \
+      "keyUsage=critical,digitalSignature" "extendedKeyUsage=serverAuth" \
+      "subjectKeyIdentifier=hash" "authorityKeyIdentifier=keyid")
+fi
+umask 022
+chmod 644 "$TLS/ca.pem" "$TLS/server.pem"
+chown "root:$U" "$TLS/server.key" && chmod 640 "$TLS/server.key"
+"$AWS" ssm put-parameter --region "$AWS_REGION" --name /obsidian-vault/ca-cert --type String \
+  --overwrite --value "$(cat "$TLS/ca.pem")" >/dev/null
+
 log "vault-mcp"
 as_user bash -c 'test -x ~/.local/bin/uv || curl -LsSf https://astral.sh/uv/install.sh | sh -s -- -q'
 # Install the wheels by path, so a same-named package on PyPI can never win.
@@ -105,30 +135,41 @@ as_user "$H/.local/bin/uv" tool install --force --reinstall --python 3.13 \
 token=$(param mcp-token)
 [ -n "$token" ] || { echo "SSM /obsidian-vault/mcp-token is not set; run deploy.sh token" >&2; exit 1; }
 readonly_flag=$(param readonly)
-public_url=$(param public-url)
+idle_minutes=$(param idle-minutes)
+sync_busy=$(param sync-busy)
 umask 077
 cat >"$H/.config/vault-mcp/env.new" <<EOF
 VAULT_ROOT=$VAULT
 VAULT_NAME=$VAULT_NAME
 VAULT_MCP_TOKEN=$token
 VAULT_MCP_READONLY=${readonly_flag:-0}
-VAULT_MCP_PORT=8765
-VAULT_PUBLIC_URL=$public_url
+VAULT_MCP_HOST=0.0.0.0
+VAULT_MCP_PORT=$PORT
+VAULT_MCP_SSL_CERT=$TLS/server.pem
+VAULT_MCP_SSL_KEY=$TLS/server.key
+VAULT_REQUIRE_READY=1
+VAULT_SNAPSHOT_CMD=/usr/local/bin/vault-snapshot
+VAULT_IDLE_MINUTES=${idle_minutes:-30}
 VAULT_TZ=America/Chicago
 OBSIDIAN_CLI=/usr/local/bin/obsidian-cli
 EOF
+# The Sync plugin's "busy" status names are a guess until seen on the box (README step 5).
+[ -z "$sync_busy" ] || echo "VAULT_SYNC_BUSY=$sync_busy" >>"$H/.config/vault-mcp/env.new"
 chown "$U:$U" "$H/.config/vault-mcp/env.new"
 mv "$H/.config/vault-mcp/env.new" "$H/.config/vault-mcp/env"
 umask 022
 
-log "systemd user units"
+log "systemd units"
 install -o "$U" -g "$U" -m 644 "$HERE"/systemd/* "$H/.config/systemd/user/"
 as_user systemctl --user daemon-reload
-as_user systemctl --user enable --now obsidian.service vault-mcp.service vault-backup.timer vault-healthcheck.timer
+as_user systemctl --user enable --now obsidian.service vault-mcp.service vault-healthcheck.timer
 as_user systemctl --user restart vault-mcp.service
 if [ -n "$previous" ] && [ "$previous" != "$dest" ]; then
   as_user systemctl --user restart obsidian.service
 fi
+install -m 644 "$HERE"/systemd-system/* /etc/systemd/system/
+systemctl daemon-reload
+systemctl enable --now vault-idle-stop.timer
 
 cat >/etc/logrotate.d/vault-mcp <<EOF
 $H/.local/state/vault-mcp/audit.log {
@@ -142,22 +183,8 @@ $H/.local/state/vault-mcp/audit.log {
 }
 EOF
 
-log "cloudflared"
-if ! command -v cloudflared >/dev/null; then
-  install -d -m 0755 /usr/share/keyrings
-  curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg -o /usr/share/keyrings/cloudflare-main.gpg
-  echo 'deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared noble main' \
-    >/etc/apt/sources.list.d/cloudflared.list
-  apt-get update -q && apt-get install -y -q cloudflared
-fi
-tunnel_token=$(param tunnel-token)
-if [ -n "$tunnel_token" ] && ! systemctl is-enabled --quiet cloudflared 2>/dev/null; then
-  cloudflared service install "$tunnel_token"
-elif [ -z "$tunnel_token" ]; then
-  echo "No SSM /obsidian-vault/tunnel-token yet; tunnel not installed (deploy.sh tunnel-token)"
-fi
-
 log "status"
-sleep 3
+sleep 5
 as_user systemctl --user --no-pager status obsidian.service vault-mcp.service | grep -E '●|Active:' || true
-curl -fsS -m 10 -H "Authorization: Bearer $token" http://127.0.0.1:8765/healthz | jq . || echo "healthz not answering yet"
+curl -fsS -m 10 --cacert "$TLS/ca.pem" -H "Authorization: Bearer $token" "https://localhost:$PORT/healthz" | jq . ||
+  echo "healthz not answering yet"

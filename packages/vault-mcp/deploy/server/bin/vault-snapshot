@@ -1,0 +1,27 @@
+#!/bin/bash
+# Commit the vault into a local git repo kept OUTSIDE the vault (Obsidian Sync
+# never sees it). Run by vault-mcp before bulk changes and by vault-idle-stop
+# before each shutdown. It's an undo for a bad bulk edit, not an off-site backup
+# (Obsidian Sync's history and the other devices are that).
+#   Browse:  sudo -iu obsidian git --git-dir ~/snapshots/vault.git log --stat
+#   Restore: git --git-dir ~/snapshots/vault.git --work-tree ~/vaults/Trey checkout <commit> -- <path>
+# Usage: vault-snapshot [message]
+set -euo pipefail
+
+: "${VAULT_ROOT:=$HOME/vaults/Trey}"
+export GIT_DIR="$HOME/snapshots/vault.git" GIT_WORK_TREE="$VAULT_ROOT"
+
+if [ ! -d "$GIT_DIR" ]; then
+  mkdir -p "$GIT_DIR"
+  git init -q
+  printf '%s\n' '.obsidian/workspace*.json' '.trash/' '.vault-mcp-*.tmp' >"$GIT_DIR/info/exclude"
+fi
+
+git add -A
+if ! git rev-parse -q --verify HEAD >/dev/null || ! git diff --cached --quiet; then
+  git -c user.name=vault-snapshot -c user.email=vault-snapshot@localhost \
+    commit -q --allow-empty -m "${1:-snapshot} ($(date -u +%Y-%m-%dT%H:%MZ))"
+  echo "snapshot $(git rev-parse --short HEAD)"
+else
+  echo "no changes since $(git rev-parse --short HEAD)"
+fi

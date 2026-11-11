@@ -1,0 +1,7 @@
+[Unit]
+Description=Stop the box when vault-mcp has been idle and Obsidian Sync has settled
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/vault-mcp/stack.env
+ExecStart=/usr/local/bin/vault-idle-stop

@@ -12,6 +12,7 @@ import functools
 import json
 import re
 import shlex
+import subprocess
 import threading
 import time
 from collections import Counter
@@ -25,7 +26,7 @@ from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import ToolAnnotations
 
-from vault_mcp import _audit, _cli, _notes
+from vault_mcp import _audit, _cli, _notes, _ready
 from vault_mcp._vault import Note, Vault, VaultError
 from vault_mcp.config import Settings, get_settings
 
@@ -512,6 +513,8 @@ def health() -> dict[str, Any]:
                     timespec="seconds"
                 ),
             }
+    if out["vault_found"]:
+        out["sync"] = _ready.state(s)
     out["ok"] = bool(out["vault_found"] and out["cli"] == "ok")
     return out
 
@@ -887,6 +890,21 @@ def delete_note(note: str) -> dict[str, Any]:
     return out
 
 
+def _snapshot(s: Settings, message: str) -> str:
+    """Run the snapshot command (a local git commit of the vault); report, don't fail."""
+    try:
+        proc = subprocess.run(  # noqa: S603 -- operator-configured command
+            [*shlex.split(s.snapshot_cmd), message],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return f"failed: {exc}"
+    return "ok" if proc.returncode == 0 else f"failed: {proc.stderr.strip()[:200]}"
+
+
 def bulk_update_properties(
     set_properties: dict[str, Any],
     folder: str | None = None,
@@ -964,6 +982,10 @@ def bulk_update_properties(
     if dry_run:
         out["apply_with"] = "the same arguments and dry_run=false"
         return out
+    if plan and s.snapshot_cmd:
+        out["snapshot"] = _snapshot(
+            s, f"before bulk_update_properties on {len(plan)} notes"
+        )
     for item in plan:
         rel = item["path"]
         v.write_text(rel, _notes.set_properties(v.read_text(rel), set_properties))
@@ -1005,19 +1027,19 @@ WRITE_TOOLS = (
 )
 
 
+INSTRUCTIONS = (
+    "Trey's Obsidian vault. Folders are areas of life; every note has "
+    "type/status properties (see list_properties). Find notes with search "
+    "or list_notes, then read_note. Follow _Meta/Vault Guide.md when "
+    "writing: wikilinks, shortest form; quick thoughts go in the daily "
+    "note's Capture section. Bulk changes return a plan first; show it "
+    "before applying."
+)
+
+
 def create_server(readonly: bool) -> MCPServer:
     """The MCP server; with ``readonly`` the write tools aren't registered at all."""
-    server = MCPServer(
-        "obsidian-vault",
-        instructions=(
-            "Trey's Obsidian vault. Folders are areas of life; every note has "
-            "type/status properties (see list_properties). Find notes with search "
-            "or list_notes, then read_note. Follow _Meta/Vault Guide.md when "
-            "writing: wikilinks, shortest form; quick thoughts go in the daily "
-            "note's Capture section. Bulk changes return a plan first; show it "
-            "before applying."
-        ),
-    )
+    server = MCPServer("obsidian-vault", instructions=INSTRUCTIONS)
     for fn in READ_TOOLS:
         server.add_tool(_as_tool(fn), annotations=_RO)
     # daily_note reads, and creates the note only when the server is writable.
@@ -1040,6 +1062,14 @@ def _as_tool(fn: Callable[..., Any], *, serialize: bool = False) -> Callable[...
 
     @functools.wraps(fn)
     def tool(*args: Any, **kwargs: Any) -> Any:
+        s = get_settings()
+        if fn is not health and s.require_ready and not _ready.is_ready(s):
+            st = _ready.state(s)
+            raise ToolError(
+                "The vault server just started and Obsidian Sync is still catching up "
+                f"(sync status {st['sync_status']!r}, quiet {st['quiet_seconds']} s). "
+                "Wait about 30 seconds and call start_vault() or retry."
+            )
         try:
             if serialize:
                 with _WRITE_LOCK:
