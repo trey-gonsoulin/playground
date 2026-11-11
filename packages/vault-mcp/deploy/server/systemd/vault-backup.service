@@ -1,0 +1,8 @@
+[Unit]
+Description=Commit the vault to a local git repo and upload a bundle to S3
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/vault-mcp/stack.env
+EnvironmentFile=%h/.config/vault-mcp/env
+ExecStart=/usr/local/bin/vault-backup

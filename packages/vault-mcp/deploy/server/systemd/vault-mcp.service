@@ -1,0 +1,16 @@
+[Unit]
+Description=vault-mcp: MCP server for the Obsidian vault (127.0.0.1:8765)
+After=network-online.target
+# Deliberately no Requires=obsidian.service: with the app down, the tools fall
+# back to the files (brief §8 test 6).
+
+[Service]
+Type=simple
+EnvironmentFile=%h/.config/vault-mcp/env
+Environment=DISPLAY=:99
+ExecStart=%h/.local/bin/vault-mcp
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

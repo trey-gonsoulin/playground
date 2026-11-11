@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Goal
 
-This repo is a collection of personal MCP servers deployed to AWS Lambda and integrated with Claude Desktop / Claude iOS. Each MCP is its own package under `packages/`, following the same structure as `~/code/hoshi` (the reference implementation). The root `pyproject.toml` is a **uv workspace** with one member per MCP package.
+This repo is a collection of personal MCP servers deployed to AWS Lambda and integrated with Claude Desktop / Claude iOS. Each MCP is its own package under `packages/`, following the same structure as `~/code/hoshi` (the reference implementation). The root `pyproject.toml` is a **uv workspace** with one member per MCP package. The exception is `vault-mcp`, a long-running server on its own EC2 box (see Packages).
 
 ## Architecture pattern
 
@@ -134,7 +134,7 @@ A personal family tree built up through MCP tools and exported as GEDCOM. It is 
   - Resources are content-addressed (`resources/<sha256[:16]>-<name>`). The bucket is versioned and retained.
 - **Request size:** `MAX_REQUEST_BODY_BYTES` (4 MiB, mcp's default, set explicitly) is passed to mcp as `max_request_body_size`; larger bodies get a 413. It keeps the Lambda event, which wraps the body as an escaped JSON string, under Lambda's 6 MB cap (#505). Only inline arguments such as `tree_import_gedcom`'s `gedcom_text` count; `tree_attach_resource_from_url` downloads in the Lambda (25 MiB cap).
 - **Response size:** mcp doesn't limit responses, but Lambda refuses ones over 6 MB. `tree_export_gedcom(include_text=True)` returns the GEDCOM inline only while `_inline_gedcom_bytes` (its size after the three JSON escapes on the way out: tool result, JSON-RPC body, Lambda response) is at most `MAX_INLINE_GEDCOM_BYTES` (5 MiB). Above that it returns a `note` instead, and the export is still saved; `path` (`exports/tree-<stamp>.ged`) and `url` are always returned (#509). Escaping grows quotes and backslashes 8x, 2-byte UTF-8 3x and short CRLF lines about 2.1x, which is why the cap is on the escaped size, not the raw bytes.
-- **Auth:** none when deployed, because claude.ai connectors can't send a static bearer header. The app still requires `Authorization: Bearer <secret>` if `GENEALOGY_MCP_SECRET` is set (same pattern as ynab-mcp), but `template.yaml` leaves it unset.
+- **Auth:** none when deployed. When this was set up, claude.ai connectors couldn't send a static bearer header; since about Oct 2026 the custom-connector setup has a "Request headers" step, so a secret could now be turned on. The app still requires `Authorization: Bearer <secret>` if `GENEALOGY_MCP_SECRET` is set (same pattern as ynab-mcp), but `template.yaml` leaves it unset.
 
 ### markets (`packages/markets/`)
 
@@ -161,6 +161,34 @@ Short-horizon market analysis: quotes, volatility, price-target odds and sell-pl
 - **Cache (in-process):** history 1 h, quote 30 s, earnings 12 h, chains 5 min, rate 1 h.
 - **Errors:** mcp 2.x hides the text of non-`ToolError` exceptions, so tools re-raise `ValueError`/`DataSourceError` as `ToolError`.
 - **Auth:** none by default; `Authorization: Bearer <secret>` is required if `MARKETS_MCP_SECRET` is set, but `template.yaml` leaves it unset.
+
+### vault-mcp (`packages/vault-mcp/`)
+
+The Obsidian vault as a claude.ai custom connector. Unlike the other packages it is **not a Lambda**. It is a uvicorn server on an always-on EC2 box (stack `obsidian-vault`, `deploy/template.yaml`) next to the real Obsidian app running headless under Xvfb with Obsidian Sync. It's reached only through a Cloudflare named tunnel. `packages/vault-mcp/README.md` is the runbook.
+
+- **Backends:**
+  - The official Obsidian CLI (`obsidian-cli`) handles search, move/rename (link rewriting), delete (to trash), tasks and creating today's daily note.
+  - Everything else, and every CLI action while the app is down, uses the files directly.
+  - Each result names its `backend`.
+- **CLI contract is loose:**
+  - The exit code is always 0, errors go to stdout as `Error: ...`, and the JSON shapes are undocumented.
+  - So `_cli.py` raises on those, callers verify on disk, and anything unexpected falls back to the filesystem.
+  - Before each call it checks `systemctl --user is-active obsidian.service` (`OBSIDIAN_APP_CHECK`), because the CLI would otherwise launch a second app.
+- **Vault Guide rules are enforced in the write tools:**
+  - New notes go to `_Inbox` with `type`/`status`/`created`, and `type`/`status`/`source` vocabulary is checked.
+  - A rename adds the old title to `aliases`.
+  - Body edits keep the frontmatter byte-exact, and `updated` is never touched.
+- **Safety:**
+  - `Vault.resolve` keeps paths in the vault (no `..`, absolute paths or symlinks out; no writes in `.obsidian`/`.trash`/`.git`).
+  - Nothing is deleted permanently.
+  - Bulk edits are dry-run first, and every write is audit-logged (JSON lines).
+  - `VAULT_MCP_READONLY=1` unregisters the write tools.
+- **Auth:** fails closed. The app refuses to start without `VAULT_MCP_TOKEN` (SSM SecureString `/obsidian-vault/mcp-token`), and the connector sends it as a request header.
+- **Frontmatter:** PyYAML with the timestamp resolver removed, so dates stay strings and round-trip unquoted.
+- **Deploy:** `deploy/deploy.sh` runs over SSM only; the box has no inbound ports.
+  - `infra` creates a change set, which you review and execute.
+  - `push` builds the `vault-mcp` + `mcp-lambda` wheels and runs `deploy/server/install.sh` on the box.
+  - The AMI is pinned at first deploy. The instance, volume and bucket are `Retain`.
 
 ### Elden Ring (moved to soulsearch)
 

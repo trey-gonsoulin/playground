@@ -1,0 +1,34 @@
+[project]
+name = "vault-mcp"
+version = "0.1.0"
+description = "MCP server for an Obsidian vault, run on an always-on server behind Cloudflare Tunnel"
+requires-python = ">=3.13"
+# A long-running server on EC2, not a Lambda: no mangum or Dockerfile (see deploy/).
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "mcp>=2.3,<3",
+    "mcp-lambda",
+    "pyyaml>=6.0",
+]
+
+[project.scripts]
+vault-mcp = "vault_mcp.main:cli"
+
+[tool.uv.sources]
+mcp-lambda = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["vault_mcp"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

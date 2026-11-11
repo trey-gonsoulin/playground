@@ -1,0 +1,27 @@
+#!/bin/bash
+# One-off GUI access to the headless app (the Obsidian Sync login, settings):
+# exposes display :99 over VNC on 127.0.0.1:5900 only. Reach it through an SSM
+# port forward (deploy.sh vnc), then open vnc://localhost:5900 on the Mac.
+# Usage (as the obsidian user): vault-vnc start | stop
+set -euo pipefail
+
+case "${1:-}" in
+  start)
+    mkdir -p "$HOME/.vnc"
+    pass=$(head -c 12 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 8)
+    x11vnc -storepasswd "$pass" "$HOME/.vnc/passwd" >/dev/null 2>&1
+    pkill -u "$USER" -x x11vnc || true
+    x11vnc -display :99 -auth "$HOME/.config/obsidian/Xauthority" -localhost \
+      -rfbport 5900 -rfbauth "$HOME/.vnc/passwd" -forever -shared -bg \
+      -o "$HOME/.vnc/x11vnc.log" >/dev/null
+    echo "VNC on 127.0.0.1:5900, password: $pass"
+    ;;
+  stop)
+    pkill -u "$USER" -x x11vnc && echo "VNC stopped" || echo "VNC was not running"
+    rm -f "$HOME/.vnc/passwd"
+    ;;
+  *)
+    echo "usage: vault-vnc start|stop" >&2
+    exit 2
+    ;;
+esac

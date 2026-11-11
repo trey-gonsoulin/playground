@@ -1,0 +1,5 @@
+#!/bin/sh
+# The official Obsidian CLI, pointed at the headless app's display. Without
+# DISPLAY it can't find the running app's IPC socket.
+export DISPLAY="${DISPLAY:-:99}"
+exec /opt/obsidian/obsidian-cli "$@"

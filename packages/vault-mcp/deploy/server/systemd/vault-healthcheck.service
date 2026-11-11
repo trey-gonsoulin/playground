@@ -1,0 +1,8 @@
+[Unit]
+Description=Check the app, vault-mcp and the tunnel; alert by SNS after 10 minutes down
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/vault-mcp/stack.env
+EnvironmentFile=%h/.config/vault-mcp/env
+ExecStart=/usr/local/bin/vault-healthcheck
