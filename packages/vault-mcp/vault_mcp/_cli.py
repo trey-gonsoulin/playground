@@ -53,13 +53,21 @@ def app_running(settings: Settings) -> bool:
     return ok
 
 
-def run(settings: Settings, command: str, *flags: str, **params: Any) -> str:
+def run(
+    settings: Settings,
+    command: str,
+    *flags: str,
+    _timeout: float | None = None,
+    **params: Any,
+) -> str:
     """Run ``obsidian-cli vault=<name> <command> key=value... flags...``; return stdout.
 
     ``None`` params are left out. Raises ``CliUnavailable`` when the app is down
     (rather than letting the CLI launch a second, unsupervised app) and
-    ``CliError`` when the CLI reports an error.
+    ``CliError`` when the CLI reports an error. ``_timeout`` overrides
+    ``OBSIDIAN_CLI_TIMEOUT`` for quick probes.
     """
+    timeout = settings.cli_timeout if _timeout is None else _timeout
     if not settings.cli:
         raise CliUnavailable("Obsidian CLI disabled (OBSIDIAN_CLI is empty)")
     if not app_running(settings):
@@ -73,16 +81,14 @@ def run(settings: Settings, command: str, *flags: str, **params: Any) -> str:
             args,
             capture_output=True,
             text=True,
-            timeout=settings.cli_timeout,
+            timeout=timeout,
             env=env,
             check=False,
         )
     except FileNotFoundError as exc:
         raise CliUnavailable(f"Obsidian CLI not found: {settings.cli}") from exc
     except subprocess.TimeoutExpired as exc:
-        raise CliUnavailable(
-            f"Obsidian CLI timed out after {settings.cli_timeout}s"
-        ) from exc
+        raise CliUnavailable(f"Obsidian CLI timed out after {timeout}s") from exc
     out = proc.stdout.strip()
     if proc.returncode != 0:
         detail = (proc.stderr.strip() or out)[:300]

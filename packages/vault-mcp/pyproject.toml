@@ -1,9 +1,9 @@
 [project]
 name = "vault-mcp"
 version = "0.1.0"
-description = "MCP server for an Obsidian vault, run on an always-on server behind Cloudflare Tunnel"
+description = "MCP server for an Obsidian vault: an on-demand EC2 box behind an always-on Lambda front end"
 requires-python = ">=3.13"
-# A long-running server on EC2, not a Lambda: no mangum or Dockerfile (see deploy/).
+# One package, two deployments: vault-mcp (uv tool on the box) and the Lambda image (Dockerfile).
 dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.30",

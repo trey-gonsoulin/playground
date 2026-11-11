@@ -177,7 +177,7 @@ obsidian-cli vault=Trey eval code="JSON.stringify(app.internalPlugins.getPluginB
 - **Rotate the token:**
   1. `aws ssm delete-parameter --name /obsidian-vault/mcp-token --profile personal`
   2. `./deploy.sh token && ./deploy.sh push`
-  3. Update the connector header. The Lambda re-reads the token after a 401.
+  3. Update the connector header. Warm Lambdas pick up the new token within 5 minutes.
 - **Undo a bad bulk edit:** Obsidian Sync's version history keeps 30 days. The box also keeps local snapshots, taken before every bulk change and every idle stop:
   - Browse: `sudo -iu obsidian git --git-dir ~/snapshots/vault.git log --stat`
   - Restore: `git --git-dir ~/snapshots/vault.git --work-tree ~/vaults/Trey checkout <commit> -- <path>`

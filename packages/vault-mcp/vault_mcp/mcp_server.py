@@ -1063,13 +1063,14 @@ def _as_tool(fn: Callable[..., Any], *, serialize: bool = False) -> Callable[...
     @functools.wraps(fn)
     def tool(*args: Any, **kwargs: Any) -> Any:
         s = get_settings()
-        if fn is not health and s.require_ready and not _ready.is_ready(s):
-            st = _ready.state(s)
-            raise ToolError(
-                "The vault server just started and Obsidian Sync is still catching up "
-                f"(sync status {st['sync_status']!r}, quiet {st['quiet_seconds']} s). "
-                "Wait about 30 seconds and call start_vault() or retry."
-            )
+        if fn is not health and s.require_ready:
+            ready, st = _ready.check(s)
+            if not ready and st is not None:
+                raise ToolError(
+                    "The vault server just started and Obsidian Sync is still catching "
+                    f"up (sync status {st['sync_status']!r}, quiet {st['quiet_seconds']} s). "
+                    "Wait about 30 seconds and call start_vault() or retry."
+                )
         try:
             if serialize:
                 with _WRITE_LOCK:

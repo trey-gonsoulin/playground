@@ -30,6 +30,7 @@ def ec2(vault, monkeypatch, tmp_path):
     }
     proxy._cache.clear()
     proxy._cache["params"] = {"mcp-token": TOKEN, "ca-cert": "unused", "readonly": "0"}
+    proxy._cache["params_at"] = proxy.time.monotonic()
     monkeypatch.setattr(
         proxy, "_instance", lambda: {k: state[k] for k in ("state", "host")}
     )
@@ -145,5 +146,42 @@ def test_proxy_app_requires_token(ec2):
         ok = client.post("/mcp", json=body, headers={**HEADERS, **AUTH})
         assert ok.status_code == 200 and len(ok.json()["result"]["tools"]) == 17
     proxy._cache["params"] = {"ca-cert": "x"}
+    proxy._cache["params_at"] = proxy.time.monotonic()
     with pytest.raises(RuntimeError, match="mcp-token"):
         proxy.create_proxy_app()
+
+
+def test_rotated_token_reaches_a_warm_front_end(ec2, monkeypatch):
+    app = proxy.create_proxy_app()
+    body = {"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}
+
+    class FakeSSM:
+        def get_parameters(self, Names, WithDecryption):
+            values = {"mcp-token": "n3w", "ca-cert": "unused", "readonly": "0"}
+            return {
+                "Parameters": [
+                    {"Name": proxy.PARAM_PREFIX + k, "Value": v}
+                    for k, v in values.items()
+                ]
+            }
+
+    monkeypatch.setattr(proxy.boto3, "client", lambda _name: FakeSSM())
+    proxy._cache["params_at"] -= proxy.PARAMS_TTL + 1  # the cached settings expire
+    with TestClient(app) as client:
+        new = {**HEADERS, "Authorization": "Bearer n3w"}
+        assert client.post("/mcp", json=body, headers=new).status_code == 200
+        old = {**HEADERS, **AUTH}
+        assert client.post("/mcp", json=body, headers=old).status_code == 401
+
+
+def test_dropped_connection_is_a_readable_error(ec2, monkeypatch):
+    import httpx
+
+    class Dropping:
+        def post(self, *_a, **_k):
+            raise httpx.ReadError("connection reset")
+
+    monkeypatch.setattr(proxy, "_client", Dropping)
+    with pytest.raises(ToolError, match="dropped"):
+        proxy._call("search", {"query": "x"})
+    assert "host" not in proxy._cache
