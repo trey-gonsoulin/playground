@@ -349,3 +349,21 @@ def test_sync_status_reads_eval_output(monkeypatch, out, want):
 
     monkeypatch.setattr(_cli, "run", lambda *_a, **_k: out + "\n")
     assert _ready.sync_status(None) == want
+
+
+def test_sync_status_prefers_documented_command(monkeypatch):
+    from vault_mcp import _cli, _ready
+
+    real = "status: syncing\nvault: Trey\nvault size: 90.61 MB\n"
+    calls = []
+
+    def run(_s, command, *_a, **_k):
+        calls.append(command)
+        if command == "sync:status":
+            return real
+        return '=> "fallback"'
+
+    monkeypatch.setattr(_cli, "run", run)
+    assert _ready.sync_status(None) == "syncing" and calls == ["sync:status"]
+    real = "Error: unknown command"
+    assert _ready.sync_status(None) == "fallback"
