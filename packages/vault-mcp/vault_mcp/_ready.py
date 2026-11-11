@@ -59,6 +59,7 @@ def sync_status(s: Settings) -> str | None:
         out = _cli.run(s, "eval", _timeout=PROBE_TIMEOUT, code=_SYNC_JS).strip()
     except _cli.CliError:
         return None
+    out = out.removeprefix("=>").strip()  # eval prints its result as `=> <value>`
     try:
         value: Any = json.loads(out)
     except ValueError:

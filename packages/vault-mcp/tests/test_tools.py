@@ -332,3 +332,14 @@ def test_write_refuses_when_file_changed_since_read(vault):
 
     with pytest.raises(VaultError, match="changed while"):
         t._vault().write_text("Home/Home.md", "new", expect="stale text")
+
+
+@pytest.mark.parametrize(
+    ("out", "want"),
+    [('=> "disconnected"', "disconnected"), ('"synced"', "synced"), ("=> null", None)],
+)
+def test_sync_status_reads_eval_output(monkeypatch, out, want):
+    from vault_mcp import _cli, _ready
+
+    monkeypatch.setattr(_cli, "run", lambda *_a, **_k: out + "\n")
+    assert _ready.sync_status(None) == want
