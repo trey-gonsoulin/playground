@@ -288,8 +288,14 @@ def test_symlink_out_of_vault_rejected(vault, tmp_path):
 
 
 def test_tasks_filesystem_and_cli(vault, fake_cli, monkeypatch):
-    assert t.tasks()["tasks"][0]["text"] == "measure"
-    assert t.tasks()["backend"] == "obsidian-cli"
+    cli = t.tasks()
+    assert cli["backend"] == "obsidian-cli"
+    assert cli["tasks"][0] == {
+        "path": "Home/Rug Options.md",
+        "line": 9,
+        "status": " ",
+        "text": "measure",
+    }
     monkeypatch.setenv("FAKE_CLI_MODE", "error")
     res = t.tasks(status="all")
     assert res["backend"] == "filesystem"

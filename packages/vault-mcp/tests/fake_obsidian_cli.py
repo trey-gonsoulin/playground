@@ -49,11 +49,11 @@ elif command == "tasks":
     print(
         json.dumps(
             [
-                {
-                    "path": "Home/Rug Options.md",
-                    "line": 9,
+                {  # the real CLI's shape (1.12): file, line as text, whole line
                     "status": " ",
-                    "text": "measure",
+                    "text": "- [ ] measure",
+                    "file": "Home/Rug Options.md",
+                    "line": "9",
                 }
             ]
         )
