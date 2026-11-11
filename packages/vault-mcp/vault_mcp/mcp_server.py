@@ -440,12 +440,16 @@ def _cli_tasks(s: Settings, status: str) -> list[dict[str, Any]]:
         path = item.get("path") or item.get("file")
         if not (isinstance(text, str) and isinstance(path, str)):
             raise _cli.CliError("unexpected tasks output")
+        # The CLI (1.12) gives the whole "- [ ] ..." line and the line number as
+        # a string; normalize both to match _fs_tasks.
+        m = _TASK_RE.match(text)
+        line = str(item.get("line", ""))
         out.append(
             {
                 "path": path,
-                "line": item.get("line"),
+                "line": int(line) if line.isdigit() else item.get("line"),
                 "status": item.get("status", "x" if item.get("completed") else " "),
-                "text": text.strip(),
+                "text": m.group(2) if m else text.strip(),
             }
         )
     return out
