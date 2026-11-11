@@ -68,7 +68,7 @@ Every box result names its `backend`.
 
 **Readiness:** "Sync has caught up" means all of the following:
 - The app is running.
-- Sync's internal status isn't one of the `sync-busy` names. The status is read with the CLI's `eval` and is undocumented.
+- Sync's status isn't one of the `sync-busy` names. The status comes from the CLI's `sync:status` (falling back to an `eval` of the Sync plugin's internals). The busy status is `syncing`.
 - Nothing in the vault has changed for 30 s. This uses ctime, which Sync can't backdate.
 - The box has been up for at least 60 s.
 
@@ -147,11 +147,11 @@ A push counts as activity, so the box stays up for the next 30 minutes.
 obsidian-cli help
 obsidian-cli vault=Trey search query=Eberron format=json
 obsidian-cli vault=Trey tasks todo verbose format=json | head
-obsidian-cli vault=Trey eval code="JSON.stringify(app.internalPlugins.getPluginById('sync').instance.getStatus())"
+obsidian-cli vault=Trey sync:status
 ```
-- Run the last command while Sync is idle, then again while it's busy (edit a note on the Mac).
+- Run `sync:status` while Sync is idle, then again while it's busy (edit a note on the Mac). Busy reads `status: syncing`.
 - If the busy value isn't one of `syncing,uploading,downloading,connecting,pending`, run `./deploy.sh sync-busy "<values>"` and then `./deploy.sh push`.
-- The server accepts `search`/`tasks` output as a list of paths or of `{path|file, ...}` objects; anything else falls back to the files. If the real output differs, adjust `_parse_cli_paths` / `_cli_tasks` in `mcp_server.py`.
+- The server accepts `search`/`tasks` output as a list of paths or of `{path|file, ...}` objects; anything else falls back to the files. On CLI 1.12, search gives a list of paths and tasks gives `{status, text, file, line}`.
 - When done, run `sudo -iu obsidian vault-vnc stop` to release the idle hold.
 
 ### 6. Claude

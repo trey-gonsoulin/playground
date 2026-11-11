@@ -2,8 +2,9 @@
 idle shutdown before a stop.
 
 Obsidian has no public Sync API, so this combines two signals:
-- the internal Sync plugin's status, read with the CLI's ``eval`` (undocumented;
-  statuses named in ``VAULT_SYNC_BUSY`` count as busy, anything else as idle);
+- Sync's status from the CLI's ``sync:status`` (or, failing that, an ``eval`` of
+  the plugin's internals); statuses named in ``VAULT_SYNC_BUSY`` count as busy,
+  anything else as idle. Seen on 1.15: ``syncing``, ``disconnected``;
 - a quiet period: no file in the vault changed (ctime, which Sync can't
   backdate the way it preserves mtimes) for ``QUIET_SECONDS``.
 """
@@ -54,7 +55,19 @@ def last_change(root: Path) -> float:
 
 
 def sync_status(s: Settings) -> str | None:
-    """The Sync plugin's status as text, or None when it can't be read."""
+    """The Sync plugin's status as text, or None when it can't be read.
+
+    The documented ``sync:status`` prints ``status: syncing`` (among other
+    lines); the ``eval`` of the plugin's internals is the fallback.
+    """
+    try:
+        out = _cli.run(s, "sync:status", _timeout=PROBE_TIMEOUT)
+    except _cli.CliError:
+        out = ""
+    for line in out.splitlines():
+        key, _, value = line.partition(":")
+        if key.strip().lower() == "status" and value.strip():
+            return value.strip()
     try:
         out = _cli.run(s, "eval", _timeout=PROBE_TIMEOUT, code=_SYNC_JS).strip()
     except _cli.CliError:

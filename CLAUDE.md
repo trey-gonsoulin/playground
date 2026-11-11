@@ -178,7 +178,7 @@ The Obsidian vault as a claude.ai custom connector, in its own SAM stack `obsidi
   - The bearer token (SSM SecureString `/obsidian-vault/mcp-token`) is the same at both hops. Both apps fail closed without it.
 - **Readiness** (`_ready.py`): after a start, the box's tools refuse calls (`VAULT_REQUIRE_READY`) until Sync has caught up:
   - the app is running;
-  - the Sync plugin's status, read with CLI `eval` (undocumented), isn't in `VAULT_SYNC_BUSY`;
+  - Sync's status from CLI `sync:status` (falling back to an `eval` of the plugin's internals) isn't in `VAULT_SYNC_BUSY`; busy reads `syncing`;
   - the vault has been quiet for 30 s by ctime;
   - uptime is at least 60 s.
 
