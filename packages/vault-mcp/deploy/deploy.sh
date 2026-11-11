@@ -111,13 +111,19 @@ case "${1:-}" in
       uv build -q --wheel --package mcp-lambda -o packages/vault-mcp/dist)
     aws s3 sync --delete --only-show-errors "$HERE/../dist" "s3://$bucket/deploy/dist"
     aws s3 sync --delete --only-show-errors "$HERE/server" "s3://$bucket/deploy/server"
+    # UserData's one snap install can miss (the snap store is sometimes
+    # unreachable at first boot), so make sure the AWS CLI is there first.
     run_remote "set -e; . /etc/vault-mcp/stack.env
+for i in 1 2 3 4 5; do
+  [ -x /snap/bin/aws ] && break
+  snap install aws-cli --classic || { echo 'snap install failed; retrying' >&2; sleep 15; }
+done
 rm -rf /opt/vault-mcp/src && mkdir -p /opt/vault-mcp/src
 /snap/bin/aws s3 sync --only-show-errors --region \$AWS_REGION s3://\$VAULT_BUCKET/deploy/ /opt/vault-mcp/src/
 chmod -R a+rX /opt/vault-mcp/src
 OBSIDIAN_VERSION=${OBSIDIAN_VERSION:-1.15.0} bash /opt/vault-mcp/src/server/install.sh 2>&1"
     ;;
-  url) echo "$(output McpUrl)" ;;
+  url) output McpUrl ;;
   shell) start_box && aws ssm start-session --target "$(output InstanceId)" ;;
   vnc)
     run_remote "sudo -iu obsidian vault-vnc start"
