@@ -1,0 +1,180 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  obsidian-vault: always-on Ubuntu 24.04 box running Obsidian (Xvfb) + vault-mcp,
+  reached only through Cloudflare Tunnel (outbound) and SSM (no inbound ports).
+
+Parameters:
+  ImageId:
+    Type: AWS::EC2::Image::Id
+    Description: >-
+      Ubuntu 24.04 AMI, pinned. deploy.sh looks it up once for a new stack and
+      reuses the previous value afterwards, so an AMI release never replaces the box.
+  InstanceType:
+    Type: String
+    Default: t4g.small
+    AllowedValues: [t4g.small, t4g.medium, t3.small, t3.medium]
+    Description: Graviton (t4g) needs an arm64 AMI; t3 needs amd64.
+  AlertEmail:
+    Type: String
+    Description: Where health alerts go (confirm the SNS subscription email).
+  VolumeSize:
+    Type: Number
+    Default: 20
+
+Resources:
+  BackupBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: expire-old-backups
+            Status: Enabled
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 90
+
+  AlertTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: Obsidian vault server
+      Subscription:
+        - Protocol: email
+          Endpoint: !Ref AlertEmail
+
+  InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: ec2.amazonaws.com }
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: vault-server
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [s3:GetObject, s3:PutObject]
+                Resource:
+                  - !Sub "${BackupBucket.Arn}/backups/*"
+                  - !Sub "${BackupBucket.Arn}/deploy/*"
+              - Effect: Allow
+                Action: s3:ListBucket
+                Resource: !GetAtt BackupBucket.Arn
+              - Effect: Allow
+                Action: sns:Publish
+                Resource: !Ref AlertTopic
+              - Effect: Allow
+                Action: ssm:GetParameter
+                Resource: !Sub "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/obsidian-vault/*"
+              - Effect: Allow
+                Action: kms:Decrypt
+                Resource: "*"
+                Condition:
+                  StringEquals:
+                    kms:ViaService: !Sub "ssm.${AWS::Region}.amazonaws.com"
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles: [!Ref InstanceRole]
+
+  # No ingress rules at all: shell access is SSM Session Manager, and the MCP
+  # server is reached through cloudflared's outbound tunnel. (A new group in the
+  # default VPC allows all egress.)
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: obsidian-vault - egress only
+
+  Instance:
+    Type: AWS::EC2::Instance
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      ImageId: !Ref ImageId
+      InstanceType: !Ref InstanceType
+      IamInstanceProfile: !Ref InstanceProfile
+      SecurityGroupIds: [!GetAtt SecurityGroup.GroupId]
+      MetadataOptions:
+        HttpTokens: required
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeType: gp3
+            VolumeSize: !Ref VolumeSize
+            Encrypted: true
+            DeleteOnTermination: false
+      Tags:
+        - Key: Name
+          Value: obsidian-vault
+      # Just enough for SSM; deploy.sh push runs deploy/server/install.sh.
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -eux
+          mkdir -p /etc/vault-mcp
+          cat > /etc/vault-mcp/stack.env <<EOF
+          VAULT_BUCKET=${BackupBucket}
+          VAULT_TOPIC_ARN=${AlertTopic}
+          AWS_REGION=${AWS::Region}
+          EOF
+          snap install aws-cli --classic || true
+
+  # Hardware/host failure: recover onto new hardware (same volume, same id).
+  SystemCheckAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: obsidian-vault host failed its system status check
+      Namespace: AWS/EC2
+      MetricName: StatusCheckFailed_System
+      Dimensions: [{ Name: InstanceId, Value: !Ref Instance }]
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 5
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      AlarmActions:
+        - !Sub "arn:${AWS::Partition}:automate:${AWS::Region}:ec2:recover"
+        - !Ref AlertTopic
+
+  # The box itself is wedged (the on-box health check can't report that).
+  InstanceCheckAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: obsidian-vault failed its instance status check
+      Namespace: AWS/EC2
+      MetricName: StatusCheckFailed_Instance
+      Dimensions: [{ Name: InstanceId, Value: !Ref Instance }]
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 10
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      AlarmActions:
+        - !Sub "arn:${AWS::Partition}:automate:${AWS::Region}:ec2:reboot"
+        - !Ref AlertTopic
+
+Outputs:
+  InstanceId:
+    Value: !Ref Instance
+  BackupBucket:
+    Value: !Ref BackupBucket
+  AlertTopicArn:
+    Value: !Ref AlertTopic

@@ -1,0 +1,49 @@
+#!/bin/bash
+# Every 2 minutes (vault-healthcheck.timer): ask vault-mcp's /healthz locally
+# (app + CLI + vault) and, when VAULT_PUBLIC_URL is set, through the tunnel.
+# Sends one SNS alert once something has been down for 10 minutes, and one
+# when it recovers. (A dead box is covered by the CloudWatch status alarms.)
+set -uo pipefail
+
+: "${VAULT_MCP_TOKEN:?}" "${VAULT_TOPIC_ARN:?}" "${AWS_REGION:?}"
+AWS=${AWS:-/snap/bin/aws}
+STATE="$HOME/.local/state/vault-mcp"
+mkdir -p "$STATE"
+auth="Authorization: Bearer $VAULT_MCP_TOKEN"
+problems=()
+
+if body=$(curl -fsS -m 30 -H "$auth" "http://127.0.0.1:${VAULT_MCP_PORT:-8765}/healthz"); then
+  if [ "$(jq -r .ok <<<"$body")" != "true" ]; then
+    problems+=("Obsidian app/CLI: $(jq -c '{app_running, cli, vault_found}' <<<"$body")")
+  fi
+else
+  problems+=("vault-mcp is not answering on 127.0.0.1")
+fi
+if [ -n "${VAULT_PUBLIC_URL:-}" ] && ! curl -fsS -m 30 -o /dev/null -H "$auth" "$VAULT_PUBLIC_URL/healthz"; then
+  problems+=("tunnel: $VAULT_PUBLIC_URL/healthz is unreachable")
+fi
+
+publish() {
+  "$AWS" sns publish --region "$AWS_REGION" --topic-arn "$VAULT_TOPIC_ARN" \
+    --subject "$1" --message "$2" >/dev/null
+}
+
+now=$(date +%s)
+if ((${#problems[@]})); then
+  printf '%s\n' "${problems[@]}"
+  [ -f "$STATE/down_since" ] || echo "$now" >"$STATE/down_since"
+  since=$(cat "$STATE/down_since")
+  if ((now - since >= 600)) && [ ! -f "$STATE/alerted" ]; then
+    publish "Obsidian vault server DOWN" "Down since $(date -d "@$since"):
+$(printf ' - %s\n' "${problems[@]}")
+
+Logs: journalctl --user -u obsidian -u vault-mcp (as obsidian), journalctl -u cloudflared"
+    touch "$STATE/alerted"
+  fi
+  exit 1
+fi
+if [ -f "$STATE/alerted" ]; then
+  publish "Obsidian vault server recovered" "All checks pass again at $(date)."
+fi
+rm -f "$STATE/down_since" "$STATE/alerted"
+echo ok

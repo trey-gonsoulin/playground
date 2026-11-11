@@ -1,0 +1,19 @@
+[Unit]
+Description=Obsidian desktop app, headless under Xvfb :99 (Sync + CLI)
+After=network-online.target
+
+[Service]
+Type=simple
+Environment=DISPLAY=:99
+# A SIGKILLed run leaves Singleton* files behind, and Obsidian then exits 0
+# without starting; Xvfb likewise leaves its display lock.
+ExecStartPre=/bin/rm -f %h/.config/obsidian/SingletonLock %h/.config/obsidian/SingletonSocket %h/.config/obsidian/SingletonCookie /tmp/.X99-lock /tmp/.X11-unix/X99
+ExecStart=/usr/bin/xvfb-run --auth-file=%h/.config/obsidian/Xauthority --server-num=99 \
+  --server-args="-screen 0 1280x800x24 -nolisten tcp" \
+  /opt/obsidian/obsidian --disable-gpu --disable-software-rasterizer --no-sandbox
+# `obsidian restart` exits 0, so on-failure would leave it stopped.
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target

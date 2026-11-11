@@ -1,0 +1,27 @@
+#!/bin/bash
+# Nightly backup: commit the vault into a git repo kept OUTSIDE the vault (so
+# Obsidian Sync never sees it), then upload the whole history as one git bundle
+# to the versioned S3 bucket. Restore: aws s3 cp .../vault.bundle . && git clone vault.bundle
+set -euo pipefail
+
+: "${VAULT_ROOT:?}" "${VAULT_BUCKET:?}" "${AWS_REGION:?}"
+AWS=${AWS:-/snap/bin/aws}
+export GIT_DIR="$HOME/backup/vault.git" GIT_WORK_TREE="$VAULT_ROOT"
+
+if [ ! -d "$GIT_DIR" ]; then
+  mkdir -p "$GIT_DIR"
+  git init -q
+  printf '%s\n' '.obsidian/workspace*.json' '.trash/' '.vault-mcp-*.tmp' >"$GIT_DIR/info/exclude"
+fi
+
+git add -A
+if ! git rev-parse -q --verify HEAD >/dev/null || ! git diff --cached --quiet; then
+  git -c user.name=vault-backup -c user.email=vault-backup@localhost \
+    commit -q --allow-empty -m "Nightly backup $(date -u +%Y-%m-%dT%H:%MZ)"
+fi
+
+bundle=$(mktemp --suffix=.bundle)
+trap 'rm -f "$bundle"' EXIT
+git bundle create -q "$bundle" --all
+"$AWS" s3 cp --only-show-errors --region "$AWS_REGION" "$bundle" "s3://$VAULT_BUCKET/backups/vault.bundle"
+echo "backup ok: $(git rev-parse --short HEAD), $(du -h "$bundle" | cut -f1)"
