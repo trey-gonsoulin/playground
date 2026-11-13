@@ -109,6 +109,8 @@ _LINK_RE = re.compile(
 )
 _TAG_RE = re.compile(r"(?<![\w/#&`])#([A-Za-z][\w/-]*)")
 _FENCE_RE = re.compile(r"^(```|~~~).*?^\1", re.S | re.M)
+# Wikilinks, markdown link targets and inline code, where a # isn't a tag.
+_NOT_TAGS_RE = re.compile(r"\[\[[^\[\]\n]*\]\]|\]\([^)\n]*\)|`[^`\n]*`")
 _HEADING_RE = re.compile(r"^(#{1,6})[ \t]+(.+?)[ \t#]*$")
 
 
@@ -295,7 +297,9 @@ def frontmatter_links(fm: dict[str, Any]) -> list[str]:
 def tags(fm: dict[str, Any], body: str) -> list[str]:
     """Frontmatter ``tags`` plus inline ``#tags`` outside code fences, lowercased."""
     out = {t.lstrip("#").lower() for t in as_list(fm.get("tags"))}
-    out.update(t.lower() for t in _TAG_RE.findall(_FENCE_RE.sub("", body)))
+    # A heading in a link ([[#Next batch]], [x](#Next)) or code isn't a tag.
+    text = _NOT_TAGS_RE.sub(" ", _FENCE_RE.sub("", body))
+    out.update(t.lower() for t in _TAG_RE.findall(text))
     return sorted(out)
 
 

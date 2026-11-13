@@ -18,11 +18,15 @@ class GitError(RuntimeError):
     """git failed, or the snapshot repository doesn't exist."""
 
 
-def run(s: Settings, *args: str, timeout: float = 20.0) -> str:
-    return run_bytes(s, *args, timeout=timeout).decode("utf-8", "replace")
+def run(
+    s: Settings, *args: str, timeout: float = 20.0, ok: tuple[int, ...] = (0,)
+) -> str:
+    return run_bytes(s, *args, timeout=timeout, ok=ok).decode("utf-8", "replace")
 
 
-def run_bytes(s: Settings, *args: str, timeout: float = 20.0) -> bytes:
+def run_bytes(
+    s: Settings, *args: str, timeout: float = 20.0, ok: tuple[int, ...] = (0,)
+) -> bytes:
     if not (s.git_dir / "HEAD").is_file():
         raise GitError(
             f"no snapshot repository at {s.git_dir}; vault-snapshot creates it "
@@ -47,7 +51,7 @@ def run_bytes(s: Settings, *args: str, timeout: float = 20.0) -> bytes:
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise GitError(f"git {args[0]} failed: {exc}") from exc
-    if proc.returncode != 0:
+    if proc.returncode not in ok:
         err = proc.stderr.decode("utf-8", "replace").strip()
         raise GitError(f"git {args[0]}: {err[:400]}")
     return proc.stdout
@@ -78,21 +82,65 @@ def head(s: Settings) -> str | None:
         return None
 
 
+def _under(path: str, roots: list[str]) -> bool:
+    return any(r == "" or path == r or path.startswith(r + "/") for r in roots)
+
+
+def _split(s: Settings, paths: list[str]) -> tuple[list[str], list[str]]:
+    """``paths`` git can add, and the ones the repo's .gitignore leaves out.
+
+    A path that's neither on disk nor tracked (a lock on a note never created)
+    is dropped, since git add would reject it as an unknown pathspec.
+    """
+    tracked = [t for t in run(s, "ls-files", "-z", "--", *paths).split("\0") if t]
+    known = [
+        p
+        for p in paths
+        if (s.vault_root / p).exists() or any(_under(t, [p]) for t in tracked)
+    ]
+    if not known:
+        return [], []
+    # Exit 1 means none is ignored; a tracked file never counts as ignored.
+    # check-ignore refuses literal pathspecs; it matches each path as given anyway.
+    out = run(s, "--no-literal-pathspecs", "check-ignore", "--", *known, ok=(0, 1))
+    ignored = [p for p in known if p in out.splitlines()]
+    return [p for p in known if p not in ignored], ignored
+
+
 def commit(
-    s: Settings, message: str, paths: list[str] | None = None
+    s: Settings,
+    message: str,
+    paths: list[str] | None = None,
+    exclude: list[str] | None = None,
 ) -> dict[str, object]:
-    """Commit ``paths`` (default: everything) as they are now; ``commit`` is None if unchanged."""
+    """Commit ``paths`` (default: everything) as they are now; ``commit`` is None if unchanged.
+
+    Paths the repo's .gitignore leaves out are skipped and listed as ``ignored``.
+    Paths under ``exclude`` (folders or files; "" is everything) stay uncommitted.
+    """
+    extra: dict[str, object] = {}
+    if paths:
+        paths, ignored = _split(s, paths)
+        if ignored:
+            extra["ignored"] = ignored
+            extra["ignored_note"] = "the repo's .gitignore leaves these out of git"
+        if not paths:
+            return {"commit": None, "note": "nothing to commit", **extra}
     spec = ["--", *paths] if paths else ["--", "."]
     run(s, "add", "-A", *spec)
     staged = run(s, "diff", "--cached", "--no-renames", "--name-status", *spec).strip()
-    if not staged:
-        return {"commit": None, "note": "nothing to commit"}
     files = [line.split("\t") for line in staged.splitlines()]
+    if exclude:
+        files = [f for f in files if not _under(f[-1], exclude)]
+    if not files:
+        return {"commit": None, "note": "nothing to commit", **extra}
     # Name the staged files: a lock may cover a folder or note with no changes,
-    # which git commit would reject as an unknown pathspec.
+    # which git commit would reject as an unknown pathspec. Naming them also
+    # leaves any staged excluded path out of the commit.
     run(s, "commit", "-q", "-m", message, "--", *(f[-1] for f in files))
     return {
         "commit": head(s),
         "files": [{"status": f[0], "path": f[-1]} for f in files][:200],
         "total_files": len(files),
+        **extra,
     }
