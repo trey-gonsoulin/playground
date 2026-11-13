@@ -65,7 +65,7 @@ def test_all_tools_listed(token):
         WRITE_TOOLS <= tools
         and {"search", "read_note", "daily_note", "health"} <= tools
     )
-    assert len(tools) == 16
+    assert len(tools) == 20
 
 
 def test_readonly_hides_write_tools(token, monkeypatch, vault):

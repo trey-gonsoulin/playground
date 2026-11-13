@@ -205,6 +205,11 @@ The Obsidian vault as a claude.ai custom connector, in its own SAM stack `obsidi
   - `Vault.resolve` keeps paths in the vault (no `..`, absolute paths or symlinks out; no writes in `.obsidian`/`.trash`/`.git`).
   - Writes are serialized (`_WRITE_LOCK`), and `write_text(expect=...)` refuses if the file changed since it was read.
   - Nothing is deleted permanently. Bulk edits are dry-run first, and every write is audit-logged.
+- **Batch tools** (`create_notes`, `update_notes`, `move_notes`, `import_archive`):
+  - They reuse the single-note plan/apply helpers (`_new_note`, `_edit_note`, `_plan_move`/`_apply_move`).
+  - Each checks every item before writing; one bad item means nothing is written.
+  - Up to 200 items per call. `move_notes` stops after `_BATCH_SECONDS` and returns `remaining`, to stay inside the front end's 25 s call.
+  - `import_archive` (`_archive.py`) fetches only public https hosts and bounds the download, the file count and each file's size. Applying needs the plan's `sha256`, and it never overwrites.
   - SSM `readonly` unregisters the write tools on both halves.
 - **Deploy** (`deploy/deploy.sh`):
   - `infra` creates the ECR repo if needed, runs `sam build`, and creates a change set with `--no-execute-changeset` for you to review.

@@ -4,7 +4,7 @@ The scenarios mirror the brief's acceptance tests (§8), run once through the
 filesystem backend and, where the CLI matters, through fake_obsidian_cli.py.
 """
 
-from datetime import date
+from datetime import UTC, datetime
 
 import pytest
 from conftest import audit
@@ -123,13 +123,17 @@ def test_daily_note_from_template_and_capture(vault, tmp_path):
 
 
 def test_daily_note_today_uses_cli(vault, fake_cli, monkeypatch):
+    # The server, the fake CLI (a subprocess, via TZ) and the check all use UTC,
+    # so the test doesn't fail in the hours when local and UTC dates differ.
     monkeypatch.setenv("VAULT_TZ", "UTC")
+    monkeypatch.setenv("TZ", "UTC")
     from conftest import _reset
 
     _reset()
     day = t.daily_note()
     assert day["backend"] == "obsidian-cli"
-    assert day["path"] == f"Personal/Daily/{date.today().isoformat()}.md"
+    today = datetime.now(UTC).date().isoformat()
+    assert day["path"] == f"Personal/Daily/{today}.md"
 
 
 def test_append_missing_heading_lists_headings(vault):
