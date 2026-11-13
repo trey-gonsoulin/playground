@@ -44,8 +44,21 @@ The Lambda lists the box's tools with identical schemas. It wraps the same funct
 | `move_note(note, new, dry_run?)` | CLI `rename`/`move`, checked on disk. Fixes any links Obsidian left behind and keeps the old title as an alias. |
 | `delete_note(note)` | CLI `delete` to Obsidian's trash. With the app down, moves to `_Review/To delete/`. |
 | `bulk_update_properties(set_properties, filters…, dry_run=true)` | Files. Always returns a plan first, and takes a snapshot before applying. |
+| `create_notes(notes, dry_run?)` | Files. Up to 200 notes per call, each as in `create_note`. Applies up to 10 at once; more return a plan first. |
+| `update_notes(updates, dry_run=true)` | Files. Up to 200 edits (body, patches, properties), each as in `update_note`. The plan shows a diff per note; a snapshot is taken before applying. |
+| `move_notes(moves, dry_run=true)` | As `move_note`, for up to 200 notes. Applying stops after ~15 s and returns the rest as `remaining` to call again with. |
+| `import_archive(url, folder, …, sha256?, dry_run=true)` | Downloads a zip or tar from an https URL (100 MiB, 2000 files) into a folder. Applying needs the plan's `sha256`. |
 
 Every box result names its `backend`.
+
+**Batch tools**
+- Each batch checks every item before writing anything; if any item fails, nothing is written and the errors are listed by index.
+- `import_archive` never overwrites: existing files are listed as conflicts and skipped.
+  - It skips hidden entries (`.obsidian/`, `__MACOSX/`), links, `..` paths and files over 5 MB (Sync Standard's limit).
+  - It adds missing `type`/`status`/`created`/`tags` to notes and keeps existing properties.
+  - It only fetches public hosts, so a URL can't reach the instance metadata service.
+  - Sources that work: a Dropbox link with `dl=1`, the Dropbox connector's temporary download link, or a GitHub archive URL.
+- There's no base64 upload: Claude would have to emit the whole archive as tokens, which costs far more than `create_notes` with plain text.
 
 **Conventions enforced**
 - New notes go to `_Inbox` with `type`, `status: active`, `created` and `tags: []`.

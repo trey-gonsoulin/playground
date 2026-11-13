@@ -221,6 +221,18 @@ class Vault:
             raise VaultError(
                 f"{rel} changed while it was being edited; read it again and retry"
             )
+        self._atomic_write(path, text.encode("utf-8"))
+
+    def write_bytes(self, rel: str, data: bytes) -> None:
+        """Atomically create ``rel`` (an imported attachment); refuse to overwrite."""
+        self._check_writable()
+        path = self.resolve(rel, write=True)
+        if path.exists():
+            raise VaultError(f"{rel} already exists")
+        self._atomic_write(path, data)
+
+    @staticmethod
+    def _atomic_write(path: Path, data: bytes) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         # Dot-prefixed temp file: Obsidian and Sync ignore hidden files.
         fd, name = tempfile.mkstemp(
@@ -228,8 +240,8 @@ class Vault:
         )
         tmp = Path(name)
         try:
-            with os.fdopen(fd, "w", encoding="utf-8", newline="") as f:
-                f.write(text)
+            with os.fdopen(fd, "wb") as f:
+                f.write(data)
             tmp.chmod(path.stat().st_mode & 0o777 if path.exists() else 0o644)
             tmp.replace(path)
         except BaseException:

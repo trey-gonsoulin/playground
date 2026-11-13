@@ -8,7 +8,9 @@ Write tools follow ``_Meta/Vault Guide.md``: new notes land in ``_Inbox`` with
 nothing is deleted permanently, and every write is audit-logged.
 """
 
+import difflib
 import functools
+import hashlib
 import json
 import re
 import shlex
@@ -17,6 +19,7 @@ import threading
 import time
 from collections import Counter
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import date, datetime
 from functools import cache
 from pathlib import PurePosixPath
@@ -26,7 +29,7 @@ from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import ToolAnnotations
 
-from vault_mcp import _audit, _cli, _notes, _ready
+from vault_mcp import _archive, _audit, _cli, _notes, _ready
 from vault_mcp._vault import Note, Vault, VaultError
 from vault_mcp.config import Settings, get_settings
 
@@ -613,11 +616,34 @@ def create_note(
             "up": "[[Murder on the Eberron Express]]", "tags": ["eberron"]}.
     """
     s, v = _ctx()
+    rel, text, fm, warnings = _new_note(s, v, title, body, folder, type, properties)
+    try:
+        v.write_text(rel, text, create=True)
+    except VaultError as exc:
+        raise ToolError(str(exc)) from exc
+    _audit.record(s, "create_note", [rel], f"created ({type})", backend=FS)
+    out: dict[str, Any] = {"backend": FS, "path": rel, "frontmatter": fm}
+    if warnings:
+        out["warnings"] = warnings
+    return out
+
+
+def _new_note(
+    s: Settings,
+    v: Vault,
+    title: str,
+    body: str = "",
+    folder: str = "_Inbox",
+    type: str = "note",
+    properties: dict[str, Any] | None = None,
+) -> tuple[str, str, dict[str, Any], list[str]]:
+    """``(path, text, frontmatter, warnings)`` for a new note, checked but not written."""
     try:
         title = v.clean_title(title)
         folder = folder.strip().rstrip("/")
         rel = f"{folder}/{title}.md" if folder else f"{title}.md"
-        v.resolve(rel, write=True)
+        if v.resolve(rel, write=True).exists():
+            raise VaultError(f"{rel} already exists")
     except VaultError as exc:
         raise ToolError(str(exc)) from exc
     fm: dict[str, Any] = {
@@ -636,15 +662,7 @@ def create_note(
         body = f"# {title}\n\n{body}" if body.strip() else f"# {title}\n"
     if not body.endswith("\n"):
         body += "\n"
-    try:
-        v.write_text(rel, _notes.join(fm, body), create=True)
-    except VaultError as exc:
-        raise ToolError(str(exc)) from exc
-    _audit.record(s, "create_note", [rel], f"created ({type})", backend=FS)
-    out: dict[str, Any] = {"backend": FS, "path": rel, "frontmatter": fm}
-    if warnings:
-        out["warnings"] = warnings
-    return out
+    return rel, _notes.join(fm, body), fm, warnings
 
 
 class Patch(TypedDict):
@@ -673,6 +691,27 @@ def update_note(
             Lists replace whole lists, e.g. {"aliases": ["Old", "Older"]}.
     """
     s, v = _ctx()
+    n, text, new, warnings, what = _edit_note(v, note, body, patch, properties)
+    changed = new != text
+    if changed:
+        v.write_text(n.path, new, expect=text)
+        _audit.record(
+            s, "update_note", [n.path], f"updated {', '.join(what)}", backend=FS
+        )
+    out: dict[str, Any] = {"backend": FS, "path": n.path, "changed": changed}
+    if warnings:
+        out["warnings"] = warnings
+    return out
+
+
+def _edit_note(
+    v: Vault,
+    note: str,
+    body: str | None = None,
+    patch: list[Patch] | None = None,
+    properties: dict[str, Any] | None = None,
+) -> tuple[Note, str, str, list[str], list[str]]:
+    """``(note, old text, new text, warnings, what changed)``, not written."""
     if body is None and not patch and not properties:
         raise ToolError("give body, patch or properties")
     n = _find(v, note)
@@ -698,21 +737,12 @@ def update_note(
             new = _notes.set_properties(new, properties)
         except _notes.FrontmatterError as exc:
             raise ToolError(str(exc)) from exc
-    changed = new != text
-    if changed:
-        v.write_text(n.path, new, expect=text)
-        what = [
-            k
-            for k, x in (("body", body), ("patch", patch), ("properties", properties))
-            if x
-        ]
-        _audit.record(
-            s, "update_note", [n.path], f"updated {', '.join(what)}", backend=FS
-        )
-    out: dict[str, Any] = {"backend": FS, "path": n.path, "changed": changed}
-    if warnings:
-        out["warnings"] = warnings
-    return out
+    what = [
+        k
+        for k, x in (("body", body), ("patch", patch), ("properties", properties))
+        if x
+    ]
+    return n, text, new, warnings, what
 
 
 def append_to_note(note: str, text: str, heading: str | None = None) -> dict[str, Any]:
@@ -791,6 +821,34 @@ def move_note(
             returns the plan and you call again with dry_run=false.
     """
     s, v = _ctx()
+    mv = _plan_move(v, note, new_path_or_title)
+    if dry_run or (dry_run is None and len(mv.linkers) + 1 > s.bulk_threshold):
+        return {"dry_run": True, **mv.plan(), "apply_with": "dry_run=false"}
+    backend, note_txt = _apply_move(s, v, mv)
+    out: dict[str, Any] = {"backend": backend, "dry_run": False, **mv.plan()}
+    if note_txt:
+        out["note"] = note_txt
+    return out
+
+
+@dataclass
+class _Move:
+    n: Note
+    new_rel: str
+    notes: list[Note]  # the index before the move, to resolve old links
+    linkers: list[Note]
+    alias: str | None
+
+    def plan(self) -> dict[str, Any]:
+        return {
+            "from": self.n.path,
+            "to": self.new_rel,
+            "alias_added": self.alias,
+            "notes_with_links_to_update": [b.path for b in self.linkers],
+        }
+
+
+def _plan_move(v: Vault, note: str, new_path_or_title: str) -> _Move:
     n = _find(v, note)
     try:
         new_rel = _target_path(v, n, new_path_or_title)
@@ -801,29 +859,26 @@ def move_note(
         raise ToolError("the note is already there")
     if new_abs.exists():
         raise ToolError(f"{new_rel} already exists")
-    notes = v.notes()
-    linkers = v.backlinks(n)
     new_title = PurePosixPath(new_rel).stem
     alias = n.title if new_title != n.title and n.title not in n.aliases else None
-    plan: dict[str, Any] = {
-        "from": n.path,
-        "to": new_rel,
-        "alias_added": alias,
-        "notes_with_links_to_update": [b.path for b in linkers],
-    }
-    if dry_run or (dry_run is None and len(linkers) + 1 > s.bulk_threshold):
-        return {"dry_run": True, **plan, "apply_with": "dry_run=false"}
-    if alias:
+    return _Move(n, new_rel, v.notes(), v.backlinks(n), alias)
+
+
+def _apply_move(s: Settings, v: Vault, mv: _Move) -> tuple[str, str | None]:
+    """Move the note (CLI, else the files) and fix links; ``(backend, note)``."""
+    n, new_rel, notes, linkers = mv.n, mv.new_rel, mv.notes, mv.linkers
+    new_abs = v.resolve(new_rel, write=True)
+    if mv.alias:
         v.write_text(
             n.path,
             _notes.set_properties(
-                v.read_text(n.path), {"aliases": [*n.aliases, alias]}
+                v.read_text(n.path), {"aliases": [*n.aliases, mv.alias]}
             ),
         )
     backend, note_txt = CLI, None
     try:
         if PurePosixPath(new_rel).parent == PurePosixPath(n.path).parent:
-            _cli.run(s, "rename", path=n.path, name=new_title)
+            _cli.run(s, "rename", path=n.path, name=PurePosixPath(new_rel).stem)
         else:
             _cli.run(s, "move", path=n.path, to=new_rel)
         if not _wait_for(lambda: new_abs.is_file() and not v.resolve(n.path).exists()):
@@ -854,10 +909,7 @@ def move_note(
         f"moved; {len(linkers)} linking notes",
         backend=backend,
     )
-    out: dict[str, Any] = {"backend": backend, "dry_run": False, **plan}
-    if note_txt:
-        out["note"] = note_txt
-    return out
+    return backend, note_txt
 
 
 def delete_note(note: str) -> dict[str, Any]:
@@ -1004,11 +1056,411 @@ def bulk_update_properties(
     return out
 
 
+# --- batch tools ----------------------------------------------------------------
+
+MAX_BATCH = 200
+# Applying stops starting new moves after this, so the reply gets back inside
+# the front end's 25 s call timeout; the rest come back as ``remaining``.
+_BATCH_SECONDS = 15.0
+_PLAN_SHOWN = 50
+
+
+class NewNote(TypedDict):
+    title: str
+    body: NotRequired[str]
+    folder: NotRequired[str]
+    type: NotRequired[str]
+    properties: NotRequired[dict[str, Any]]
+
+
+class NoteEdit(TypedDict):
+    note: str
+    body: NotRequired[str]
+    patch: NotRequired[list[Patch]]
+    properties: NotRequired[dict[str, Any]]
+
+
+class Move(TypedDict):
+    note: str
+    to: str
+
+
+def _check_batch(items: list[Any], what: str) -> None:
+    if not items:
+        raise ToolError(f"{what} is empty")
+    if len(items) > MAX_BATCH:
+        raise ToolError(f"at most {MAX_BATCH} {what} per call; split the batch")
+
+
+def _refuse(out: dict[str, Any], errors: list[dict[str, Any]]) -> dict[str, Any]:
+    out.update(
+        dry_run=True,
+        errors=errors,
+        note="nothing was written; fix these items and call again",
+    )
+    return out
+
+
+def _diff(old: str, new: str, max_lines: int = 40) -> str:
+    lines = list(
+        difflib.unified_diff(old.splitlines(), new.splitlines(), lineterm="", n=1)
+    )[2:]
+    if len(lines) > max_lines:
+        lines = [*lines[:max_lines], f"... {len(lines) - max_lines} more diff lines"]
+    return "\n".join(lines)
+
+
+def create_notes(notes: list[NewNote], dry_run: bool | None = None) -> dict[str, Any]:
+    """Create many notes in one call, each following the Vault Guide as in create_note.
+
+    Every note is checked first (title, folder, vocabulary, no existing file,
+    no duplicate in the batch); if any fails, nothing is written and the errors
+    come back. For files that already exist somewhere as a zip or tar, use
+    import_archive instead.
+
+    Args:
+        notes: Up to 200 notes, each {"title", "body"?, "folder"? (default
+            "_Inbox"), "type"? (default "note"), "properties"?}.
+        dry_run: true returns the plan only; false creates. By default it
+            creates up to ~10 notes and returns the plan for more; then call
+            again with the same notes and dry_run=false.
+    """
+    s, v = _ctx()
+    _check_batch(notes, "notes")
+    planned: list[tuple[str, str]] = []
+    errors: list[dict[str, Any]] = []
+    warnings: dict[str, list[str]] = {}
+    for i, spec in enumerate(notes):
+        try:
+            rel, text, _fm, warn = _new_note(
+                s,
+                v,
+                spec["title"],
+                spec.get("body", ""),
+                spec.get("folder", "_Inbox"),
+                spec.get("type", "note"),
+                spec.get("properties"),
+            )
+            if any(rel.lower() == p.lower() for p, _ in planned):
+                raise ToolError(f"{rel} appears twice in this batch")
+        except ToolError as exc:
+            errors.append({"index": i, "title": spec.get("title"), "error": str(exc)})
+            continue
+        planned.append((rel, text))
+        if warn:
+            warnings[rel] = warn
+    out: dict[str, Any] = {
+        "dry_run": dry_run,
+        "to_create": len(planned),
+        "paths": [p for p, _ in planned],
+    }
+    if warnings:
+        out["warnings"] = warnings
+    if errors:
+        return _refuse(out, errors)
+    if dry_run or (dry_run is None and len(planned) > s.bulk_threshold):
+        out.update(dry_run=True, apply_with="the same notes and dry_run=false")
+        return out
+    created: list[str] = []
+    try:
+        for rel, text in planned:
+            v.write_text(rel, text, create=True)
+            created.append(rel)
+    except VaultError as exc:
+        raise ToolError(
+            f"stopped after creating {len(created)} of {len(planned)} notes: {exc}"
+        ) from exc
+    finally:
+        if created:
+            _audit.record(
+                s, "create_notes", created, f"created {len(created)} notes", backend=FS
+            )
+    out.update(dry_run=False, backend=FS)
+    return out
+
+
+def update_notes(updates: list[NoteEdit], dry_run: bool = True) -> dict[str, Any]:
+    """Edit many notes in one call: each gets a new body, find/replace patches
+    and/or properties, exactly as in update_note.
+
+    Always returns a plan first (dry_run=true) with a short diff per note. Show
+    it to the user, then call again with the same updates and dry_run=false.
+    Nothing is written if any update fails its checks. To set the same
+    properties on many notes, bulk_update_properties is simpler.
+
+    Args:
+        updates: Up to 200 edits, each {"note", "body"?, "patch"?, "properties"?}
+            with the meanings of update_note's arguments; one edit per note.
+        dry_run: true (default) returns the plan; false applies it.
+    """
+    s, v = _ctx()
+    _check_batch(updates, "updates")
+    edits: list[tuple[str, str, str]] = []
+    plan: list[dict[str, Any]] = []
+    unchanged: list[str] = []
+    errors: list[dict[str, Any]] = []
+    for i, u in enumerate(updates):
+        try:
+            n, old, new, warn, what = _edit_note(
+                v, u["note"], u.get("body"), u.get("patch"), u.get("properties")
+            )
+            if any(n.path == p for p, _, _ in edits) or n.path in unchanged:
+                raise ToolError(f"{n.path} is edited twice in this batch; combine them")
+        except ToolError as exc:
+            errors.append({"index": i, "note": u.get("note"), "error": str(exc)})
+            continue
+        if new == old:
+            unchanged.append(n.path)
+            continue
+        edits.append((n.path, old, new))
+        item: dict[str, Any] = {
+            "path": n.path,
+            "changes": what,
+            "diff": _diff(old, new),
+        }
+        if warn:
+            item["warnings"] = warn
+        plan.append(item)
+    out: dict[str, Any] = {
+        "dry_run": dry_run,
+        "to_change": len(edits),
+        "plan": plan[:_PLAN_SHOWN],
+    }
+    if len(plan) > _PLAN_SHOWN:
+        out["plan_note"] = f"showing {_PLAN_SHOWN} of {len(plan)} notes"
+    if unchanged:
+        out["unchanged"] = unchanged
+    if errors:
+        return _refuse(out, errors)
+    if dry_run:
+        out["apply_with"] = "the same updates and dry_run=false"
+        return out
+    if edits and s.snapshot_cmd:
+        out["snapshot"] = _snapshot(s, f"before update_notes on {len(edits)} notes")
+    written: list[str] = []
+    try:
+        for path, old, new in edits:
+            v.write_text(path, new, expect=old)
+            written.append(path)
+    except VaultError as exc:
+        raise ToolError(
+            f"stopped after {len(written)} of {len(edits)} notes ({exc}); "
+            "the rest are unchanged, so plan them again"
+        ) from exc
+    finally:
+        if written:
+            _audit.record(
+                s, "update_notes", written, f"updated {len(written)} notes", backend=FS
+            )
+    out["backend"] = FS
+    return out
+
+
+def move_notes(moves: list[Move], dry_run: bool = True) -> dict[str, Any]:
+    """Rename or move many notes, each as in move_note: links to it are updated
+    and the old title is kept as an alias.
+
+    Always returns a plan first; show it, then call again with the same moves
+    and dry_run=false. Applying runs for at most ~15 s; anything not reached
+    comes back as ``remaining``: call move_notes(moves=remaining, dry_run=false).
+
+    Args:
+        moves: Up to 200 {"note", "to"}; ``note`` is a path, title or alias and
+            ``to`` is a new title, a folder ending in "/" or a full path.
+        dry_run: true (default) returns the plan; false applies it.
+    """
+    s, v = _ctx()
+    _check_batch(moves, "moves")
+    planned: list[tuple[Move, _Move]] = []
+    errors: list[dict[str, Any]] = []
+    for i, m in enumerate(moves):
+        try:
+            mv = _plan_move(v, m["note"], m["to"])
+            if any(p.n.path == mv.n.path for _, p in planned):
+                raise ToolError(f"{mv.n.path} is moved twice in this batch")
+            if any(p.new_rel.lower() == mv.new_rel.lower() for _, p in planned):
+                raise ToolError(f"two notes would move to {mv.new_rel}")
+        except ToolError as exc:
+            errors.append({"index": i, "note": m.get("note"), "error": str(exc)})
+            continue
+        planned.append(({"note": mv.n.path, "to": m["to"]}, mv))
+    out: dict[str, Any] = {"dry_run": dry_run, "to_move": len(planned)}
+    if errors or dry_run:
+        out["plan"] = [mv.plan() for _, mv in planned[:_PLAN_SHOWN]]
+        if len(planned) > _PLAN_SHOWN:
+            out["plan_note"] = f"showing {_PLAN_SHOWN} of {len(planned)} moves"
+    if errors:
+        return _refuse(out, errors)
+    if dry_run:
+        out["apply_with"] = "the same moves and dry_run=false"
+        return out
+    if s.snapshot_cmd:
+        out["snapshot"] = _snapshot(s, f"before move_notes on {len(planned)} notes")
+    deadline = time.monotonic() + _BATCH_SECONDS
+    done: list[dict[str, Any]] = []
+    for k, (m, _) in enumerate(planned):
+        if time.monotonic() > deadline:
+            out["remaining"] = [m for m, _ in planned[k:]]
+            out["next"] = "call move_notes(moves=remaining, dry_run=false)"
+            break
+        try:
+            # Plan again: the moves before this one changed paths and links.
+            mv = _plan_move(v, m["note"], m["to"])
+            backend, note_txt = _apply_move(s, v, mv)
+        except (ToolError, VaultError) as exc:
+            out["failed"] = {**m, "error": str(exc)}
+            out["remaining"] = [m for m, _ in planned[k + 1 :]]
+            break
+        item = {"from": mv.n.path, "to": mv.new_rel, "backend": backend}
+        if note_txt:
+            item["note"] = note_txt
+        done.append(item)
+    out["moved"] = done
+    return out
+
+
+def _with_defaults(s: Settings, raw: bytes) -> tuple[bytes, str | None]:
+    """An imported note with the Vault Guide's required properties added where missing."""
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return raw, "not UTF-8; imported as is"
+    fm, _body, ok = _notes.split(text)
+    if not ok:
+        return raw, "frontmatter isn't valid YAML; imported as is"
+    defaults = {
+        "type": "note",
+        "status": "active",
+        "created": _today_str(s),
+        "tags": [],
+    }
+    missing = {k: val for k, val in defaults.items() if k not in fm}
+    if not missing:
+        return raw, None
+    return _notes.set_properties(text, missing).encode("utf-8"), None
+
+
+def import_archive(
+    url: str,
+    folder: str = "_Inbox",
+    add_properties: bool = True,
+    strip_top_folder: bool = True,
+    sha256: str | None = None,
+    dry_run: bool = True,
+) -> dict[str, Any]:
+    """Import a zip or tar of notes and attachments from an https URL into a
+    vault folder, keeping the archive's folder structure.
+
+    The way to bring in many existing files at once. The URL must download the
+    archive directly, e.g. a Dropbox link with dl=1, a temporary Dropbox
+    download link, or a code-hosting archive or release asset.
+    Always returns a plan first; call again with dry_run=false and the plan's
+    sha256, so what's imported is exactly what was planned. Existing files are
+    never overwritten (listed as conflicts and skipped). Hidden files
+    (.obsidian, __MACOSX) and files over 5 MB are skipped. Limits: 100 MiB
+    download, 2000 files.
+
+    Args:
+        url: https URL of a .zip, .tar, .tar.gz/.tgz, .tar.bz2 or .tar.xz.
+        folder: Vault folder to import into, e.g. "_Inbox/Recipe import";
+            "" for the vault root.
+        add_properties: Add the Vault Guide's type: note, status: active,
+            created (today) and tags: [] to imported notes where missing;
+            existing properties are kept.
+        strip_top_folder: Drop a single folder that wraps everything (as in
+            downloaded or Finder-made archives); the plan names it.
+        sha256: The plan's sha256; required with dry_run=false.
+        dry_run: true (default) returns the plan; false imports.
+    """
+    s, v = _ctx()
+    folder = folder.strip().strip("/")
+    try:
+        if folder:
+            v.resolve(folder, write=True)
+        data = _archive.fetch(url)
+        files, skipped = _archive.members(data)
+    except (_archive.ArchiveError, VaultError) as exc:
+        raise ToolError(str(exc)) from exc
+    digest = hashlib.sha256(data).hexdigest()
+    if not dry_run and sha256 != digest:
+        raise ToolError(
+            "give the sha256 from this archive's plan (call with dry_run=true first)"
+            if not sha256
+            else "the archive at that URL changed since it was planned; plan again"
+        )
+    stripped = _archive.strip_common_folder(files) if strip_top_folder else None
+    writes: list[tuple[str, _archive.Member]] = []
+    conflicts: list[str] = []
+    for f in files:
+        dest = f"{folder}/{f.path}" if folder else f.path
+        try:
+            exists = v.resolve(dest, write=True).exists()
+        except VaultError as exc:
+            skipped.append({"path": f.path, "reason": str(exc)})
+            continue
+        if exists or any(d.lower() == dest.lower() for d, _ in writes):
+            conflicts.append(dest)
+        else:
+            writes.append((dest, f))
+    n_notes = sum(d.lower().endswith(".md") for d, _ in writes)
+    out: dict[str, Any] = {
+        "dry_run": dry_run,
+        "sha256": digest,
+        "to_write": len(writes),
+        "notes": n_notes,
+        "attachments": len(writes) - n_notes,
+        "bytes": sum(f.size for _, f in writes),
+        "paths": [d for d, _ in writes[:100]],
+    }
+    if len(writes) > 100:
+        out["paths_note"] = f"showing 100 of {len(writes)} paths"
+    if stripped:
+        out["dropped_top_folder"] = stripped
+    if conflicts:
+        out["conflicts_skipped"] = conflicts[:100]
+    if skipped:
+        out["skipped"] = skipped[:100]
+    if dry_run:
+        out["apply_with"] = f"the same arguments, dry_run=false and sha256={digest!r}"
+        return out
+    written: list[str] = []
+    warnings: list[str] = []
+    try:
+        for dest, f in writes:
+            raw = f.read()
+            if add_properties and dest.lower().endswith(".md"):
+                raw, warn = _with_defaults(s, raw)
+                if warn:
+                    warnings.append(f"{dest}: {warn}")
+            v.write_bytes(dest, raw)
+            written.append(dest)
+    except (VaultError, _archive.ArchiveError) as exc:
+        raise ToolError(
+            f"stopped after {len(written)} of {len(writes)} files: {exc}"
+        ) from exc
+    finally:
+        if written:
+            _audit.record(
+                s,
+                "import_archive",
+                written,
+                f"imported {len(written)} files from {url[:200]}",
+                backend=FS,
+                sha256=digest,
+            )
+    if warnings:
+        out["warnings"] = warnings[:100]
+    out["backend"] = FS
+    return out
+
+
 # --- server ---------------------------------------------------------------------
 
 _RO = ToolAnnotations(readOnlyHint=True, openWorldHint=False)
 _WRITE = ToolAnnotations(readOnlyHint=False, destructiveHint=False, openWorldHint=False)
 _EDIT = ToolAnnotations(readOnlyHint=False, destructiveHint=True, openWorldHint=False)
+# Fetches a URL from the internet.
+_IMPORT = ToolAnnotations(readOnlyHint=False, destructiveHint=False, openWorldHint=True)
 
 READ_TOOLS = (
     search,
@@ -1028,6 +1480,10 @@ WRITE_TOOLS = (
     (move_note, _EDIT),
     (delete_note, _EDIT),
     (bulk_update_properties, _EDIT),
+    (create_notes, _WRITE),
+    (update_notes, _EDIT),
+    (move_notes, _EDIT),
+    (import_archive, _IMPORT),
 )
 
 
@@ -1036,8 +1492,10 @@ INSTRUCTIONS = (
     "type/status properties (see list_properties). Find notes with search "
     "or list_notes, then read_note. Follow _Meta/Vault Guide.md when "
     "writing: wikilinks, shortest form; quick thoughts go in the daily "
-    "note's Capture section. Bulk changes return a plan first; show it "
-    "before applying."
+    "note's Capture section. For many notes at once use create_notes, "
+    "update_notes or move_notes, or import_archive for a zip/tar at a URL, "
+    "rather than one call per note. Bulk changes return a plan first; show "
+    "it before applying."
 )
 
 
