@@ -306,6 +306,44 @@ def test_write_locks(repo, vault, tmp_path):
     assert audit(tmp_path)[-1]["tool"] == "break_lock"
 
 
+def test_end_write_skips_ignored_and_missing_paths(repo, vault):
+    (vault / ".gitignore").write_text("/_Meta/\n")
+    (vault / "_Meta").mkdir(exist_ok=True)
+    t.git_commit("ignore _Meta")
+    lk = t.begin_write(
+        "s", "batch", paths=["Rug Options", "_Meta/Enhancements.md", "Home/Never.md"]
+    )
+    t.append_to_note("Rug Options", "- x", lock=lk["lock"])
+    t.write_file("_Meta/Enhancements.md", "- idea\n", if_absent=True, lock=lk["lock"])
+    commit = t.end_write(lk["lock"], "s", "batch")["commit"]
+    assert [f["path"] for f in commit["files"]] == ["Home/Rug Options.md"]
+    assert commit["ignored"] == ["_Meta/Enhancements.md"]
+    lk = t.begin_write("s", "only ignored", paths=["_Meta/Enhancements.md"])
+    commit = t.end_write(lk["lock"], "s", "x")["commit"]
+    assert commit["commit"] is None and commit["ignored"] == ["_Meta/Enhancements.md"]
+
+
+def test_snapshot_leaves_locked_paths_for_end_write(repo, vault, monkeypatch):
+    monkeypatch.setenv("VAULT_SNAPSHOT_CMD", "false")  # must not run while locked
+    get_settings.cache_clear()
+    t._vault.cache_clear()
+    lk = t.begin_write("s", "batch", folders=["Home"])
+    t.append_to_note("Rug Options", "- x", lock=lk["lock"])
+    (vault / "Other.md").write_text("other\n")
+    out = t.bulk_update(
+        folder="Home", set_properties={"batch": "21"}, dry_run=False, lock=lk["lock"]
+    )
+    assert out["snapshot"].startswith("ok")
+    snap = t.git_log(n=1)["commits"][0]
+    assert snap["message"].startswith("before bulk_update")
+    assert snap["files"] == ["Other.md"]
+    done = t.end_write(lk["lock"], "s", "Batch")["commit"]
+    assert "Home/Rug Options.md" in {f["path"] for f in done["files"]}
+    whole = t.begin_write("s", "all", folders=["/"])
+    assert t._snapshot(get_settings(), "x") == "skipped: the whole vault is locked"
+    t.end_write(whole["lock"], "s", "done")
+
+
 # --- Bases ------------------------------------------------------------------------
 
 
@@ -331,8 +369,9 @@ def test_query_base(fake_cli, vault, monkeypatch):
     )
     rows = [
         {"path": "a.md", "file.name": "a", "Class": "Dagger", "entries": 13},
-        {"path": "b.md", "file.name": "b", "Class": "Dagger", "entries": 1},
-        {"path": "c.md", "file.name": "c", "Class": "Axe", "entries": 13},
+        # base:query returns property values as text
+        {"path": "b.md", "file.name": "b", "Class": "Dagger", "entries": "1"},
+        {"path": "c.md", "file.name": "c", "Class": "Axe", "entries": "13"},
     ]
     monkeypatch.setenv("FAKE_BASE_ROWS", json.dumps(rows))
     out = t.query_base("Catalogue")
@@ -378,12 +417,22 @@ def test_run_script_needs_a_pinned_hash(vault, monkeypatch, tmp_path):
     assert out["changed"] == ["Home/Generated.md"]
     assert out["outputs"] == {"summary.json": '{"n": 1}'}
     assert (vault / "Home/Generated.md").read_text() == "# gen x\n"
+    out = t.run_script("gen.py", ["x"])  # rewrites the note with the same text
+    assert out["changed"] == [] and out["changed_count"] == 0
     assert audit(tmp_path)[-1]["tool"] == "run_script"
     (scripts / "gen.py").write_text(SCRIPT + "# edited\n")
     with pytest.raises(ToolError, match="changed since it was approved"):
         t.run_script("gen.py")
     with pytest.raises(ToolError, match="file name"):
         t.run_script("../gen.py")
+
+
+def test_tags_skip_links_and_code():
+    body = (
+        "See [[#Next batch]], [[Carried Questions#Open|open]], [x](#Later) "
+        "and `#code`. Real: #lore #elden-ring/weapons\n"
+    )
+    assert _notes.tags({}, body) == ["elden-ring/weapons", "lore"]
 
 
 def test_kind():

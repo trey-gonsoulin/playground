@@ -23,7 +23,7 @@ import time
 from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from functools import cache
 from pathlib import Path, PurePosixPath
 from typing import Any, NotRequired, TypedDict
@@ -1226,7 +1226,24 @@ def delete_note(note: str, lock: str | None = None) -> dict[str, Any]:
 
 
 def _snapshot(s: Settings, message: str) -> str:
-    """Run the snapshot command (a local git commit of the vault); report, don't fail."""
+    """Run the snapshot command (a local git commit of the vault); report, don't fail.
+
+    While locks are live, commit everything but their paths instead: a batch in
+    progress belongs in its own end_write commit, not split across snapshots.
+    """
+    held = _locks.live(s)
+    if held:
+        exclude = [p for lk in held for p in (*lk.paths, *lk.folders)]
+        if "" in exclude:
+            return "skipped: the whole vault is locked"
+        stamp = datetime.now(UTC).strftime("%Y-%m-%dT%H:%MZ")
+        try:
+            out = _git.commit(s, f"{message} ({stamp})", exclude=exclude)
+        except _git.GitError as exc:
+            return f"failed: {exc}"
+        return f"ok ({len(held)} locks' paths left for end_write)" + (
+            "" if out["commit"] else "; no other changes"
+        )
     try:
         proc = subprocess.run(  # noqa: S603 -- operator-configured command
             [*shlex.split(s.snapshot_cmd), message],
@@ -2145,9 +2162,26 @@ def _base_file(v: Vault, base: str) -> tuple[str, str | None]:
     raise ToolError(f"{name!r} is neither a .base file nor a note that embeds one")
 
 
+def _number(x: Any) -> int | float | None:
+    """``x`` as a number; base:query returns property values as text, e.g. "13"."""
+    if isinstance(x, bool):
+        return None
+    if isinstance(x, int | float):
+        return x
+    if isinstance(x, str):
+        text = x.strip().replace(",", "")
+        for parse in (int, float):
+            try:
+                n = parse(text)
+            except ValueError:
+                continue
+            return n if n == n and abs(n) != float("inf") else None
+    return None
+
+
 def _summary(kind: str, values: list[Any]) -> Any:
     filled = [x for x in values if x not in (None, "", [])]
-    nums = [x for x in filled if isinstance(x, int | float) and not isinstance(x, bool)]
+    nums = [n for n in map(_number, filled) if n is not None]
     k = kind.strip().lower()
     if k in ("sum", "average", "min", "max", "range", "median"):
         if not nums:
@@ -2266,6 +2300,17 @@ _SCRIPT_SECONDS = 20.0
 _OUTPUT_FILES = 10
 
 
+def _contents(v: Vault) -> dict[str, str]:
+    """Each note's content hash: a script that rewrites a note unchanged didn't change it."""
+    out = {}
+    for n in v.notes():
+        try:
+            out[n.path] = Vault.version((v.root / n.path).read_bytes())
+        except OSError:
+            continue
+    return out
+
+
 @_locked
 def run_script(
     name: str, args: list[str] | None = None, lock: str | None = None
@@ -2324,7 +2369,7 @@ def run_script(
             f"a script may write anywhere, and {_locks.describe(others[0])}; wait for it"
         )
     started = time.monotonic()
-    before = {n.path: (n.mtime, n.size) for n in v.notes()}
+    before = _contents(v)
     out: dict[str, Any] = {"script": rel, "sha256": digest}
     if s.snapshot_cmd:
         out["snapshot"] = _snapshot(s, f"before run_script {name}")
@@ -2367,8 +2412,8 @@ def run_script(
         }
         if outputs:
             out["outputs"] = outputs
-    after = {n.path: (n.mtime, n.size) for n in v.notes()}
-    changed = sorted(p for p, st in after.items() if before.get(p) != st)
+    after = _contents(v)
+    changed = sorted(p for p, h in after.items() if before.get(p) != h)
     deleted = sorted(set(before) - set(after))
     out["changed"] = changed[:200]
     out["changed_count"] = len(changed)

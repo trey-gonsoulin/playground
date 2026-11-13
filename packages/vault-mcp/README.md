@@ -65,6 +65,8 @@ Every box result names its `backend`.
   - The lock lives in `locks.json` next to the audit log and expires after `minutes` (max 240).
   - `end_write(…, break_lock=true)` releases someone else's lock without committing. This is logged.
   - `run_script` is refused while another session holds a lock, since a script can write anywhere.
+  - While any lock is live, the snapshot before a bulk edit or script commits everything except the locked paths, so a batch stays one `end_write` commit.
+  - `end_write` and `git_commit` skip paths the repo's `.gitignore` leaves out and list them as `ignored`.
 - The git tools use the snapshot repo, so `git_status` shows everything since the last commit, whether that was a snapshot, `git_commit` or `end_write`. That includes edits Sync brought in from other devices.
 
 **Types**
