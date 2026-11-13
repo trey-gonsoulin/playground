@@ -9,6 +9,10 @@ import httpx
 _YNAB_BASE = "https://api.ynab.com/v1"
 
 
+class YnabError(RuntimeError):
+    """An error YNAB reported, or a lookup that found nothing; shown to the client."""
+
+
 @functools.cache
 def _get_client() -> httpx.Client:
     api_key = os.environ.get("YNAB_API_KEY", "")
@@ -23,7 +27,7 @@ def _req(method: str, path: str, **kwargs) -> dict:
     resp = _get_client().request(method, path, **kwargs)
     body = resp.json()
     if "error" in body:
-        raise RuntimeError(f"YNAB API error: {body['error']['detail']}")
+        raise YnabError(f"YNAB API error: {body['error']['detail']}")
     resp.raise_for_status()
     return body["data"]
 
@@ -284,9 +288,9 @@ def move_category_balance(
     from_cat = cats.get(from_category_id)
     to_cat = cats.get(to_category_id)
     if not from_cat:
-        raise RuntimeError(f"Category {from_category_id!r} not found in {month}.")
+        raise YnabError(f"Category {from_category_id!r} not found in {month}.")
     if not to_cat:
-        raise RuntimeError(f"Category {to_category_id!r} not found in {month}.")
+        raise YnabError(f"Category {to_category_id!r} not found in {month}.")
 
     amount_mu = _milliunits(amount_dollars)
     from_result = _req(

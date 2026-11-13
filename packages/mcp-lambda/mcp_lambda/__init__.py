@@ -6,7 +6,9 @@ helper fixes the transport settings API Gateway needs, mounts the server at
 because Mangum (``lifespan="auto"``) runs the whole lifespan on every invocation.
 """
 
+import functools
 import hmac
+import inspect
 import os
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
@@ -15,11 +17,19 @@ from typing import Any
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-__all__ = ["ReentrantMCP", "bearer_auth", "create_mcp_app", "normalize_mcp_path"]
+__all__ = [
+    "ReentrantMCP",
+    "bearer_auth",
+    "create_mcp_app",
+    "is_authorized",
+    "normalize_mcp_path",
+    "tool_decorator",
+]
 
 Dispatch = Callable[
     [Request, Callable[[Request], Awaitable[Response]]], Awaitable[Response]
@@ -72,6 +82,46 @@ class ReentrantMCP:
         await self._app(scope, receive, send)
 
 
+def tool_decorator[F: Callable[..., Any]](
+    server: MCPServer, *, expose: tuple[type[Exception], ...] = (ValueError,)
+) -> Callable[[F], F]:
+    """Decorator registering a sync tool on ``server`` whose ``expose`` errors reach the client.
+
+    mcp 2.x shows the client only "Error executing tool <name>" for any exception
+    other than ``ToolError``, so the ``expose`` types are re-raised as ``ToolError``
+    with their message. The decorated function is returned unchanged, so tests can
+    still call it directly and see the original exception.
+    """
+
+    def register(fn: F) -> F:
+        if inspect.iscoroutinefunction(fn):
+            raise TypeError(f"{fn.__name__}: tool_decorator wraps sync tools only")
+
+        @functools.wraps(fn)
+        def tool(*args: Any, **kwargs: Any) -> Any:
+            try:
+                return fn(*args, **kwargs)
+            except expose as exc:
+                raise ToolError(str(exc)) from exc
+
+        server.tool()(tool)
+        return fn
+
+    return register
+
+
+def is_authorized(request: Request, env_var: str) -> bool:
+    """Whether ``request`` carries ``Authorization: Bearer $<env_var>``.
+
+    False when the variable is unset or empty.
+    """
+    secret = os.environ.get(env_var)
+    if not secret:
+        return False
+    auth = request.headers.get("Authorization", "")
+    return hmac.compare_digest(auth.encode(), f"Bearer {secret}".encode())
+
+
 def bearer_auth(env_var: str) -> Dispatch:
     """Middleware requiring ``Authorization: Bearer $<env_var>`` when it is set.
 
@@ -81,11 +131,8 @@ def bearer_auth(env_var: str) -> Dispatch:
     async def check_auth(
         request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
-        secret = os.environ.get(env_var)
-        if secret:
-            auth = request.headers.get("Authorization", "")
-            if not hmac.compare_digest(auth.encode(), f"Bearer {secret}".encode()):
-                return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
+        if os.environ.get(env_var) and not is_authorized(request, env_var):
+            return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
         return await call_next(request)
 
     return check_auth

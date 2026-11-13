@@ -53,6 +53,10 @@ app = create_mcp_app(
 - serves `/mcp` as `/mcp/`, so Starlette doesn't redirect.
 - makes the lifespan re-enterable (`ReentrantMCP`). Mangum runs the whole lifespan on every invocation, and the session manager's `run()` is single-use, so each lifespan entry builds a fresh one with `streamable_http_app()`.
 
+Register tools with `_tool = tool_decorator(mcp, expose=(ValueError, ...))` and `@_tool` rather than `@mcp.tool()`. mcp 2.x shows the client only `Error executing tool <name>` for any exception other than `ToolError`, so the `expose` types are re-raised as `ToolError` with their message. The function itself is returned unchanged, so unit tests still see the original exception. (vault-mcp's `_as_tool` does the same for its own error types.)
+
+`mcp_lambda.testing` has the JSON-RPC payloads (`HEADERS`, `INITIALIZE`, `TOOLS_LIST`, `call()`), the API Gateway event builder, and `check_reentry` / `check_lambda` / `check_bearer_auth`. A package's `tests/test_app.py` should use these, not copies.
+
 Each Dockerfile copies `packages/mcp-lambda/mcp_lambda` next to the package, because `uv export --no-emit-workspace` leaves workspace members out of the requirements.
 
 ### Lambda entry point
@@ -235,5 +239,5 @@ The Elden Ring search MCP server, its data extraction, its runbook and its OpenS
 - Use `uv` for all dependency and run management (`uv add --package <name> <dep>`, `uv run`).
 - All route handlers in FastAPI should be synchronous (`def`, not `async def`) so uvicorn dispatches them to a thread pool — blocking SDK/network calls work without async wrappers.
 - MCP tools can be sync too: since mcp 2.x, a sync (`def`) tool runs on a worker thread, so a slow tool no longer blocks other requests under local uvicorn (`main.py`). Lambda serves one request per invocation either way. Under local uvicorn, concurrent first calls can race to initialise lazy module-level clients (e.g. a cached SDK client); that's harmless, since the loser's client is just dropped.
-- After adding a new package to the workspace, add it to `[tool.uv.workspace]` members in the root `pyproject.toml`.
-- Each package's `pyproject.toml` should declare `mangum`, `mcp`, and `fastapi` as dependencies; other packages in this workspace as `{ workspace = true }` sources.
+- `[tool.uv.workspace]` members in the root `pyproject.toml` is the `packages/*` glob, so a new package directory joins the workspace automatically.
+- Each package's `pyproject.toml` should declare `mangum`, `mcp`, and `fastapi` as dependencies; other packages in this workspace as `{ workspace = true }` sources. Lambda-only packages keep `uvicorn` (used only by `main.py`) in the `dev` group, so it stays out of the image.

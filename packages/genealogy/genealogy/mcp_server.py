@@ -22,15 +22,21 @@ from urllib.parse import urlparse
 
 import httpx
 from mcp.server.mcpserver import MCPServer
+from mcp_lambda import tool_decorator
 
 from genealogy import _newspapers as newspapers
 from genealogy import _wikitree as wikitree
 from genealogy._gedcom import from_gedcom, to_gedcom
 from genealogy._models import Citation, Event, Person, Tree
-from genealogy._storage import get_store
+from genealogy._storage import ConcurrentModification, get_store
 
 # Transport settings (JSON, stateless, host) are fixed by mcp_lambda (see app.py).
 mcp = MCPServer("genealogy")
+# Bad arguments, WikiTree failures and save conflicts reach the client with their
+# message; mcp hides the text of anything else.
+_tool = tool_decorator(
+    mcp, expose=(ValueError, wikitree.WikiTreeError, ConcurrentModification)
+)
 
 # Largest JSON-RPC request body the app accepts (mcp 2.x answers 413 above it).
 # Lambda refuses invocation events over 6 MB, and the event wraps the body as an
@@ -75,7 +81,7 @@ def _edit(tree_name: str) -> Generator[Tree]:
 # -- WikiTree --------------------------------------------------------------------------
 
 
-@mcp.tool()
+@_tool
 def wikitree_search(
     first_name: str | None = None,
     last_name: str | None = None,
@@ -128,7 +134,7 @@ def wikitree_search(
     }
 
 
-@mcp.tool()
+@_tool
 def wikitree_get_person(wikitree_id: str) -> dict:
     """Read one WikiTree profile with parents, spouses (with marriage) and children.
 
@@ -141,7 +147,7 @@ def wikitree_get_person(wikitree_id: str) -> dict:
     return wikitree.detail(person)
 
 
-@mcp.tool()
+@_tool
 def wikitree_get_ancestors(wikitree_id: str, generations: int = 4) -> dict:
     """Read a WikiTree pedigree (direct ancestors) rooted at a profile.
 
@@ -168,7 +174,7 @@ def wikitree_get_ancestors(wikitree_id: str, generations: int = 4) -> dict:
 # -- Newspapers -------------------------------------------------------------------------
 
 
-@mcp.tool()
+@_tool
 def newspapers_search(
     query: str,
     start_date: str | None = None,
@@ -214,13 +220,13 @@ def newspapers_search(
 # -- Tree: read ------------------------------------------------------------------------
 
 
-@mcp.tool()
+@_tool
 def tree_list() -> dict:
     """List the family trees that have been saved."""
     return {"trees": get_store().list_trees()}
 
 
-@mcp.tool()
+@_tool
 def tree_summary(tree: str = "default") -> dict:
     """Overview of a tree: counts, most common surnames, and people with no parents.
 
@@ -240,7 +246,7 @@ def tree_summary(tree: str = "default") -> dict:
     }
 
 
-@mcp.tool()
+@_tool
 def tree_search_people(query: str, tree: str = "default", limit: int = 50) -> dict:
     """Find people in your tree by name words (case-insensitive) or tree id.
 
@@ -251,7 +257,7 @@ def tree_search_people(query: str, tree: str = "default", limit: int = 50) -> di
     return {"count": len(matches), "people": [p.summary() for p in matches[:limit]]}
 
 
-@mcp.tool()
+@_tool
 def tree_get_person(person_id: str, tree: str = "default") -> dict:
     """Full record for one person in your tree, plus parents, siblings, partners, children."""
     t, _ = get_store().load(tree)
@@ -265,7 +271,7 @@ def tree_get_person(person_id: str, tree: str = "default") -> dict:
 # -- Tree: write ------------------------------------------------------------------------
 
 
-@mcp.tool()
+@_tool
 def tree_add_person(
     given: str | None = None,
     surname: str | None = None,
@@ -307,7 +313,7 @@ def tree_add_person(
     return {"added": person.summary()}
 
 
-@mcp.tool()
+@_tool
 def tree_update_person(
     person_id: str,
     given: str | None = None,
@@ -342,7 +348,7 @@ def tree_update_person(
     return {"updated": p.summary()}
 
 
-@mcp.tool()
+@_tool
 def tree_set_event(
     person_id: str,
     event_type: str,
@@ -374,7 +380,7 @@ def tree_set_event(
     return {"person": p.summary(), "event": event.model_dump(exclude_defaults=True)}
 
 
-@mcp.tool()
+@_tool
 def tree_link(
     relationship: str,
     person_id: str,
@@ -397,7 +403,7 @@ def tree_link(
     return {"family": fam.model_dump(exclude_defaults=True)}
 
 
-@mcp.tool()
+@_tool
 def tree_remove_person(person_id: str, tree: str = "default") -> dict:
     """Delete a person and their links from your tree. Cannot be undone except via
     S3 object versioning."""
@@ -407,7 +413,7 @@ def tree_remove_person(person_id: str, tree: str = "default") -> dict:
     return {"removed": removed}
 
 
-@mcp.tool()
+@_tool
 def tree_import_wikitree(
     wikitree_id: str,
     generations: int = 4,
@@ -438,7 +444,7 @@ def tree_import_wikitree(
 # -- Tree: GEDCOM + resources ------------------------------------------------------------
 
 
-@mcp.tool()
+@_tool
 def tree_export_gedcom(tree: str = "default", include_text: bool = False) -> dict:
     """Export the tree as GEDCOM 5.5.1 and save it as tree.ged (plus a dated copy).
 
@@ -477,7 +483,7 @@ def tree_export_gedcom(tree: str = "default", include_text: bool = False) -> dic
     return out
 
 
-@mcp.tool()
+@_tool
 def tree_import_gedcom(
     gedcom_text: str | None = None,
     stored_path: str | None = None,
@@ -532,7 +538,7 @@ def tree_import_gedcom(
     return {"tree": tree, **stats, **totals}
 
 
-@mcp.tool()
+@_tool
 def tree_attach_resource_from_url(
     url: str,
     person_ids: list[str],
@@ -583,13 +589,13 @@ def tree_attach_resource_from_url(
     return {"stored": locator, "path": rel, "attached_to": person_ids}
 
 
-@mcp.tool()
+@_tool
 def tree_list_files(tree: str = "default", prefix: str = "") -> dict:
     """List stored files for a tree (tree.json, tree.ged, exports/, resources/...)."""
     return {"files": get_store().list_files(tree, prefix)}
 
 
-@mcp.tool()
+@_tool
 def tree_file_url(path: str, tree: str = "default") -> dict:
     """Get a temporary (1 hour) download URL for a stored file, e.g. 'tree.ged'."""
     return {"path": path, "url": get_store().file_url(tree, path)}

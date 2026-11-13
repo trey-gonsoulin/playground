@@ -1,13 +1,12 @@
 """FastAPI app on the vault box: the MCP server at ``/mcp`` plus ``/healthz`` and
 ``/readyz``, all behind a bearer token. The Lambda proxy (proxy.py) calls it."""
 
-import hmac
 import os
 from collections.abc import Awaitable, Callable
 from typing import Any
 
 from fastapi import FastAPI, Request
-from mcp_lambda import create_mcp_app
+from mcp_lambda import create_mcp_app, is_authorized
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 
@@ -37,9 +36,7 @@ async def _record_activity(
     """
     if not request.url.path.startswith("/mcp"):
         return await call_next(request)
-    token = os.environ.get(TOKEN_ENV, "")
-    sent = request.headers.get("Authorization", "")
-    if token and hmac.compare_digest(sent.encode(), f"Bearer {token}".encode()):
+    if is_authorized(request, TOKEN_ENV):
         _touch_activity()
     response = await call_next(request)
     if response.status_code != 401:
