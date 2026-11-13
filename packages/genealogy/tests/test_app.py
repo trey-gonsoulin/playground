@@ -1,40 +1,20 @@
 """Offline tests for the HTTP request path: FastAPI app, lifespan and Lambda handler.
 
-Mangum runs the whole lifespan on every invocation, so a warm Lambda container
-re-enters it each time; ``mcp_lambda.ReentrantMCP`` rebuilds the session manager
-per entry (#504). These tests cycle the lifespan 20 times, so an mcp upgrade that
-breaks re-entry fails here instead of on the second live invocation.
-No network access: ``initialize`` and ``tools/list`` never call a tool.
+``mcp_lambda.testing`` cycles the lifespan many times, so an mcp upgrade that breaks
+re-entry in a warm Lambda container fails here instead of on the second live
+invocation (#504). No network access: ``initialize`` and ``tools/list`` never call a tool.
 """
 
-import asyncio
-import base64
 import json
 
 import pytest
 from fastapi.testclient import TestClient
 from genealogy import lambda_handler
 from genealogy.app import create_app
+from mcp_lambda import testing
+from mcp_lambda.testing import HEADERS
 
 N_TOOLS = 19
-
-_HEADERS = {
-    "content-type": "application/json",
-    "accept": "application/json, text/event-stream",
-}
-
-_INITIALIZE = {
-    "jsonrpc": "2.0",
-    "id": 1,
-    "method": "initialize",
-    "params": {
-        "protocolVersion": "2025-06-18",
-        "capabilities": {},
-        "clientInfo": {"name": "test_app", "version": "0"},
-    },
-}
-
-_TOOLS_LIST = {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}
 
 
 @pytest.fixture(autouse=True)
@@ -45,89 +25,26 @@ def _offline_env(tmp_path, monkeypatch):
     monkeypatch.delenv("GENEALOGY_MCP_SECRET", raising=False)
 
 
-def _check_initialize(status: int, body: dict) -> None:
-    assert status == 200, body
-    assert body["id"] == 1
-    assert body["result"]["serverInfo"]["name"]
-
-
-def _check_tools(status: int, body: dict) -> None:
-    assert status == 200, body
-    tools = body["result"]["tools"]
-    assert len(tools) == N_TOOLS, [t["name"] for t in tools]
-
-
 def test_lifespan_reentry_via_testclient():
-    app = create_app()
-    for _ in range(20):  # later blocks = warm container re-entering the lifespan
-        with TestClient(app) as client:
-            for path in ("/mcp", "/mcp/"):
-                r = client.post(path, json=_INITIALIZE, headers=_HEADERS)
-                _check_initialize(r.status_code, r.json())
-                r = client.post(path, json=_TOOLS_LIST, headers=_HEADERS)
-                _check_tools(r.status_code, r.json())
+    testing.check_reentry(create_app(), n_tools=N_TOOLS)
 
 
 def test_bearer_secret_enforced_when_set(monkeypatch):
     monkeypatch.setenv("GENEALOGY_MCP_SECRET", "s3cret")
+    testing.check_bearer_auth(create_app(), "s3cret")
+
+
+def test_tool_error_message_reaches_client():
+    # mcp hides the text of unexpected exceptions; bad arguments must still say why.
+    bad = testing.call("tree_import_gedcom", {"gedcom_text": "0 TRLR", "mode": "x"})
     with TestClient(create_app()) as client:
-        r = client.post("/mcp", json=_INITIALIZE, headers=_HEADERS)
-        assert r.status_code == 401
-        auth = {**_HEADERS, "authorization": "Bearer s3cret"}
-        r = client.post("/mcp", json=_INITIALIZE, headers=auth)
-        _check_initialize(r.status_code, r.json())
-
-
-def _http_api_v2_event(path: str, payload: dict) -> dict:
-    """Minimal API Gateway HTTP API (payload v2.0) event, as the Lambda sees it."""
-    return {
-        "version": "2.0",
-        "routeKey": "$default",
-        "rawPath": path,
-        "rawQueryString": "",
-        "headers": {**_HEADERS, "host": "example.execute-api.us-east-1.amazonaws.com"},
-        "requestContext": {
-            "accountId": "123456789012",
-            "apiId": "example",
-            "domainName": "example.execute-api.us-east-1.amazonaws.com",
-            "domainPrefix": "example",
-            "http": {
-                "method": "POST",
-                "path": path,
-                "protocol": "HTTP/1.1",
-                "sourceIp": "127.0.0.1",
-                "userAgent": "test_app",
-            },
-            "requestId": "test",
-            "routeKey": "$default",
-            "stage": "$default",
-            "time": "17/Oct/2026:00:00:00 +0000",
-            "timeEpoch": 0,
-        },
-        "body": json.dumps(payload),
-        "isBase64Encoded": False,
-    }
-
-
-def _invoke(path: str, payload: dict) -> tuple[int, dict]:
-    resp = lambda_handler.handler(_http_api_v2_event(path, payload), None)
-    body = resp["body"]
-    if resp.get("isBase64Encoded"):
-        body = base64.b64decode(body).decode()
-    # Plain JSON, not SSE: API Gateway needs json_response (fixed by mcp_lambda).
-    assert resp["headers"]["content-type"].startswith("application/json"), resp
-    return resp["statusCode"], json.loads(body)
+        result = client.post("/mcp/", json=bad, headers=HEADERS).json()["result"]
+    assert result["isError"] is True
+    assert "mode must be 'merge' or 'replace'" in result["content"][0]["text"]
 
 
 def test_lambda_handler_warm_invocations():
-    # Each Mangum call runs the full lifespan; 20 calls = one cold + 19 warm.
-    # Mangum uses the thread's current loop, which an earlier asyncio.run() in the
-    # same pytest process may have cleared (a Lambda process starts with one).
-    asyncio.set_event_loop(asyncio.new_event_loop())
-    for _ in range(5):
-        for path in ("/mcp", "/mcp/"):
-            _check_initialize(*_invoke(path, _INITIALIZE))
-            _check_tools(*_invoke(path, _TOOLS_LIST))
+    testing.check_lambda(lambda_handler.handler, n_tools=N_TOOLS)
 
 
 # Lambda refuses synchronous invocation events over 6 MB (6 MiB).
@@ -176,7 +93,7 @@ def test_request_body_limit_boundary():
         r = client.post(
             "/mcp",
             content=_import_gedcom_body(MAX_REQUEST_BODY_BYTES, line),
-            headers=_HEADERS,
+            headers=HEADERS,
         )
         assert r.status_code == 200, r.text[:200]
         result = r.json()["result"]
@@ -185,7 +102,7 @@ def test_request_body_limit_boundary():
         r = client.post(
             "/mcp",
             content=_import_gedcom_body(MAX_REQUEST_BODY_BYTES + 1, line),
-            headers=_HEADERS,
+            headers=HEADERS,
         )
         assert r.status_code == 413
 
@@ -198,7 +115,7 @@ def test_max_request_body_fits_a_lambda_event(line):
     from genealogy.mcp_server import MAX_REQUEST_BODY_BYTES
 
     body = _import_gedcom_body(MAX_REQUEST_BODY_BYTES, line)
-    event = _http_api_v2_event("/mcp", {})
+    event = testing.http_api_v2_event("/mcp", {})
     event["body"] = body.decode()
     size = len(json.dumps(event).encode())
     assert size < _LAMBDA_EVENT_LIMIT, size
@@ -222,14 +139,9 @@ def _export(monkeypatch, text: str) -> tuple[dict, int]:
     from genealogy import mcp_server
 
     monkeypatch.setattr(mcp_server, "to_gedcom", lambda tree: text)
-    asyncio.set_event_loop(asyncio.new_event_loop())
-    call = {
-        "jsonrpc": "2.0",
-        "id": 4,
-        "method": "tools/call",
-        "params": {"name": "tree_export_gedcom", "arguments": {"include_text": True}},
-    }
-    resp = lambda_handler.handler(_http_api_v2_event("/mcp", call), None)
+    testing.new_event_loop()
+    call = testing.call("tree_export_gedcom", {"include_text": True})
+    resp = lambda_handler.handler(testing.http_api_v2_event("/mcp", call), None)
     assert resp["statusCode"] == 200 and not resp.get("isBase64Encoded"), resp
     result = json.loads(resp["body"])["result"]
     assert result["isError"] is False, result

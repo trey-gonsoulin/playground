@@ -4,10 +4,8 @@ Conventions in every result: `as_of` (ISO UTC) and `source: "yahoo"`; volatiliti
 probabilities are fractions (0.25 = 25%); fields ending in `_pct` are percents.
 """
 
-import functools
 import math
 import re
-from collections.abc import Callable
 from dataclasses import asdict
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
@@ -16,7 +14,7 @@ from zoneinfo import ZoneInfo
 import numpy as np
 import pandas as pd
 from mcp.server.mcpserver import MCPServer
-from mcp.server.mcpserver.exceptions import ToolError
+from mcp_lambda import tool_decorator
 
 from markets import _data
 from markets._data import (
@@ -223,23 +221,9 @@ def _bootstrap_sigma(
 # Tools.
 
 
-def _tool[F: Callable[..., dict]](fn: F) -> F:
-    """Register `fn` as a tool whose expected failures reach the client with their message.
-
-    mcp 2.x replaces the text of any exception other than ToolError with a generic
-    "Error executing tool <name>", so bad arguments (ValueError, UnknownTicker) and Yahoo
-    failures (DataSourceError) are re-raised as ToolError. `fn` itself is returned unchanged.
-    """
-
-    @functools.wraps(fn)
-    def wrapper(*args: Any, **kwargs: Any) -> dict:
-        try:
-            return fn(*args, **kwargs)
-        except (ValueError, DataSourceError) as exc:
-            raise ToolError(str(exc)) from exc
-
-    mcp.tool()(wrapper)
-    return fn
+# Bad arguments (ValueError, UnknownTicker) and Yahoo failures (DataSourceError) reach
+# the client with their message; mcp hides the text of anything else.
+_tool = tool_decorator(mcp, expose=(ValueError, DataSourceError))
 
 
 @_tool

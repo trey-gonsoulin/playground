@@ -485,12 +485,12 @@ dependencies = [
     { name = "mcp" },
     { name = "mcp-lambda" },
     { name = "pydantic" },
-    { name = "uvicorn", extra = ["standard"] },
 ]
 
 [package.dev-dependencies]
 dev = [
     { name = "pytest" },
+    { name = "uvicorn", extra = ["standard"] },
 ]
 
 [package.metadata]
@@ -502,11 +502,13 @@ requires-dist = [
     { name = "mcp", specifier = ">=2.3,<3" },
     { name = "mcp-lambda", editable = "packages/mcp-lambda" },
     { name = "pydantic", specifier = ">=2.0" },
-    { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
 ]
 
 [package.metadata.requires-dev]
-dev = [{ name = "pytest", specifier = ">=8.0" }]
+dev = [
+    { name = "pytest", specifier = ">=8.0" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
+]
 
 [[package]]
 name = "h11"
@@ -792,13 +794,13 @@ dependencies = [
     { name = "numpy" },
     { name = "pandas" },
     { name = "scipy" },
-    { name = "uvicorn", extra = ["standard"] },
     { name = "yfinance" },
 ]
 
 [package.dev-dependencies]
 dev = [
     { name = "pytest" },
+    { name = "uvicorn", extra = ["standard"] },
 ]
 
 [package.metadata]
@@ -811,12 +813,14 @@ requires-dist = [
     { name = "numpy", specifier = ">=2.1" },
     { name = "pandas", specifier = ">=2.2" },
     { name = "scipy", specifier = ">=1.14" },
-    { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
     { name = "yfinance", specifier = "==1.7.0" },
 ]
 
 [package.metadata.requires-dev]
-dev = [{ name = "pytest", specifier = ">=8.0" }]
+dev = [
+    { name = "pytest", specifier = ">=8.0" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
+]
 
 [[package]]
 name = "mcp"
@@ -1982,12 +1986,12 @@ dependencies = [
     { name = "mangum" },
     { name = "mcp" },
     { name = "mcp-lambda" },
-    { name = "uvicorn", extra = ["standard"] },
 ]
 
 [package.dev-dependencies]
 dev = [
     { name = "pytest" },
+    { name = "uvicorn", extra = ["standard"] },
 ]
 
 [package.metadata]
@@ -1997,8 +2001,10 @@ requires-dist = [
     { name = "mangum", specifier = ">=0.21.0" },
     { name = "mcp", specifier = ">=2.3,<3" },
     { name = "mcp-lambda", editable = "packages/mcp-lambda" },
-    { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
 ]
 
 [package.metadata.requires-dev]
-dev = [{ name = "pytest", specifier = ">=8.0" }]
+dev = [
+    { name = "pytest", specifier = ">=8.0" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
+]

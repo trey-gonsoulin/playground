@@ -1,14 +1,18 @@
 """MCP server exposing YNAB budget tools via Streamable HTTP transport."""
 
 from mcp.server.mcpserver import MCPServer
+from mcp_lambda import tool_decorator
 
 from ynab_mcp import _client as ynab
 
 # Transport settings (JSON, stateless, host) are fixed by mcp_lambda (see app.py).
 mcp = MCPServer("ynab")
+# YNAB's own error detail and bad arguments reach the client with their message;
+# mcp hides the text of anything else.
+_tool = tool_decorator(mcp, expose=(ValueError, ynab.YnabError))
 
 
-@mcp.tool()
+@_tool
 def list_budgets() -> list[dict]:
     """List all YNAB budgets accessible with the configured API key.
 
@@ -19,7 +23,7 @@ def list_budgets() -> list[dict]:
     return ynab.list_budgets()
 
 
-@mcp.tool()
+@_tool
 def get_accounts(budget_id: str = "last-used") -> list[dict]:
     """List all open accounts in a YNAB budget with current balances.
 
@@ -32,7 +36,7 @@ def get_accounts(budget_id: str = "last-used") -> list[dict]:
     return ynab.get_accounts(budget_id)
 
 
-@mcp.tool()
+@_tool
 def get_categories(budget_id: str = "last-used", month: str = "current") -> list[dict]:
     """List budget categories for a given month with budgeted/spent/remaining amounts.
 
@@ -48,7 +52,7 @@ def get_categories(budget_id: str = "last-used", month: str = "current") -> list
     return ynab.get_categories(budget_id, month)
 
 
-@mcp.tool()
+@_tool
 def get_month_summary(budget_id: str = "last-used", month: str = "current") -> dict:
     """Get a high-level monthly budget summary: income, budgeted, spent, and to-be-budgeted.
 
@@ -66,7 +70,7 @@ def get_month_summary(budget_id: str = "last-used", month: str = "current") -> d
     return ynab.get_month_summary(budget_id, month)
 
 
-@mcp.tool()
+@_tool
 def get_transactions(
     budget_id: str = "last-used",
     since_date: str | None = None,
@@ -87,7 +91,7 @@ def get_transactions(
     return ynab.get_transactions(budget_id, since_date, account_id, max_results)
 
 
-@mcp.tool()
+@_tool
 def create_transaction(
     account_id: str,
     date: str,
@@ -125,7 +129,7 @@ def create_transaction(
     )
 
 
-@mcp.tool()
+@_tool
 def update_transaction(
     transaction_id: str,
     budget_id: str = "last-used",
@@ -153,7 +157,7 @@ def update_transaction(
     )
 
 
-@mcp.tool()
+@_tool
 def rename_category(
     category_id: str,
     name: str,
@@ -171,7 +175,7 @@ def rename_category(
     return ynab.rename_category(budget_id, category_id, name)
 
 
-@mcp.tool()
+@_tool
 def move_category_balance(
     from_category_id: str,
     to_category_id: str,
@@ -200,7 +204,7 @@ def move_category_balance(
     )
 
 
-@mcp.tool()
+@_tool
 def set_category_goal(
     category_id: str,
     goal_target_dollars: float | None,
@@ -242,7 +246,7 @@ def set_category_goal(
     )
 
 
-@mcp.tool()
+@_tool
 def update_category_budget(
     category_id: str,
     budgeted_dollars: float,

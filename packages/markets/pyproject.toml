@@ -10,7 +10,6 @@ dependencies = [
     "scipy>=1.14",
     "arch>=7.2",
     "fastapi>=0.115",
-    "uvicorn[standard]>=0.30",
     "mangum>=0.21.0",
     "mcp>=2.3,<3",
     "mcp-lambda",
@@ -31,6 +30,8 @@ packages = ["markets"]
 
 [dependency-groups]
 dev = [
+    # Local dev server only (main.py); kept out of the Lambda image.
+    "uvicorn[standard]>=0.30",
     "pytest>=8.0",
 ]
 

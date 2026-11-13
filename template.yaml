@@ -5,7 +5,10 @@ Description: Personal MCP servers deployed to AWS Lambda
 
 Globals:
   Function:
-    Timeout: 30
+    # HTTP API stops waiting at 30 s, so a longer Lambda timeout would only let
+    # work finish after the client already saw a 503 (and retried). Keep every
+    # function just under it; outbound HTTP calls use timeouts that fit.
+    Timeout: 29
     MemorySize: 512
 
 Resources:
@@ -72,10 +75,6 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       PackageType: Image
-      # HTTP API stops waiting at 30 s, so a longer Lambda timeout would only let
-      # work finish after the client already saw a 503 (and retried). Keep the
-      # function just under it; outbound HTTP calls use 20 s timeouts to fit.
-      Timeout: 29
       Policies:
         - S3CrudPolicy:
             BucketName: !Ref GenealogyBucket
@@ -115,8 +114,6 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       PackageType: Image
-      # Just under the HTTP API's 30 s limit (see GenealogyMcpFunction).
-      Timeout: 29
       MemorySize: 1024
       Environment:
         Variables:
