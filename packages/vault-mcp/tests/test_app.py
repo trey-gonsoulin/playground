@@ -26,7 +26,7 @@ WRITE_TOOLS = {
     "append_to_note",
     "move_note",
     "delete_note",
-    "bulk_update_properties",
+    "bulk_update",
 }
 
 
@@ -65,7 +65,7 @@ def test_all_tools_listed(token):
         WRITE_TOOLS <= tools
         and {"search", "read_note", "daily_note", "health"} <= tools
     )
-    assert len(tools) == 20
+    assert len(tools) == 33
 
 
 def test_readonly_hides_write_tools(token, monkeypatch, vault):

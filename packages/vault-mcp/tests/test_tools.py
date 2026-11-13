@@ -198,19 +198,19 @@ def test_bulk_update_is_dry_run_first(vault, tmp_path):
         "type": "list",
         "updated_before": "2023-01-01",
     }
-    plan = t.bulk_update_properties(**args)
+    plan = t.bulk_update(**args)
     assert plan["dry_run"] and plan["to_change"] == 2
     assert "status: active" in (vault / "Home" / "Old list.md").read_text()
     assert audit(tmp_path) == []
-    t.bulk_update_properties(**args, dry_run=False)
+    t.bulk_update(**args, dry_run=False)
     assert "status: archive" in (vault / "Home" / "Old list.md").read_text()
     assert "status: active" in (vault / "Home" / "Shopping.md").read_text()
-    assert audit(tmp_path)[0]["tool"] == "bulk_update_properties"
+    assert audit(tmp_path)[0]["tool"] == "bulk_update"
 
 
 def test_bulk_requires_a_filter(vault):
     with pytest.raises(ToolError, match="filter"):
-        t.bulk_update_properties({"status": "archive"})
+        t.bulk_update({"status": "archive"})
 
 
 # --- create / update / delete ----------------------------------------------------------

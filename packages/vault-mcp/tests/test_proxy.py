@@ -144,7 +144,7 @@ def test_proxy_app_requires_token(ec2):
         body = {"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}
         assert client.post("/mcp", json=body, headers=HEADERS).status_code == 401
         ok = client.post("/mcp", json=body, headers={**HEADERS, **AUTH})
-        assert ok.status_code == 200 and len(ok.json()["result"]["tools"]) == 21
+        assert ok.status_code == 200 and len(ok.json()["result"]["tools"]) == 34
     proxy._cache["params"] = {"ca-cert": "x"}
     proxy._cache["params_at"] = proxy.time.monotonic()
     with pytest.raises(RuntimeError, match="mcp-token"):

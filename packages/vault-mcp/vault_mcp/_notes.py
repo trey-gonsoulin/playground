@@ -2,6 +2,8 @@
 
 Frontmatter round-trips as plain strings: dates stay ``"2026-11-10"`` instead of
 becoming ``datetime.date``, so they serialize to JSON and are written back as-is.
+``typed`` reads it the way Obsidian does instead (numbers, booleans, lists), for
+showing values and checking property types.
 """
 
 import re
@@ -26,11 +28,19 @@ class FrontmatterError(ValueError):
     """The note's frontmatter isn't valid YAML, so it can't be safely rewritten."""
 
 
+# Plain scalars Obsidian (YAML 1.2 core schema) reads as something other than text.
+_INT = re.compile(r"^[-+]?[0-9]+$")
+_FLOAT = re.compile(r"^[-+]?(?:\.[0-9]+|[0-9]+(?:\.[0-9]*)?)(?:[eE][-+]?[0-9]+)?$")
+_BOOL = re.compile(r"^(?:true|True|TRUE|false|False|FALSE)$")
+_NULL = re.compile(r"^(?:~|null|Null|NULL|)$")
+
+
 class _Dumper(yaml.SafeDumper):
     """Writes new values the way Obsidian does: ``up:`` for empty, ``"[[Link]]"``.
 
-    With no implicit resolvers every scalar is text, so nothing is quoted just
-    because YAML 1.1 would read it as a number, boolean or date.
+    Numbers and booleans are written plain; text that Obsidian would read as a
+    number, boolean or null (``"10.10"``, ``"true"``) is quoted, so it stays
+    text. Dates stay plain, which Obsidian reads as a date.
     """
 
     yaml_implicit_resolvers: dict = {}  # noqa: RUF012 -- replaces the class attribute
@@ -47,12 +57,42 @@ def _repr_text(dumper: yaml.SafeDumper, value: Any) -> yaml.Node:
         text = "true" if value else "false"
     else:
         text = str(value)
-    style = '"' if text.startswith("[[") else None
+    quote = text.startswith("[[") or (
+        isinstance(value, str)
+        and text != ""
+        and any(r.match(text) for r in (_INT, _FLOAT, _BOOL, _NULL))
+    )
+    style = '"' if quote else None
     return dumper.represent_scalar("tag:yaml.org,2002:str", text, style=style)
 
 
 for _t in (str, type(None), bool, int, float):
     _Dumper.add_representer(_t, _repr_text)
+
+
+class _TypedLoader(yaml.SafeLoader):
+    """YAML 1.2 core scalars, as Obsidian reads them; dates stay text."""
+
+    yaml_implicit_resolvers: dict = {}  # noqa: RUF012 -- replaces the class attribute
+
+
+for _tag, _re, _first in (
+    ("bool", _BOOL, "tTfF"),
+    ("int", _INT, "-+0123456789"),
+    ("float", _FLOAT, "-+.0123456789"),
+    ("null", _NULL, ["~", "n", "N", ""]),
+):
+    _TypedLoader.add_implicit_resolver(f"tag:yaml.org,2002:{_tag}", _re, list(_first))
+for _tag, _make in (
+    ("bool", lambda x: x.lower() == "true"),
+    ("int", int),
+    ("float", float),
+    ("null", lambda _x: None),
+):
+    _TypedLoader.add_constructor(
+        f"tag:yaml.org,2002:{_tag}",
+        lambda loader, node, make=_make: make(loader.construct_scalar(node)),
+    )
 
 BOM = "\ufeff"
 _FM_RE = re.compile(
@@ -62,8 +102,11 @@ _FM_RE = re.compile(
 _KEY_LINE = re.compile(
     r"""^(?:"([^"]+)"|'([^']+)'|([^\s#'"][^:]*?))[ \t]*:(?:[ \t]|\r?$)"""
 )
-# [[target]], [[target|alias]], [[target#heading]], [[target#^block]], ![[embed]]
-_LINK_RE = re.compile(r"!?\[\[([^\[\]|#^]*)(?:[#^][^\[\]|]*)?(?:\|[^\[\]]*)?\]\]")
+# [[target]], [[target|alias]], [[target#heading]], [[target#^block]], ![[embed]],
+# and [[target\|alias]] (the pipe escaped, as inside a table).
+_LINK_RE = re.compile(
+    r"!?\[\[((?:[^\[\]|#^\\]|\\(?![|#^]))*)(?:\\?[#^][^\[\]|]*)?(?:\\?\|[^\[\]]*)?\]\]"
+)
 _TAG_RE = re.compile(r"(?<![\w/#&`])#([A-Za-z][\w/-]*)")
 _FENCE_RE = re.compile(r"^(```|~~~).*?^\1", re.S | re.M)
 _HEADING_RE = re.compile(r"^(#{1,6})[ \t]+(.+?)[ \t#]*$")
@@ -87,6 +130,41 @@ def split(text: str) -> tuple[dict[str, Any], str, bool]:
     return (
         (data, text[m.end() :], True) if isinstance(data, dict) else ({}, text, False)
     )
+
+
+def typed(text: str) -> dict[str, Any]:
+    """The frontmatter as Obsidian reads it: numbers, booleans and lists typed, dates as text."""
+    m = _FM_RE.match(text)
+    if not m:
+        return {}
+    try:
+        data = yaml.load(m.group(1), Loader=_TypedLoader)  # noqa: S506 -- safe loader subclass
+    except yaml.YAMLError:
+        return {}
+    return {str(k): v for k, v in data.items()} if isinstance(data, dict) else {}
+
+
+_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+_DATETIME = re.compile(r"^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}")
+
+
+def kind(value: Any) -> str | None:
+    """A property value's Obsidian type (text, number, boolean, date, datetime,
+    list, object), or None when empty."""
+    if value is None or value in ("", []):
+        return None
+    if isinstance(value, bool):
+        return "boolean"
+    if isinstance(value, int | float):
+        return "number"
+    if isinstance(value, list):
+        return "list"
+    if isinstance(value, dict):
+        return "object"
+    text = str(value)
+    if _DATE.match(text):
+        return "date"
+    return "datetime" if _DATETIME.match(text) else "text"
 
 
 def split_raw(text: str) -> tuple[str, str]:
@@ -233,6 +311,21 @@ def headings(body: str) -> list[tuple[int, int, str]]:
         if m:
             out.append((i, len(m.group(1)), m.group(2).strip()))
     return out
+
+
+def section(text: str, heading: str) -> tuple[int, int]:
+    """``(heading line, end line)`` of ``heading``'s section in ``text``'s lines.
+
+    The section runs to the next heading of the same or a higher level.
+    Raises ``KeyError`` if there's no such heading.
+    """
+    want = heading.lstrip("#").strip().lower()
+    hs = headings(text)
+    for n, (idx, level, title) in enumerate(hs):
+        if title.lower() == want:
+            end = next((i for i, lv, _ in hs[n + 1 :] if lv <= level), None)
+            return idx, len(text.split("\n")) if end is None else end
+    raise KeyError(heading)
 
 
 def append_under_heading(text: str, addition: str, heading: str | None) -> str:

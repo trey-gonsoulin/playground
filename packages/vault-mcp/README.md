@@ -35,21 +35,56 @@ The Lambda lists the box's tools with identical schemas. It wraps the same funct
 | `start_vault()` | Lambda only. Wakes the box and waits up to ~20 s per call until it's ready. |
 | `health()` | Lambda only. Reports the instance state, plus the box's health while it's running. Doesn't wake the box. |
 | `search(query, folder?, limit?)` | Obsidian search via the CLI, so operators work. Falls back to file search. |
-| `read_note(note, offset?, limit?)` | Files. Returns the body (paged by line), frontmatter as JSON, links and backlinks. |
+| `read_note(note, offset?, limit?, heading?)` | Files. Returns the body (paged by line, or one heading's section), typed frontmatter, `version` (sha256), links and backlinks. |
 | `list_notes(folder?, type?, status?, tag?, person?, updated_before?, updated_after?)` | Files (property index). |
 | `get_links`, `get_backlinks`, `list_tags`, `list_properties` | Files. |
 | `tasks(status?, folder?)` | CLI `tasks`, falling back to parsing the files. |
 | `daily_note(day?)` | Reads the note, or creates it: CLI `daily` for today, otherwise from `_Templates/Daily Note`. |
-| `create_note`, `update_note`, `append_to_note` | Files, following the Vault Guide. |
+| `create_note`, `update_note`, `append_to_note` | Files, following the Vault Guide. `create_note` can start from a template (`template`, plus `patch` to fill it in). The edits take `if_version`. |
 | `move_note(note, new, dry_run?)` | CLI `rename`/`move`, checked on disk. Fixes any links Obsidian left behind and keeps the old title as an alias. |
 | `delete_note(note)` | CLI `delete` to Obsidian's trash. With the app down, moves to `_Review/To delete/`. |
-| `bulk_update_properties(set_properties, filters…, dry_run=true)` | Files. Always returns a plan first, and takes a snapshot before applying. |
+| `bulk_update(set_properties?, patch?, filters…, where?, query?, paths?, dry_run=true)` | Files. Sets properties and/or patches the body of every matching note (at most 500). Always returns a plan first and takes a snapshot before applying; all or nothing. |
 | `create_notes(notes, dry_run?)` | Files. Up to 200 notes per call, each as in `create_note`. Applies up to 10 at once; more return a plan first. |
 | `update_notes(updates, dry_run=true)` | Files. Up to 200 edits (body, patches, properties), each as in `update_note`. The plan shows a diff per note; a snapshot is taken before applying. |
 | `move_notes(moves, dry_run=true)` | As `move_note`, for up to 200 notes. Applying stops after ~15 s and returns the rest as `remaining` to call again with. |
 | `import_archive(url, folder, …, sha256?, dry_run=true)` | Downloads a zip or tar from an https URL (100 MiB, 2000 files) into a folder. Applying needs the plan's `sha256`. |
+| `read_file(path, offset?, length?)` | Files, byte for byte, with the sha256. Text as UTF-8, anything else as base64; 1 MB per call. |
+| `write_file(path, content, if_absent \| if_version, more?, sha256?)` | Files, byte for byte: no frontmatter or heading changes. Big files go in chunks (`more=true`), staged outside the vault and written once at the end. 5 MB max. |
+| `validate(schema, folder?, type?, where?)` | Files. Reports missing required properties, values outside an allowed set and wrong property types. |
+| `unresolved_links(folder?)` | Files. Every link target that points at no note or file, with counts and the notes holding it. |
+| `query_base(base, view?)` | CLI `base:query`, for a `.base` file or a note embedding one. Adds the view's summaries (Sum, Average, …), per group too. Inline `base` code blocks can't be queried. |
+| `git_status`, `git_diff`, `git_log`, `git_show`, `git_commit` | The snapshot repo (`~/snapshots/vault.git`, work tree = the vault). |
+| `begin_write(owner, reason, paths?, folders?)`, `end_write(lock, owner, message)` | A write lock for one session. `end_write` commits the locked paths as one commit and releases the lock. |
+| `run_script(name, args?)` | Runs a script from `_Meta/scripts` only if its sha256 is pinned in SSM `scripts`. |
 
 Every box result names its `backend`.
+
+**Several sessions writing**
+- `read_note`, `read_file` and every write return the file's `version` (sha256) and size. Pass `version` as `if_version` (in `update_note`, `append_to_note`, `update_notes` items and `write_file`) to refuse a write if the note changed in between. The refusal includes the current text.
+- `begin_write` locks notes or folders. Writes to them without the lock are refused, and writes naming the lock must stay inside it.
+  - The lock lives in `locks.json` next to the audit log and expires after `minutes` (max 240).
+  - `end_write(…, break_lock=true)` releases someone else's lock without committing. This is logged.
+  - `run_script` is refused while another session holds a lock, since a script can write anywhere.
+- The git tools use the snapshot repo, so `git_status` shows everything since the last commit, whether that was a snapshot, `git_commit` or `end_write`. That includes edits Sync brought in from other devices.
+
+**Types**
+- `read_note` returns frontmatter typed as Obsidian reads it (YAML 1.2 core): `10.10` is the number 10.1, `"10.10"` is text and dates stay text.
+- Writes keep JSON types: numbers and booleans go out plain, and text that would read as a number or boolean is quoted (`menu-index: "10.10"`).
+- A write is refused if it gives a property a type that no other note uses for it. For example, `characters: 81` is refused when every other note has a list. This only applies to properties with a single type across at least two other notes.
+
+**Patches:** each one has `find` (literal) or `find_regex` (Python, multiline). It must match exactly once, unless `replace_all` is set or `count` gives the exact number of matches expected.
+
+**Scripts:** to approve one, look up its sha256 (`run_script` reports it when it refuses), then:
+```bash
+aws ssm put-parameter --name /obsidian-vault/scripts --type String --overwrite \
+  --value 'elden-ring-characters.py=<sha256>' --profile personal --region us-east-1
+./deploy.sh push
+```
+- A script runs as `<script> <vault root> [args…]`: `.py` with `python3 -I`, `.sh` with `bash`.
+- It runs from a copy of the exact bytes that were checked, with a scrubbed environment and a temporary `HOME`. Small files left in that `HOME` come back as `outputs`.
+- It still runs as the `obsidian` user, which can read the server's files, token included. Only approve a script you've read.
+- It's limited to ~20 s, after a snapshot.
+- Editing a script un-approves it.
 
 **Batch tools**
 - Each batch checks every item before writing anything; if any item fails, nothing is written and the errors are listed by index.

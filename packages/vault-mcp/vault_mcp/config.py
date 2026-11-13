@@ -35,6 +35,10 @@ class Settings:
     sync_busy: frozenset[str]
     # Run before bulk changes (a local git snapshot on the server); empty skips.
     snapshot_cmd: str
+    # The snapshot repository (vault-snapshot's), for the git tools.
+    git_dir: Path = Path("~/snapshots/vault.git")
+    # Scripts in _Meta/scripts that run_script may run: (name, pinned sha256).
+    scripts: tuple[tuple[str, str], ...] = ()
     # Writes touching more files than this need dry_run=False (brief §6.3).
     bulk_threshold: int = 10
 
@@ -74,4 +78,18 @@ def get_settings() -> Settings:
         require_ready=os.environ.get("VAULT_REQUIRE_READY", "").lower() in _TRUE,
         sync_busy=frozenset(x.strip().lower() for x in busy.split(",") if x.strip()),
         snapshot_cmd=os.environ.get("VAULT_SNAPSHOT_CMD", ""),
+        git_dir=Path(os.environ.get("VAULT_GIT_DIR", "~/snapshots/vault.git"))
+        .expanduser()
+        .resolve(),
+        scripts=_scripts(os.environ.get("VAULT_SCRIPTS", "")),
     )
+
+
+def _scripts(spec: str) -> tuple[tuple[str, str], ...]:
+    """``"a.py=<sha256>,b.py=<sha256>"`` -> pairs; malformed entries are dropped."""
+    out = []
+    for item in spec.split(","):
+        name, _, digest = item.strip().partition("=")
+        if name.strip() and len(digest.strip()) == 64:
+            out.append((name.strip(), digest.strip().lower()))
+    return tuple(out)
