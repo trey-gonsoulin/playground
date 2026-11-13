@@ -6,6 +6,7 @@ of ``.obsidian``, ``.trash`` and ``.git``. The index re-parses only notes whose
 mtime or size changed, so a full scan of ~600 notes per call is cheap.
 """
 
+import hashlib
 import json
 import os
 import re
@@ -14,7 +15,7 @@ from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from vault_mcp import _notes
+from vault_mcp import _locks, _notes
 from vault_mcp.config import Settings
 
 _HIDDEN_DIRS = {".obsidian", ".trash", ".git"}
@@ -34,6 +35,8 @@ class Note:
     frontmatter_ok: bool
     links: list[str]  # raw wikilink targets, body + frontmatter
     tags: list[str]
+    # Each property's Obsidian type (``_notes.kind``), for type checks on write.
+    kinds: dict[str, str] = field(default_factory=dict)
 
     @property
     def title(self) -> str:
@@ -134,7 +137,12 @@ class Vault:
         fm, body, ok = _notes.split(text)
         links = _notes.wikilinks(body)
         links += [t for t in _notes.frontmatter_links(fm) if t not in links]
-        return Note(rel, st.st_mtime, st.st_size, fm, ok, links, _notes.tags(fm, body))
+        kinds = {
+            k: kd for k, val in _notes.typed(text).items() if (kd := _notes.kind(val))
+        }
+        return Note(
+            rel, st.st_mtime, st.st_size, fm, ok, links, _notes.tags(fm, body), kinds
+        )
 
     def find(self, path_or_title: str) -> Note:
         """A note by vault path, title or alias (case-insensitive)."""
@@ -175,6 +183,30 @@ class Vault:
             return min(suffix, key=lambda n: (n.path.count("/"), n.path))
         return None
 
+    def files(self) -> set[str]:
+        """Every non-hidden file in the vault (attachments, ``.base`` files, notes)."""
+        out = set()
+        for dirpath, dirnames, filenames in os.walk(self.root):
+            dirnames[:] = [d for d in dirnames if not d.startswith(".")]
+            rel = Path(dirpath).relative_to(self.root).as_posix()
+            out.update(
+                f if rel == "." else f"{rel}/{f}"
+                for f in filenames
+                if not f.startswith(".")
+            )
+        return out
+
+    @staticmethod
+    def attachment(target: str, files: set[str]) -> str | None:
+        """The non-note file a link like ``[[map.png]]`` points at, or None."""
+        t = target.strip()
+        if "." not in PurePosixPath(t).name or t.lower().endswith(".md"):
+            return None
+        if t in files:
+            return t
+        hits = sorted((f for f in files if f.endswith("/" + t)), key=len)
+        return hits[0] if hits else None
+
     def link_text(self, note_path: str, notes: list[Note] | None = None) -> str:
         """Shortest unambiguous wikilink target for ``note_path``."""
         notes = self.notes() if notes is None else notes
@@ -203,6 +235,19 @@ class Vault:
     def read_text(self, rel: str) -> str:
         return self.resolve(rel).read_text("utf-8")
 
+    @staticmethod
+    def version(data: str | bytes) -> str:
+        """A file's version: the sha256 of its bytes."""
+        raw = data.encode("utf-8") if isinstance(data, str) else data
+        return hashlib.sha256(raw).hexdigest()
+
+    def _guard(self, rel: str) -> None:
+        self._check_writable()
+        try:
+            _locks.check(self.settings, self.rel(self.resolve(rel)))
+        except _locks.LockError as exc:
+            raise VaultError(str(exc)) from exc
+
     def write_text(
         self, rel: str, text: str, *, create: bool = False, expect: str | None = None
     ) -> None:
@@ -211,8 +256,8 @@ class Vault:
         ``expect`` is the text the edit was based on: if the file changed since
         (Obsidian Sync landed an edit from another device), nothing is written.
         """
-        self._check_writable()
         path = self.resolve(rel, write=True)
+        self._guard(rel)
         if create and path.exists():
             raise VaultError(f"{rel} already exists")
         if not create and not path.is_file():
@@ -223,12 +268,23 @@ class Vault:
             )
         self._atomic_write(path, text.encode("utf-8"))
 
-    def write_bytes(self, rel: str, data: bytes) -> None:
-        """Atomically create ``rel`` (an imported attachment); refuse to overwrite."""
-        self._check_writable()
+    def write_bytes(
+        self, rel: str, data: bytes, *, expect_version: str | None = None
+    ) -> None:
+        """Atomically write ``rel`` byte for byte.
+
+        Without ``expect_version`` it only creates (refuses to overwrite); with
+        it, the file must exist and still have that version.
+        """
         path = self.resolve(rel, write=True)
-        if path.exists():
-            raise VaultError(f"{rel} already exists")
+        self._guard(rel)
+        if expect_version is None:
+            if path.exists():
+                raise VaultError(f"{rel} already exists")
+        elif not path.is_file():
+            raise VaultError(f"{rel} does not exist")
+        elif self.version(path.read_bytes()) != expect_version:
+            raise VaultError(f"{rel} changed since that version; read it again")
         self._atomic_write(path, data)
 
     @staticmethod
@@ -254,8 +310,9 @@ class Vault:
             raise VaultError("the vault server is read-only (VAULT_MCP_READONLY)")
 
     def move_file(self, src: str, dst: str) -> None:
-        self._check_writable()
         s, d = self.resolve(src, write=True), self.resolve(dst, write=True)
+        self._guard(src)
+        self._guard(dst)
         if d.exists():
             raise VaultError(f"{dst} already exists")
         d.parent.mkdir(parents=True, exist_ok=True)

@@ -205,7 +205,17 @@ The Obsidian vault as a claude.ai custom connector, in its own SAM stack `obsidi
   - `Vault.resolve` keeps paths in the vault (no `..`, absolute paths or symlinks out; no writes in `.obsidian`/`.trash`/`.git`).
   - Writes are serialized (`_WRITE_LOCK`), and `write_text(expect=...)` refuses if the file changed since it was read.
   - Nothing is deleted permanently. Bulk edits are dry-run first, and every write is audit-logged.
-- **Batch tools** (`create_notes`, `update_notes`, `move_notes`, `import_archive`):
+- **Concurrent sessions:**
+  - Every read and write returns a `version` (sha256 of the file); edits take `if_version`.
+  - `begin_write`/`end_write` (`_locks.py`) are cooperative locks with expiry. `Vault._guard` checks them on every file write; CLI moves and deletes call `_lock_check`. The tool's `lock` argument reaches the check through the `@_locked` decorator and a ContextVar.
+  - The git tools (`_git.py`) work on vault-snapshot's repo (`VAULT_GIT_DIR`, default `~/snapshots/vault.git`), with literal pathspecs.
+- **Types:**
+  - `_notes.typed` reads frontmatter as Obsidian does (YAML 1.2 core, dates as text), and `Note.kinds` holds each property's type.
+  - The dumper quotes text that would read as a number or boolean.
+  - `_check_types` refuses a value whose type no other note uses for that property.
+- **`run_script`** runs `_Meta/scripts/<name>` only if its sha256 is pinned in `VAULT_SCRIPTS` (SSM `scripts`, read by `install.sh`). The pin matters because the connector itself can write that folder.
+- **`query_base`** goes through CLI `base:query` (`.base` files only) and computes the view's summaries itself.
+- **Batch tools** (`create_notes`, `update_notes`, `bulk_update`, `move_notes`, `import_archive`):
   - They reuse the single-note plan/apply helpers (`_new_note`, `_edit_note`, `_plan_move`/`_apply_move`).
   - Each checks every item before writing; one bad item means nothing is written.
   - Up to 200 items per call. `move_notes` stops after `_BATCH_SECONDS` and returns `remaining`, to stay inside the front end's 25 s call.

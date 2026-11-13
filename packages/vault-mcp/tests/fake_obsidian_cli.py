@@ -58,5 +58,10 @@ elif command == "tasks":
             ]
         )
     )
+elif command == "base:query":
+    if not params.get("path", "").endswith(".base"):
+        print("Error: Active file is not a base file")
+    else:
+        print(os.environ.get("FAKE_BASE_ROWS", "[]"))
 else:
     print(f"Error: unknown command {command}")

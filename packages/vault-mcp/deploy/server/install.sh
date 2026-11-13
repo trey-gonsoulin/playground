@@ -137,6 +137,8 @@ token=$(param mcp-token)
 readonly_flag=$(param readonly)
 idle_minutes=$(param idle-minutes)
 sync_busy=$(param sync-busy)
+# Scripts run_script may run, each pinned to its sha256: "name.py=<sha256>,...".
+scripts=$(param scripts)
 umask 077
 cat >"$H/.config/vault-mcp/env.new" <<EOF
 VAULT_ROOT=$VAULT
@@ -155,6 +157,7 @@ OBSIDIAN_CLI=/usr/local/bin/obsidian-cli
 EOF
 # The Sync plugin's "busy" status names are a guess until seen on the box (README step 5).
 [ -z "$sync_busy" ] || echo "VAULT_SYNC_BUSY=$sync_busy" >>"$H/.config/vault-mcp/env.new"
+[ -z "$scripts" ] || echo "VAULT_SCRIPTS=$scripts" >>"$H/.config/vault-mcp/env.new"
 chown "$U:$U" "$H/.config/vault-mcp/env.new"
 mv "$H/.config/vault-mcp/env.new" "$H/.config/vault-mcp/env"
 umask 022
